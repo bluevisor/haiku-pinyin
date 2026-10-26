@@ -5,6 +5,8 @@ macOS pinyin input: whole-sentence conversion, abbreviations (`zgr` → 中国�
 `bjdx` → 北京大学), half-typed syllables, learning from what you pick, and
 inline composition.
 
+![海酷拼音 typing in a text view, and in Temino](docs/screenshot.png)
+
 - **Full pinyin** and **shuangpin**: 拼音加加, 小鹤, 自然码, 微软, 智能ABC
 - **简体 / 繁體** output
 - Emoji among the candidates: 太阳 → 🌞, 猫 → 🐱 (monochrome, via Noto Emoji)
