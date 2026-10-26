@@ -131,7 +131,12 @@ private:
 	void _Update();
 	void _AddEmoji();
 	void _AddEnglish();
-	void _Predict(const std::string& word);
+	// text and key: everything just committed, when its syllables are
+	// known, for phrases it starts (祝你生日 -> 快乐).
+	void _Predict(const std::string& word, const std::string& text = "",
+		const std::vector<SyllableId>& key = {});
+	std::vector<std::string> _Continuations(const std::string& text,
+		const std::vector<SyllableId>& key, size_t limit) const;
 	void _Select(const Candidate& candidate);
 	void _Finish(const std::string& tail);
 	void _Move(int delta);

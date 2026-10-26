@@ -1,6 +1,7 @@
 #include "Engine.h"
 
 #include <algorithm>
+#include <cstring>
 #include <fstream>
 #include <sstream>
 
@@ -409,19 +410,119 @@ Engine::_Finish(const std::string& tail)
 	if (last.empty())
 		ClearContext();
 	else
-		_Predict(last);
+		_Predict(last, learnable ? text : std::string(), key);
 }
 
 
 // The last word typed becomes the context, and its likely followers the
 // 联想 shown next.
 void
-Engine::_Predict(const std::string& word)
+Engine::_Predict(const std::string& word, const std::string& text,
+	const std::vector<SyllableId>& key)
 {
 	fContext = Bigram::Hash(word);
 	fPredictions.clear();
-	if (fOptions.prediction)
-		fPredictions = fBigram.Predict(fContext, size_t(fOptions.pageSize));
+	if (!fOptions.prediction)
+		return;
+	size_t limit = size_t(fOptions.pageSize);
+	// Phrases what was typed begins come first, then words that tend to
+	// follow the last one.
+	fPredictions = _Continuations(text, key, limit);
+	for (const std::string& next : fBigram.Predict(fContext, limit * 2)) {
+		if (fPredictions.size() >= limit)
+			break;
+		if (std::find(fPredictions.begin(), fPredictions.end(), next)
+				== fPredictions.end()) {
+			fPredictions.push_back(next);
+		}
+	}
+}
+
+
+// Words that start with 的 or end in a particle make poor 联想: 的人, 你啊.
+static bool
+IsParticleBound(const std::string& word)
+{
+	static const char* const kParticles[] = {
+		"的", "了", "啊", "吗", "呢", "吧"
+	};
+	if (word.compare(0, 3, "的") == 0)
+		return true;
+	for (const char* particle : kParticles) {
+		size_t size = strlen(particle);
+		if (word.size() >= size
+			&& word.compare(word.size() - size, size, particle) == 0) {
+			return true;
+		}
+	}
+	return false;
+}
+
+
+// Lexicon phrases that start with the end of text ("祝你生日" begins
+// 祝你生日快乐): what they add, longer matches of what was typed first,
+// then by how common the phrase is. text has one character per syllable
+// of key.
+std::vector<std::string>
+Engine::_Continuations(const std::string& text,
+	const std::vector<SyllableId>& key, size_t limit) const
+{
+	std::vector<std::string> found;
+	std::vector<size_t> starts;
+	for (size_t i = 0; i < text.size(); i++) {
+		if ((static_cast<unsigned char>(text[i]) & 0xc0) != 0x80)
+			starts.push_back(i);
+	}
+	if (key.size() < 2 || starts.size() != key.size())
+		return found;
+
+	static const size_t kLongestContext = 6;
+	// Rarer phrases are mostly noise (你好给力呀); this is rime-ice weight
+	// 1000 (生日快乐 is 58750).
+	static const float kRarestPhrase = 15.8f;
+	size_t first = key.size() > kLongestContext ? key.size() - kLongestContext
+		: 0;
+	for (size_t from = first; from + 2 <= key.size(); from++) {
+		std::string context = text.substr(starts[from]);
+		int depth = int(key.size() - from);
+		KeyIndex::Range range = fLexicon.All();
+		for (int i = 0; i < depth && !range.Empty(); i++)
+			range = fLexicon.Narrow(range, i, key[from + i]);
+		range.begin = fLexicon.Exact(range, depth).end;	// longer ones only
+		std::vector<std::pair<float, std::string>> here;
+		for (uint32_t i = range.begin; i < range.end; i++) {
+			std::string_view word = fLexicon.Word(i);
+			if (fLexicon.Cost(i) > kRarestPhrase || word.size() <= context.size()
+				|| word.compare(0, context.size(), context) != 0) {
+				continue;
+			}
+			std::string rest(word.substr(context.size()));
+			size_t characters = 0;
+			for (unsigned char c : rest)
+				characters += (c & 0xc0) != 0x80;
+			if (characters < 2 || IsParticleBound(rest))
+				continue;
+			// Only when what it adds is a word of its own: 快乐, not 给力呀.
+			KeyIndex::Range own = fLexicon.All();
+			int length = fLexicon.KeyLength(i);
+			for (int k = depth; k < length && !own.Empty(); k++)
+				own = fLexicon.Narrow(own, k - depth, fLexicon.KeyAt(i, k));
+			own = fLexicon.Exact(own, length - depth);
+			bool known = false;
+			for (uint32_t j = own.begin; j < own.end && !known; j++)
+				known = fLexicon.Word(j) == rest;
+			if (known)
+				here.emplace_back(fLexicon.Cost(i), rest);
+		}
+		std::sort(here.begin(), here.end());
+		for (const auto& [cost, rest] : here) {
+			if (found.size() >= limit)
+				return found;
+			if (std::find(found.begin(), found.end(), rest) == found.end())
+				found.push_back(rest);
+		}
+	}
+	return found;
 }
 
 

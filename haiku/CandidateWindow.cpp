@@ -57,7 +57,7 @@ TextWidth(const BFont& font, const char* text)
 CandidateView::CandidateView(BMessenger target)
 	:
 	BView(BRect(0, 0, 10, 10), "candidates", B_FOLLOW_ALL,
-		B_WILL_DRAW | B_FRAME_EVENTS),
+		B_WILL_DRAW | B_FRAME_EVENTS | B_FULL_UPDATE_ON_RESIZE),
 	fTarget(target),
 	fHighlight(0),
 	fHover(-1),
@@ -292,6 +292,9 @@ CandidateWindow::MessageReceived(BMessage* message)
 			fView->SetContents(*message);
 			BSize size = fView->ContentSize();
 			ResizeTo(size.width, size.height);
+			// Resizing only redraws what's new: the border would keep stale
+			// pixels where the window shrank or moved.
+			fView->Invalidate();
 			if (!fAnchored) {
 				// The view didn't say where its caret is (not input method
 				// aware): sit by the mouse.

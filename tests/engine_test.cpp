@@ -149,6 +149,13 @@ main(int argc, char** argv)
 		Type(engine, "a");
 		Expect("typing ends 联想", engine.Predicting() ? "yes" : "no", "no");
 		engine.ProcessKey(Key::kEscape, 0, 0);
+		// Phrases come first: 祝你生日 -> 快乐.
+		engine.ProcessKey(Key::kEscape, 0, 0);
+		Type(engine, "zhunishengri ");
+		engine.TakeCommit();
+		Expect("phrase 联想", engine.PageCandidates().empty() ? ""
+			: engine.PageCandidates()[0], "快乐");
+		engine.ProcessKey(Key::kEscape, 0, 0);
 		// After 中国, "ren" puts 人 first.
 		Type(engine, "zhongguo ren");
 		Expect("context", First(engine), "人");
