@@ -27,18 +27,20 @@ inline composition.
 
 ## Install on Haiku
 
-There's no package yet: build it on Haiku (or from a Mac, see Build) and
-install it into `~/config/non-packaged`:
+Download the package for your machine from the
+[releases](https://github.com/bluevisor/haiku-pinyin/releases) (`arm64` or
+`x86_64`; 32-bit Haiku's gcc2 input_server can't load it), copy it into
+`~/config/packages`, then load it:
 
 ```sh
-tools/fetch_sources.sh            # the word lists (needs curl, ~60 MB)
-make data install                 # add-on + data
-haiku/restart-input-server.sh     # load it (keep Deskbar menus closed)
+haiku_pinyin_restart      # restarts the input_server; keep Deskbar menus closed
 ```
 
-The candidate window needs a CJK font (Noto Sans CJK); for emoji, add Noto
-Emoji. Both go in `~/config/non-packaged/data/fonts`, and app_server falls
-back to them on its own.
+(Logging out and in works too.) The candidate window needs a CJK font such
+as Noto Sans CJK; for emoji, add Noto Emoji. App_server falls back to both
+on its own.
+
+To build it yourself instead, see Build below.
 
 ## Using it
 
@@ -95,7 +97,11 @@ echo zgr | build/hpcli      # try it
 haiku/sync.sh haiku-dbg     # copy to a Haiku machine and build there
 # on Haiku:
 make install                # add-on + data into ~/config/non-packaged
+haiku/package.sh            # or: dist/haiku_pinyin-<v>-1-<arch>.hpkg
 ```
+
+`haiku/cross.sh` cross-compiles the x86_64 add-on on a Mac (Haiku's
+cross-compiler image in Docker) and packages it on a Haiku machine.
 
 The input_server doesn't reload a replaced add-on, so run
 `haiku/restart-input-server.sh` after each install, with no Deskbar menu open:

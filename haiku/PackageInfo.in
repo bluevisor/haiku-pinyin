@@ -1,0 +1,26 @@
+name			haiku_pinyin
+version			@VERSION@-@REVISION@
+architecture		@ARCH@
+summary			"海酷拼音 Haiku Pinyin: a Chinese input method"
+description		"A modern Chinese input method for Haiku, in the spirit of 搜狗拼音 \
+and the macOS pinyin input. Full pinyin and shuangpin (拼音加加, 小鹤, 自然码, \
+微软, 智能ABC), whole sentences scored with word pairs, abbreviations, 联想, \
+模糊音, mixed Chinese and English, emoji, 简体 and 繁體, and words it learns \
+from you. Pick it from the keyboard menu in Deskbar. Needs a CJK font such \
+as Noto Sans CJK."
+packager		"John Zheng <bluevisor@gmail.com>"
+vendor			"bluevisor"
+copyrights		"2026 John Zheng"
+licenses		"GNU GPL v3"
+urls			"https://github.com/bluevisor/haiku-pinyin"
+
+provides {
+	haiku_pinyin = @VERSION@-@REVISION@
+	cmd:haiku_pinyin_restart = @VERSION@
+}
+
+requires {
+	haiku
+	lib:libgcc_s
+	lib:libstdc++
+}
