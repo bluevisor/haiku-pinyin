@@ -7,12 +7,18 @@ inline composition.
 
 - **Full pinyin** and **shuangpin**: 拼音加加, 小鹤, 自然码, 微软, 智能ABC
 - **简体 / 繁體** output
+- Emoji among the candidates: 太阳 → 🌞, 猫 → 🐱 (monochrome, via Noto Emoji)
 - Full-width punctuation (`,` → `，`, `"` → `“”` or `「」`), left alone after digits
 - Shift tap switches 中/英; Caps Lock types English
 - Space or 1–9 pick, `-` `=` page, `[` `]` take the first/last character of a
   word (以词定字), Enter commits the letters, Backspace reopens the last pick
 - Types inline in input-method-aware views (BTextView, Terminal) and plain
   text into everything else
+
+## Install on Haiku
+
+Needs Noto Sans CJK (for the candidate window) and, for emoji, Noto Emoji in
+`~/config/non-packaged/data/fonts`: app_server already falls back to both.
 
 ## Layout
 
