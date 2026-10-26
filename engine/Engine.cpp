@@ -2,7 +2,7 @@
 
 #include <algorithm>
 
-namespace qingpin {
+namespace haikupinyin {
 
 static const size_t kLongestInput = 64;
 static const size_t kCandidateLimit = 600;
@@ -42,7 +42,7 @@ Engine::Engine()
 bool
 Engine::Load(const std::string& directory, std::string* error)
 {
-	if (!fLexicon.Load(directory + "/qingpin.dict", error))
+	if (!fLexicon.Load(directory + "/pinyin.dict", error))
 		return false;
 	if (!fShuangpin.Load(directory + "/shuangpin.txt",
 			fLexicon.GetSyllables(), error)) {
@@ -461,4 +461,4 @@ Engine::Reset()
 	fHighlight = 0;
 }
 
-}	// namespace qingpin
+}	// namespace haikupinyin

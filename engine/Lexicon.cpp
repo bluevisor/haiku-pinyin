@@ -9,7 +9,7 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
-namespace qingpin {
+namespace haikupinyin {
 
 
 void
@@ -126,8 +126,8 @@ Lexicon::Load(const std::string& path, std::string* error)
 
 	const char* data = static_cast<const char*>(fMapping);
 	const char* end = data + fMappingSize;
-	if (memcmp(data, "QPDICT01", 8) != 0)
-		return fail("not a Qingpin dictionary");
+	if (memcmp(data, "HPDICT01", 8) != 0)
+		return fail("not a Haiku Pinyin dictionary");
 	uint32_t header[4];
 	memcpy(header, data + 8, sizeof(header));
 	uint32_t syllables = header[0], keyUnits = header[2],
@@ -178,4 +178,4 @@ Lexicon::_Unload()
 	fSyllables = Syllables();
 }
 
-}	// namespace qingpin
+}	// namespace haikupinyin

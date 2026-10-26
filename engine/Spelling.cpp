@@ -6,7 +6,7 @@
 #include <fstream>
 #include <sstream>
 
-namespace qingpin {
+namespace haikupinyin {
 
 // Costs added for guessing, in the same -log(p) units as word costs.
 static const float kUnfinishedPenalty = 1.5f;
@@ -232,4 +232,4 @@ Shuangpin::Parse(const std::string& layoutName, std::string_view keys,
 	}
 }
 
-}	// namespace qingpin
+}	// namespace haikupinyin

@@ -4,7 +4,7 @@
 #include <limits>
 #include <unordered_set>
 
-namespace qingpin {
+namespace haikupinyin {
 
 static const int kLongestWord = 12;			// syllables
 static const float kWordPenalty = 2.0f;		// per word in a sentence:
@@ -265,4 +265,4 @@ Decoder::Spelled(const SyllableGraph& graph) const
 	return spelled;
 }
 
-}	// namespace qingpin
+}	// namespace haikupinyin

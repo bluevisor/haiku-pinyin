@@ -6,7 +6,7 @@
 
 #include "../engine/Engine.h"
 
-using namespace qingpin;
+using namespace haikupinyin;
 
 static int sFailures = 0;
 static std::string sData;
@@ -126,7 +126,7 @@ main(int argc, char** argv)
 
 	// Learning: a word picked once moves to the front.
 	{
-		char path[] = "/tmp/qingpin-test-XXXXXX";
+		char path[] = "/tmp/haiku-pinyin-test-XXXXXX";
 		int fd = mkstemp(path);
 		close(fd);
 		{

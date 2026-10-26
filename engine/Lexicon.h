@@ -1,4 +1,4 @@
-// Qingpin: the compiled word list (build/data/qingpin.dict) and the syllable
+// Haiku Pinyin: the compiled word list (build/data/pinyin.dict) and the syllable
 // table that comes with it.
 #pragma once
 
@@ -9,7 +9,7 @@
 #include <unordered_map>
 #include <vector>
 
-namespace qingpin {
+namespace haikupinyin {
 
 typedef uint16_t SyllableId;
 
@@ -100,4 +100,4 @@ private:
 	uint32_t fCount = 0;
 };
 
-}	// namespace qingpin
+}	// namespace haikupinyin

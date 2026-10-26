@@ -1,8 +1,8 @@
-// qpcli: drive the Qingpin engine from a terminal, one line of keys at a
+// hpcli: drive the Haiku Pinyin engine from a terminal, one line of keys at a
 // time. Named keys go in angle brackets: <space> <ret> <bs> <esc> <left>
 // <right> <up> <down> <pgup> <pgdn> <tab> <shift> (toggles 中/英).
 //
-//   qpcli [--data DIR] [--layout full|pyjj|xiaohe|ziranma|mspy|abc]
+//   hpcli [--data DIR] [--layout full|pyjj|xiaohe|ziranma|mspy|abc]
 //         [--script s|t|tw|hk] [--page N] [--user FILE]
 
 #include <cstdio>
@@ -12,7 +12,7 @@
 
 #include "../engine/Engine.h"
 
-using namespace qingpin;
+using namespace haikupinyin;
 
 
 static void

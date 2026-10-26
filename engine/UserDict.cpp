@@ -6,7 +6,7 @@
 #include <fstream>
 #include <sstream>
 
-namespace qingpin {
+namespace haikupinyin {
 
 static const float kLowestCost = 2.0f;
 
@@ -142,4 +142,4 @@ UserDict::Save(const std::string& path, const Syllables& syllables)
 	return true;
 }
 
-}	// namespace qingpin
+}	// namespace haikupinyin

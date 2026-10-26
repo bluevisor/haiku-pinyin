@@ -1,4 +1,4 @@
-// Qingpin: turning typed keys into a graph of possible syllables, for full
+// Haiku Pinyin: turning typed keys into a graph of possible syllables, for full
 // pinyin and for the shuangpin layouts.
 #pragma once
 
@@ -9,7 +9,7 @@
 
 #include "Lexicon.h"
 
-namespace qingpin {
+namespace haikupinyin {
 
 // Keys [from, to) spell any one of ids. A complete edge is one whole
 // syllable; an incomplete one is a prefix ("zh", "zho") standing for every
@@ -63,4 +63,4 @@ private:
 	std::map<std::string, Layout> fLayouts;
 };
 
-}	// namespace qingpin
+}	// namespace haikupinyin

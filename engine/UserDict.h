@@ -1,4 +1,4 @@
-// Qingpin: words the user has picked, and phrases they've built by picking
+// Haiku Pinyin: words the user has picked, and phrases they've built by picking
 // several candidates in a row. Picked words rank higher the more they're used.
 #pragma once
 
@@ -8,7 +8,7 @@
 
 #include "Lexicon.h"
 
-namespace qingpin {
+namespace haikupinyin {
 
 class UserDict : public KeyIndex {
 public:
@@ -48,4 +48,4 @@ private:
 	bool fDirty = false;
 };
 
-}	// namespace qingpin
+}	// namespace haikupinyin

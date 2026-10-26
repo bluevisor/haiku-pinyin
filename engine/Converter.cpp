@@ -4,7 +4,7 @@
 #include <fstream>
 #include <vector>
 
-namespace qingpin {
+namespace haikupinyin {
 
 
 static size_t
@@ -71,4 +71,4 @@ Converter::Convert(std::string_view text) const
 	return result;
 }
 
-}	// namespace qingpin
+}	// namespace haikupinyin

@@ -1,4 +1,4 @@
-// Qingpin: the input method itself, independent of any windowing system.
+// Haiku Pinyin: the input method itself, independent of any windowing system.
 // Feed it keys; it tells you what to show and what to commit.
 #pragma once
 
@@ -12,7 +12,7 @@
 #include "Spelling.h"
 #include "UserDict.h"
 
-namespace qingpin {
+namespace haikupinyin {
 
 enum class Script {
 	kSimplified,
@@ -60,7 +60,7 @@ class Engine {
 public:
 	Engine();
 
-	// dataDirectory holds qingpin.dict, shuangpin.txt, s2t.txt, tw.txt and
+	// dataDirectory holds pinyin.dict, shuangpin.txt, s2t.txt, tw.txt and
 	// hk.txt.
 	bool Load(const std::string& dataDirectory, std::string* error = nullptr);
 	bool Loaded() const { return fLexicon.Loaded(); }
@@ -143,4 +143,4 @@ private:
 	bool fSingleQuoteOpen = false;
 };
 
-}	// namespace qingpin
+}	// namespace haikupinyin

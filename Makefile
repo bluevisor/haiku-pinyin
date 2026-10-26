@@ -1,6 +1,6 @@
-# Qingpin. The engine, its tools and tests build anywhere; the input method
+# Haiku Pinyin. The engine, its tools and tests build anywhere; the input method
 # add-on builds on Haiku.
-#   make            engine, qpcli, tests (+ the add-on on Haiku)
+#   make            engine, hpcli, tests (+ the add-on on Haiku)
 #   make data       build/data from sources/ (tools/fetch_sources.sh first)
 #   make test       run the engine tests
 #   make install    (Haiku) the add-on and data into ~/config/non-packaged
@@ -13,14 +13,14 @@ OBJ := $(BUILD)/obj
 
 ENGINE_SOURCES := $(wildcard engine/*.cpp)
 ENGINE_OBJECTS := $(ENGINE_SOURCES:engine/%.cpp=$(OBJ)/%.o)
-ENGINE := $(BUILD)/libqingpin.a
+ENGINE := $(BUILD)/libhaikupinyin.a
 
 HAIKU := $(shell uname -s | grep -q Haiku && echo yes)
-ADDON := $(BUILD)/Qingpin
+ADDON := $(BUILD)/HaikuPinyin
 ADDON_SOURCES := $(wildcard haiku/*.cpp)
 ADDON_OBJECTS := $(ADDON_SOURCES:haiku/%.cpp=$(OBJ)/haiku_%.o)
 
-all: $(ENGINE) $(BUILD)/qpcli $(BUILD)/engine_test $(if $(HAIKU),$(ADDON))
+all: $(ENGINE) $(BUILD)/hpcli $(BUILD)/engine_test $(if $(HAIKU),$(ADDON))
 
 $(OBJ)/%.o: engine/%.cpp engine/*.h
 	@mkdir -p $(OBJ)
@@ -30,15 +30,15 @@ $(ENGINE): $(ENGINE_OBJECTS)
 	rm -f $@
 	ar rcs $@ $^
 
-$(BUILD)/qpcli: cli/qpcli.cpp $(ENGINE)
+$(BUILD)/hpcli: cli/hpcli.cpp $(ENGINE)
 	$(CXX) $(CXXFLAGS) $< $(ENGINE) -o $@
 
 $(BUILD)/engine_test: tests/engine_test.cpp $(ENGINE)
 	$(CXX) $(CXXFLAGS) $< $(ENGINE) -o $@
 
-data: $(BUILD)/data/qingpin.dict
+data: $(BUILD)/data/pinyin.dict
 
-$(BUILD)/data/qingpin.dict: tools/build_data.py
+$(BUILD)/data/pinyin.dict: tools/build_data.py
 	python3 tools/build_data.py
 
 test: $(BUILD)/engine_test data
@@ -57,6 +57,6 @@ install: all data
 	haiku/install.sh
 
 clean:
-	rm -rf $(OBJ) $(ENGINE) $(BUILD)/qpcli $(BUILD)/engine_test $(ADDON)
+	rm -rf $(OBJ) $(ENGINE) $(BUILD)/hpcli $(BUILD)/engine_test $(ADDON)
 
 .PHONY: all data test install clean

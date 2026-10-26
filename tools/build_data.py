@@ -1,14 +1,14 @@
 #!/usr/bin/env python3
-"""Compiles sources/ (see fetch_sources.sh) into Qingpin's runtime data.
+"""Compiles sources/ (see fetch_sources.sh) into Haiku Pinyin's runtime data.
 
-build/data/qingpin.dict   lexicon: syllable keys -> words with costs (binary)
+build/data/pinyin.dict   lexicon: syllable keys -> words with costs (binary)
 build/data/shuangpin.txt  "<scheme>\t<code>\t<syllable>" for every layout
 build/data/s2t.txt        simplified -> traditional phrases and characters
 build/data/tw.txt         traditional -> Taiwan variants and phrases
 build/data/hk.txt         traditional -> Hong Kong variants
 
 The lexicon format (little endian):
-  "QPDICT01"
+  "HPDICT01"
   u32 syllables, u32 entries, u32 key units, u32 word bytes
   syllables x (u8 length, bytes), zero padded to 4
   entries x (u32 key offset, u32 word offset, f32 cost, u8 key length,
@@ -78,7 +78,7 @@ def build_lexicon():
 		entries.append((tuple(ids[s] for s in key), cost, word))
 	entries.sort(key=lambda e: (e[0], e[1]))
 
-	header = struct.pack("<8sIIII", b"QPDICT01", len(syllables), len(entries),
+	header = struct.pack("<8sIIII", b"HPDICT01", len(syllables), len(entries),
 		sum(len(e[0]) for e in entries),
 		sum(len(e[2].encode()) for e in entries))
 	table = b"".join(bytes([len(s)]) + s.encode() for s in syllables)
@@ -94,13 +94,13 @@ def build_lexicon():
 		keys.extend(key)
 		pool += data
 
-	with open(os.path.join(OUT, "qingpin.dict"), "wb") as f:
+	with open(os.path.join(OUT, "pinyin.dict"), "wb") as f:
 		f.write(header)
 		f.write(table)
 		f.write(b"".join(records))
 		f.write(struct.pack(f"<{len(keys)}H", *keys))
 		f.write(pool)
-	print(f"qingpin.dict: {len(syllables)} syllables, {len(entries)} words")
+	print(f"pinyin.dict: {len(syllables)} syllables, {len(entries)} words")
 	return syllables
 
 

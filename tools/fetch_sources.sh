@@ -1,5 +1,5 @@
 #!/bin/sh
-# Downloads the upstream data Qingpin is built from into sources/.
+# Downloads the upstream data Haiku Pinyin is built from into sources/.
 #   rime-ice (雾凇拼音)        word list + frequencies    GPL-3.0
 #   OpenCC                     simplified -> traditional  Apache-2.0
 #   rime-double-pinyin         shuangpin speller rules    LGPL-3.0

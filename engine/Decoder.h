@@ -1,4 +1,4 @@
-// Qingpin: finds the words a syllable graph can spell, the likeliest
+// Haiku Pinyin: finds the words a syllable graph can spell, the likeliest
 // sentence through them, and the candidates to offer.
 #pragma once
 
@@ -9,7 +9,7 @@
 #include "Spelling.h"
 #include "UserDict.h"
 
-namespace qingpin {
+namespace haikupinyin {
 
 struct WordEdge {
 	enum Source { kLexicon, kUser, kRaw };
@@ -68,4 +68,4 @@ private:
 	int fLength = 0;
 };
 
-}	// namespace qingpin
+}	// namespace haikupinyin

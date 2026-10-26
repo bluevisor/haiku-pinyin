@@ -1,4 +1,4 @@
-// Qingpin: simplified -> traditional text, longest match first, from OpenCC's
+// Haiku Pinyin: simplified -> traditional text, longest match first, from OpenCC's
 // tables.
 #pragma once
 
@@ -6,7 +6,7 @@
 #include <string_view>
 #include <unordered_map>
 
-namespace qingpin {
+namespace haikupinyin {
 
 class Converter {
 public:
@@ -20,4 +20,4 @@ private:
 	size_t fLongest = 0;	// in characters
 };
 
-}	// namespace qingpin
+}	// namespace haikupinyin
