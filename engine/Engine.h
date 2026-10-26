@@ -7,6 +7,7 @@
 #include <string>
 #include <vector>
 
+#include "Bigram.h"
 #include "Converter.h"
 #include "Decoder.h"
 #include "Lexicon.h"
@@ -28,7 +29,11 @@ struct Options {
 	Script script = Script::kSimplified;
 	int pageSize = 7;
 	bool fullwidthPunctuation = true;
-	bool emoji = true;				// 太阳 also offers ☀ 🌞
+	bool emoji = true;				// 太阳 also offers 🌞
+	unsigned fuzzy = 0;				// 模糊音, a Fuzzy mask
+	bool prediction = true;			// 联想 after each commit
+	bool english = true;			// "hello" also offers hello
+	bool cloud = false;				// the front end asks a cloud service
 };
 
 enum class Key {
@@ -84,6 +89,10 @@ public:
 	std::string TakeCommit();
 
 	bool Composing() const { return !fKeys.empty(); }
+	// Showing 联想: words likely to follow what was just committed.
+	bool Predicting() const { return !Composing() && !fPredictions.empty(); }
+	// Forgets the last word (and its 联想): the cursor moved elsewhere.
+	void ClearContext();
 	// Inline text: what's picked so far, then the spelled pinyin.
 	std::string Preedit() const;
 	// The part of Preedit() that is picked text (bytes).
@@ -92,11 +101,19 @@ public:
 
 	// Candidates on the current page, in the chosen script.
 	std::vector<std::string> PageCandidates() const;
-	int Highlighted() const { return fHighlight % fOptions.pageSize; }
+	int Highlighted() const
+		{ return Predicting() ? -1 : fHighlight % fOptions.pageSize; }
 	int Page() const { return fHighlight / fOptions.pageSize; }
 	bool HasPreviousPage() const { return Page() > 0; }
 	bool HasNextPage() const;
 	bool SelectOnPage(int index);
+
+	// Cloud candidates: the full pinyin to ask about ("" when nothing
+	// worth asking), and the answer for it. True when the answer was added.
+	std::string CloudQuery() const;
+	bool SetCloudResult(const std::string& query, const std::string& text);
+	// Where the cloud candidate sits on this page, or -1.
+	int CloudIndexOnPage() const;
 
 	void Reset();
 
@@ -106,12 +123,15 @@ private:
 		int consumed;
 		std::vector<SyllableId> key;
 		float cost;
+		std::string tail;
 	};
 
 	bool _Compose(Key key, char32_t character);
 	bool _IsLayoutKey(char32_t character) const;
 	void _Update();
 	void _AddEmoji();
+	void _AddEnglish();
+	void _Predict(const std::string& word);
 	void _Select(const Candidate& candidate);
 	void _Finish(const std::string& tail);
 	void _Move(int delta);
@@ -128,6 +148,9 @@ private:
 	UserDict fUser;
 	std::string fUserPath;
 	int fUnsaved = 0;
+	Bigram fBigram;
+	std::vector<std::string> fEnglish;		// sorted, ignoring case
+	std::vector<std::string> fEnglishLower;
 	Decoder fDecoder;
 	SyllableGraph fGraph;
 
@@ -142,6 +165,8 @@ private:
 	int fHighlight = 0;			// over all candidates
 
 	std::string fCommit;
+	uint32_t fContext = 0;		// Bigram::Hash of the last committed word
+	std::vector<std::string> fPredictions;
 	char32_t fLastCharacter = 0;
 	bool fDoubleQuoteOpen = false;
 	bool fSingleQuoteOpen = false;

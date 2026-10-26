@@ -7,6 +7,7 @@
 static const float kPadding = 6.0f;
 static const float kGap = 14.0f;		// between candidates
 static const float kRowGap = 3.0f;
+static const char* const kCloudMark = " ☁";
 
 
 static rgb_color
@@ -59,6 +60,8 @@ CandidateView::CandidateView(BMessenger target)
 		B_WILL_DRAW | B_FRAME_EVENTS),
 	fTarget(target),
 	fHighlight(0),
+	fHover(-1),
+	fCloud(-1),
 	fPrevious(false),
 	fNext(false)
 {
@@ -81,6 +84,8 @@ CandidateView::SetContents(const BMessage& message)
 		fCandidates.push_back(candidate);
 	}
 	fHighlight = message.GetInt32("highlight", 0);
+	fCloud = message.GetInt32("cloud", -1);
+	fHover = -1;
 	fPrevious = message.GetBool("previous", false);
 	fNext = message.GetBool("next", false);
 	_Layout();
@@ -94,8 +99,10 @@ CandidateView::_Layout()
 	font_height spelledHeight, candidateHeight;
 	fSpelledFont.GetHeight(&spelledHeight);
 	fCandidateFont.GetHeight(&candidateHeight);
-	float top = kPadding + ceilf(spelledHeight.ascent + spelledHeight.descent)
-		+ kRowGap;
+	// 联想 has no pinyin to show: candidates only.
+	float top = kPadding;
+	if (!fSpelled.IsEmpty())
+		top += ceilf(spelledHeight.ascent + spelledHeight.descent) + kRowGap;
 	float height = ceilf(candidateHeight.ascent + candidateHeight.descent) + 4;
 
 	fFrames.clear();
@@ -103,6 +110,8 @@ CandidateView::_Layout()
 	for (size_t i = 0; i < fCandidates.size(); i++) {
 		BString label;
 		label << (i + 1) << ". " << fCandidates[i];
+		if (int32(i) == fCloud)
+			label << kCloudMark;
 		float width = TextWidth(fCandidateFont, label.String()) + 8;
 		fFrames.push_back(BRect(x, top, x + width, top + height));
 		x += width + kGap;
@@ -121,8 +130,9 @@ CandidateView::ContentSize()
 		width = std::max(width, fFrames.back().right - kPadding);
 	width += 2 * kPadding + 40;	// room for the page arrows
 	float height = kPadding * 2
-		+ ceilf(spelledHeight.ascent + spelledHeight.descent) + kRowGap
 		+ ceilf(candidateHeight.ascent + candidateHeight.descent) + 4;
+	if (!fSpelled.IsEmpty())
+		height += ceilf(spelledHeight.ascent + spelledHeight.descent) + kRowGap;
 	return BSize(ceilf(width), ceilf(height));
 }
 
@@ -159,6 +169,9 @@ CandidateView::Draw(BRect updateRect)
 		if (highlighted) {
 			SetHighColor(selected);
 			FillRoundRect(frame, 4, 4);
+		} else if (int32(i) == fHover) {
+			SetHighColor(Mix(selected, background, 0.75f));
+			FillRoundRect(frame, 4, 4);
 		}
 		float baseline = frame.top + 2 + ceilf(candidateHeight.ascent);
 		BString number;
@@ -167,12 +180,18 @@ CandidateView::Draw(BRect updateRect)
 		DrawString(number.String(), BPoint(frame.left + 4, baseline));
 		SetHighColor(highlighted ? selectedText : text);
 		DrawString(fCandidates[i].String());
+		if (int32(i) == fCloud) {
+			SetHighColor(highlighted ? selectedText : dim);
+			DrawString(kCloudMark);
+		}
 	}
 
 	// Page arrows: dim when there's nowhere to go.
 	if (!fFrames.empty()) {
 		float y = (fFrames[0].top + fFrames[0].bottom) / 2;
 		float x = bounds.right - kPadding - 20;
+		fPreviousArrow = BRect(x - 4, y - 9, x + 9, y + 9);
+		fNextArrow = BRect(x + 9, y - 9, x + 22, y + 9);
 		SetHighColor(fPrevious ? text : Mix(text, background, 0.8f));
 		FillTriangle(BPoint(x, y), BPoint(x + 6, y - 5), BPoint(x + 6, y + 5));
 		x += 12;
@@ -183,8 +202,56 @@ CandidateView::Draw(BRect updateRect)
 
 
 void
+CandidateView::MouseMoved(BPoint where, uint32 transit,
+	const BMessage* dragMessage)
+{
+	int32 hover = -1;
+	if (transit != B_EXITED_VIEW && transit != B_OUTSIDE_VIEW) {
+		for (size_t i = 0; i < fFrames.size(); i++) {
+			if (fFrames[i].Contains(where))
+				hover = int32(i);
+		}
+	}
+	if (hover != fHover) {
+		fHover = hover;
+		Invalidate();
+	}
+}
+
+
+void
+CandidateView::MessageReceived(BMessage* message)
+{
+	if (message->what == B_MOUSE_WHEEL_CHANGED) {
+		float delta = message->GetFloat("be:wheel_delta_y", 0);
+		if (delta == 0)
+			delta = message->GetFloat("be:wheel_delta_x", 0);
+		if (delta != 0) {
+			BMessage turn(kMsgTurnPage);
+			turn.AddInt32("delta", delta > 0 ? 1 : -1);
+			fTarget.SendMessage(&turn);
+		}
+		return;
+	}
+	BView::MessageReceived(message);
+}
+
+
+void
 CandidateView::MouseDown(BPoint where)
 {
+	if (fPrevious && fPreviousArrow.Contains(where)) {
+		BMessage turn(kMsgTurnPage);
+		turn.AddInt32("delta", -1);
+		fTarget.SendMessage(&turn);
+		return;
+	}
+	if (fNext && fNextArrow.Contains(where)) {
+		BMessage turn(kMsgTurnPage);
+		turn.AddInt32("delta", 1);
+		fTarget.SendMessage(&turn);
+		return;
+	}
 	for (size_t i = 0; i < fFrames.size(); i++) {
 		if (fFrames[i].Contains(where)) {
 			BMessage pick(kMsgPickCandidate);

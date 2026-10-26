@@ -9,9 +9,17 @@ inline composition.
 
 - **Full pinyin** and **shuangpin**: 拼音加加, 小鹤, 自然码, 微软, 智能ABC
 - **简体 / 繁體** output
+- **Sentences scored with word pairs** (a bigram model from libpinyin), with the
+  last word you typed as context: `wozaixuexizhongwen` → 我在学习中文
+- **联想**: after each commit, the words likely to come next (number keys pick)
+- **模糊音**: z/zh c/ch s/sh, an/ang en/eng in/ing, n/l f/h r/l, each optional
+- **中英混输**: `hello` also offers *hello*; nonsense pinyin offers English first
+- Optional **cloud candidates** (Google Input Tools), off by default, marked ☁
 - Emoji among the candidates: 太阳 → 🌞, 猫 → 🐱 (monochrome, via Noto Emoji)
 - Full-width punctuation (`,` → `，`, `"` → `“”` or `「」`), left alone after digits
 - Shift tap switches 中/英; Caps Lock types English
+- Hover, the scroll wheel and the page arrows work in the candidate window;
+  Ctrl+Delete forgets a word it learned
 - Space or 1–9 pick, `-` `=` page, `[` `]` take the first/last character of a
   word (以词定字), Enter commits the letters, Backspace reopens the last pick
 - Types inline in input-method-aware views (BTextView, Terminal) and plain
@@ -44,13 +52,15 @@ haiku/sync.sh haiku-dbg     # copy to a Haiku machine and build there
 make install                # add-on + data into ~/config/non-packaged
 ```
 
-The input_server doesn't reload a replaced add-on; quit it after installing
-(`kill` its team) and app_server starts a fresh one.
+The input_server doesn't reload a replaced add-on: run
+`haiku/restart-input-server.sh` after installing (with no Deskbar menu open).
 
 ## Data and licenses
 
 Haiku Pinyin is GPL-3.0. Word frequencies come from
 [雾凇拼音 rime-ice](https://github.com/iDvel/rime-ice) (GPL-3.0), simplified →
 traditional tables from [OpenCC](https://github.com/BYVoid/OpenCC)
-(Apache-2.0), and shuangpin layouts from the speller rules of
+(Apache-2.0), word pairs from [libpinyin](https://github.com/libpinyin/libpinyin)'s
+open-gram model (GPL-3.0, with Apache-2.0 parts), and shuangpin layouts from
+the speller rules of
 [rime-double-pinyin](https://github.com/rime/rime-double-pinyin) (LGPL-3.0).

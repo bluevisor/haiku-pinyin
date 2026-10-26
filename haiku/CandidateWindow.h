@@ -18,6 +18,8 @@ enum {
 		// "where" point: the top left of the composition; "height" float
 	kMsgPickCandidate	= 'hpPk',
 		// "index" int32, sent to the method's looper on a click
+	kMsgTurnPage		= 'hpTp',
+		// "delta" int32: the wheel or a page arrow, to the method's looper
 };
 
 
@@ -27,6 +29,9 @@ public:
 
 	virtual	void				Draw(BRect updateRect);
 	virtual	void				MouseDown(BPoint where);
+	virtual	void				MouseMoved(BPoint where, uint32 transit,
+									const BMessage* dragMessage);
+	virtual	void				MessageReceived(BMessage* message);
 
 			void				SetContents(const BMessage& message);
 			BSize				ContentSize();
@@ -39,6 +44,10 @@ private:
 			std::vector<BString> fCandidates;
 			std::vector<BRect>	fFrames;
 			int32				fHighlight;
+			int32				fHover;
+			int32				fCloud;		// index of the cloud candidate
+			BRect				fPreviousArrow;
+			BRect				fNextArrow;
 			bool				fPrevious;
 			bool				fNext;
 			BFont				fCandidateFont;

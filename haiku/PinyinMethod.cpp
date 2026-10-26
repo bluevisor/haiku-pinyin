@@ -27,7 +27,22 @@ enum {
 	kMsgTogglePunctuation = 'hpPu',
 	kMsgSetPageSize		= 'hpPg',	// "size" int32
 	kMsgToggleEmoji		= 'hpEm',
+	kMsgToggleOption	= 'hpOp',	// "option": prediction, english, cloud
+	kMsgToggleFuzzy		= 'hpFz',	// "mask" int32
+	kMsgCloudResult		= 'hpCl',	// "query", "text"
 };
+
+static const struct {
+	unsigned mask;
+	const char* label;
+} kFuzzyGroups[] = {
+	{haikupinyin::kFuzzyRetroflex, "模糊音  z=zh  c=ch  s=sh"},
+	{haikupinyin::kFuzzyNasal, "模糊音  an=ang  en=eng  in=ing"},
+	{haikupinyin::kFuzzyNL | haikupinyin::kFuzzyFH | haikupinyin::kFuzzyRL,
+		"模糊音  n=l  f=h  r=l"},
+};
+
+static const bigtime_t kCloudDelay = 120000;	// let typing settle first
 
 static const bigtime_t kShiftTapLimit = 400000;
 
@@ -109,6 +124,10 @@ MethodLooper::MessageReceived(BMessage* message)
 		case kMsgTogglePunctuation:
 		case kMsgSetPageSize:
 		case kMsgToggleEmoji:
+		case kMsgToggleOption:
+		case kMsgToggleFuzzy:
+		case kMsgCloudResult:
+		case kMsgTurnPage:
 			fMethod->LooperMessage(message);
 			break;
 		default:
@@ -230,9 +249,19 @@ PinyinMethod::Filter(BMessage* message, BList* outList)
 {
 	switch (message->what) {
 		case B_MOUSE_MOVED:
-		case B_MOUSE_DOWN:
 			message->FindPoint("where", &fMouse);
 			return B_DISPATCH_MESSAGE;
+		case B_MOUSE_DOWN:
+		{
+			message->FindPoint("where", &fMouse);
+			// A click elsewhere: what was typed before no longer leads.
+			BAutolock _(fLock);
+			if (fLoaded && fEngine.Predicting()) {
+				fEngine.ClearContext();
+				_ShowCandidates();
+			}
+			return B_DISPATCH_MESSAGE;
+		}
 		case B_MODIFIERS_CHANGED:
 			if (_HandleModifiers(message)) {
 				BList events;
@@ -460,12 +489,15 @@ PinyinMethod::_ShowCandidates()
 {
 	if (fWindow == NULL)
 		return;
-	if (!fEngine.Composing()) {
+	if (!fEngine.Composing() && !fEngine.Predicting()) {
 		fWindow->PostMessage(kMsgHideCandidates);
 		return;
 	}
+	_AskCloud();
 	BMessage show(kMsgShowCandidates);
-	show.AddString("spelled", fEngine.Spelled().c_str());
+	show.AddString("spelled",
+		fEngine.Composing() ? fEngine.Spelled().c_str() : "");
+	show.AddInt32("cloud", fEngine.CloudIndexOnPage());
 	for (const std::string& candidate : fEngine.PageCandidates())
 		show.AddString("candidate", candidate.c_str());
 	show.AddInt32("highlight", fEngine.Highlighted());
@@ -503,6 +535,7 @@ PinyinMethod::LooperMessage(BMessage* message)
 					// The application ended it (a click, losing focus); it
 					// keeps the inline text.
 					fEngine.Reset();
+					fEngine.ClearContext();
 					fSessionOpen = false;
 					fShownPreedit.clear();
 					fShownPicked = 0;
@@ -543,6 +576,37 @@ PinyinMethod::LooperMessage(BMessage* message)
 				_Cancel(&events);
 				fEngine.SetOptions(options);
 				break;
+			case kMsgToggleOption:
+			{
+				BString option = message->GetString("option", "");
+				if (option == "prediction")
+					options.prediction = !options.prediction;
+				else if (option == "english")
+					options.english = !options.english;
+				else if (option == "cloud")
+					options.cloud = !options.cloud;
+				_Cancel(&events);
+				fEngine.SetOptions(options);
+				break;
+			}
+			case kMsgToggleFuzzy:
+				options.fuzzy ^= (unsigned)message->GetInt32("mask", 0);
+				_Cancel(&events);
+				fEngine.SetOptions(options);
+				break;
+			case kMsgCloudResult:
+				fCloudAsked.clear();
+				if (fEngine.SetCloudResult(message->GetString("query", ""),
+						message->GetString("text", ""))) {
+					_ShowCandidates();
+				}
+				return;
+			case kMsgTurnPage:
+				fEngine.ProcessKey(message->GetInt32("delta", 1) > 0
+					? haikupinyin::Key::kPageDown : haikupinyin::Key::kPageUp,
+					0, 0);
+				_ShowCandidates();
+				return;
 		}
 		_UpdateMenu();
 		_SaveSettings();
@@ -588,6 +652,33 @@ PinyinMethod::_UpdateMenu()
 	item = new BMenuItem("Emoji 候选", new BMessage(kMsgToggleEmoji));
 	item->SetMarked(options.emoji);
 	menu->AddItem(item);
+
+	static const struct {
+		const char* option;
+		const char* label;
+	} kToggles[] = {
+		{"prediction", "联想"},
+		{"english", "中英混输"},
+		{"cloud", "云候选 (Google)"},
+	};
+	for (const auto& toggle : kToggles) {
+		BMessage* message = new BMessage(kMsgToggleOption);
+		message->AddString("option", toggle.option);
+		item = new BMenuItem(toggle.label, message);
+		BString option = toggle.option;
+		item->SetMarked(option == "prediction" ? options.prediction
+			: option == "english" ? options.english : options.cloud);
+		menu->AddItem(item);
+	}
+	menu->AddSeparatorItem();
+
+	for (const auto& group : kFuzzyGroups) {
+		BMessage* message = new BMessage(kMsgToggleFuzzy);
+		message->AddInt32("mask", (int32)group.mask);
+		item = new BMenuItem(group.label, message);
+		item->SetMarked((options.fuzzy & group.mask) == group.mask);
+		menu->AddItem(item);
+	}
 	menu->AddSeparatorItem();
 
 	// No submenus: Deskbar only targets the top level of a method's menu
@@ -675,6 +766,10 @@ PinyinMethod::_LoadSettings()
 	fSavedOptions.pageSize = settings.GetInt32("page size", 7);
 	fSavedOptions.fullwidthPunctuation = settings.GetBool("fullwidth", true);
 	fSavedOptions.emoji = settings.GetBool("emoji", true);
+	fSavedOptions.prediction = settings.GetBool("prediction", true);
+	fSavedOptions.english = settings.GetBool("english", true);
+	fSavedOptions.cloud = settings.GetBool("cloud", false);
+	fSavedOptions.fuzzy = (unsigned)settings.GetInt32("fuzzy", 0);
 	fSavedChinese = settings.GetBool("chinese", true);
 }
 
@@ -689,6 +784,10 @@ PinyinMethod::_SaveSettings()
 	settings.AddInt32("page size", options.pageSize);
 	settings.AddBool("fullwidth", options.fullwidthPunctuation);
 	settings.AddBool("emoji", options.emoji);
+	settings.AddBool("prediction", options.prediction);
+	settings.AddBool("english", options.english);
+	settings.AddBool("cloud", options.cloud);
+	settings.AddInt32("fuzzy", (int32)options.fuzzy);
 	settings.AddBool("chinese", fEngine.Chinese());
 
 	BPath path = SettingsDirectory();
@@ -696,6 +795,82 @@ PinyinMethod::_SaveSettings()
 	BFile file(path.Path(), B_WRITE_ONLY | B_CREATE_FILE | B_ERASE_FILE);
 	if (file.InitCheck() == B_OK)
 		settings.Flatten(&file);
+}
+
+
+// Cloud candidates: one question at a time, asked through curl on a thread
+// so neither the input_server nor the composition waits for the network.
+struct CloudQuestion {
+	BMessenger reply;
+	std::string query;
+};
+
+
+static std::string
+CloudAnswer(const std::string& query)
+{
+	// The query is full pinyin: letters only, safe in a URL and a shell.
+	std::string command = "curl -s -m 2 'https://inputtools.google.com/"
+		"request?text=" + query + "&itc=zh-t-i0-pinyin&num=1&cp=0&cs=1"
+		"&ie=utf-8&oe=utf-8&app=haikupinyin' 2>/dev/null";
+	FILE* pipe = popen(command.c_str(), "r");
+	if (pipe == NULL)
+		return std::string();
+	std::string reply;
+	char buffer[4096];
+	size_t read;
+	while ((read = fread(buffer, 1, sizeof(buffer), pipe)) > 0)
+		reply.append(buffer, read);
+	pclose(pipe);
+
+	// ["SUCCESS",[["<query>",["<answer>", ...
+	std::string marker = "[[\"" + query + "\",[\"";
+	size_t start = reply.find(marker);
+	if (reply.compare(0, 11, "[\"SUCCESS\",") != 0 || start == std::string::npos)
+		return std::string();
+	start += marker.size();
+	size_t end = reply.find('"', start);
+	if (end == std::string::npos)
+		return std::string();
+	std::string answer = reply.substr(start, end - start);
+	// Chinese comes back as UTF-8; anything escaped isn't worth offering.
+	if (answer.find('\\') != std::string::npos)
+		return std::string();
+	return answer;
+}
+
+
+static status_t
+AskCloud(void* data)
+{
+	CloudQuestion* question = (CloudQuestion*)data;
+	snooze(kCloudDelay);
+	BMessage result(kMsgCloudResult);
+	result.AddString("query", question->query.c_str());
+	result.AddString("text", CloudAnswer(question->query).c_str());
+	question->reply.SendMessage(&result);
+	delete question;
+	return B_OK;
+}
+
+
+// Called with fLock held.
+void
+PinyinMethod::_AskCloud()
+{
+	if (!fEngine.GetOptions().cloud || !fCloudAsked.empty())
+		return;
+	std::string query = fEngine.CloudQuery();
+	if (query.empty() || query == fCloudAnswered)
+		return;
+	fCloudAsked = query;
+	fCloudAnswered = query;
+	thread_id thread = spawn_thread(AskCloud, "haiku pinyin cloud",
+		B_LOW_PRIORITY, new CloudQuestion{BMessenger(fLooper), query});
+	if (thread >= 0)
+		resume_thread(thread);
+	else
+		fCloudAsked.clear();
 }
 
 

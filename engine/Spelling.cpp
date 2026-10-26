@@ -56,6 +56,107 @@ SyllableGraph::Add(SyllableEdge edge)
 }
 
 
+// #pragma mark - Fuzzy
+
+
+static const float kFuzzyPenalty = 1.0f;
+
+
+// The syllable's initial and the rest: "zhuang" -> "zh", "uang".
+static void
+SplitSyllable(const std::string& name, std::string& initial,
+	std::string& final)
+{
+	size_t length = 0;
+	if (name.size() >= 2 && name[1] == 'h' && strchr("zcs", name[0]) != nullptr)
+		length = 2;
+	else if (!name.empty() && strchr("bpmfdtnlgkhjqxrzcsyw", name[0]) != nullptr)
+		length = 1;
+	initial = name.substr(0, length);
+	final = name.substr(length);
+}
+
+
+static std::vector<std::string>
+InitialVariants(const std::string& initial, unsigned rules)
+{
+	std::vector<std::string> variants{initial};
+	auto pair = [&](const char* a, const char* b) {
+		if (initial == a)
+			variants.push_back(b);
+		else if (initial == b)
+			variants.push_back(a);
+	};
+	if (rules & kFuzzyRetroflex) {
+		pair("z", "zh");
+		pair("c", "ch");
+		pair("s", "sh");
+	}
+	if (rules & kFuzzyNL)
+		pair("n", "l");
+	if (rules & kFuzzyFH)
+		pair("f", "h");
+	if (rules & kFuzzyRL)
+		pair("r", "l");
+	return variants;
+}
+
+
+static std::vector<std::string>
+FinalVariants(const std::string& final, unsigned rules)
+{
+	std::vector<std::string> variants{final};
+	if ((rules & kFuzzyNasal) == 0)
+		return variants;
+	for (const char* nasal : {"an", "en", "in"}) {
+		size_t size = final.size();
+		if (size >= 2 && final.compare(size - 2, 2, nasal) == 0)
+			variants.push_back(final + "g");
+		else if (size >= 3 && final.compare(size - 3, 2, nasal) == 0
+			&& final[size - 1] == 'g')
+			variants.push_back(final.substr(0, size - 1));
+	}
+	return variants;
+}
+
+
+void
+AddFuzzy(SyllableGraph& graph, const Syllables& syllables, unsigned rules)
+{
+	if (rules == 0)
+		return;
+	size_t count = graph.edges.size();
+	for (size_t index = 0; index < count; index++) {
+		// Copied: Add() may move the vector.
+		SyllableEdge edge = graph.edges[index];
+		if (!edge.complete || edge.ids.empty())
+			continue;
+		std::vector<SyllableId> variants;
+		for (SyllableId id : edge.ids) {
+			std::string initial, final;
+			SplitSyllable(syllables.Name(id), initial, final);
+			for (const std::string& i : InitialVariants(initial, rules)) {
+				for (const std::string& f : FinalVariants(final, rules)) {
+					int variant = syllables.Find(i + f);
+					if (variant < 0 || std::find(edge.ids.begin(),
+							edge.ids.end(), variant) != edge.ids.end()
+						|| std::find(variants.begin(), variants.end(),
+							variant) != variants.end()) {
+						continue;
+					}
+					variants.push_back(SyllableId(variant));
+				}
+			}
+		}
+		if (variants.empty())
+			continue;
+		std::sort(variants.begin(), variants.end());
+		graph.Add(SyllableEdge{edge.from, edge.to, variants, true,
+			edge.penalty + kFuzzyPenalty, edge.display});
+	}
+}
+
+
 // #pragma mark - FullPinyin
 
 

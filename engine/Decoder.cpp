@@ -1,6 +1,7 @@
 #include "Decoder.h"
 
 #include <algorithm>
+#include <cmath>
 #include <limits>
 #include <unordered_set>
 
@@ -11,13 +12,19 @@ static const float kWordPenalty = 2.0f;		// per word in a sentence:
 	// fewer, longer words read better
 static const float kRawCost = 30.0f;		// a key no word explains
 static const size_t kKeepFromStart = 600;	// candidates per span
-static const size_t kKeepElsewhere = 4;		// only the sentence needs these
+static const size_t kKeepElsewhere = 6;		// the sentence's alternatives
+static const size_t kBeam = 8;				// sentence prefixes kept per key
+static const size_t kWordsTried = 5;		// per span, by the beam
+static const float kBigramWeight = 0.4f;	// λ in λ·P(w|prev) + (1-λ)·P(w)
+static const float kBestBigramBonus = -6.0f;
 
 
-Decoder::Decoder(const Lexicon& lexicon, const UserDict& user)
+Decoder::Decoder(const Lexicon& lexicon, const UserDict& user,
+	const Bigram& bigram)
 	:
 	fLexicon(lexicon),
-	fUser(user)
+	fUser(user),
+	fBigram(bigram)
 {
 }
 
@@ -131,13 +138,15 @@ Decoder::_Emit(int from, int to, const std::vector<Branch>& branches,
 			word.to = to;
 			if (branch.user) {
 				word.text = fUser.At(i).text;
-				word.cost = fUser.Cost(i) + penalty;
+				word.base = fUser.Cost(i);
 				word.source = WordEdge::kUser;
 			} else {
 				word.text = std::string(fLexicon.Word(i));
-				word.cost = fLexicon.Cost(i) + penalty;
+				word.base = fLexicon.Cost(i);
 				word.source = WordEdge::kLexicon;
 			}
+			word.cost = word.base + penalty;
+			word.hash = Bigram::Hash(word.text);
 			for (int k = 0; k < depth; k++)
 				word.key.push_back(keys.KeyAt(i, k));
 			word.syllables = path;
@@ -147,13 +156,37 @@ Decoder::_Emit(int from, int to, const std::vector<Branch>& branches,
 }
 
 
+// What following previous costs on top of the word's own cost: with a
+// known pair, -ln(λ·P(w|prev)/P(w) + 1-λ), a bonus; without, -ln(1-λ).
+float
+Decoder::_Transition(uint32_t previous, const WordEdge& word) const
+{
+	if (previous == 0 || word.source == WordEdge::kRaw || !fBigram.Loaded())
+		return 0;
+	float logp;
+	if (!fBigram.LogProbability(previous, word.hash, logp))
+		return -std::log(1 - kBigramWeight);
+	float ratio = std::exp(std::min(logp + word.base, 30.0f));
+	return std::max(kBestBigramBonus,
+		-std::log(kBigramWeight * ratio + 1 - kBigramWeight));
+}
+
+
+// A beam search for the likeliest sentence: at each key position, the best
+// few sentence prefixes, one per last word, since the next word's cost
+// depends on it.
 void
 Decoder::_FindBest(const SyllableGraph& graph)
 {
-	const float kNone = std::numeric_limits<float>::infinity();
-	std::vector<float> best(fLength + 1, kNone);
-	std::vector<const WordEdge*> back(fLength + 1, nullptr);
-	best[0] = 0;
+	struct Prefix {
+		float cost;
+		const WordEdge* word;
+		int from;		// where the previous prefix ends
+		int previous;	// and which one it is there
+		uint32_t last;	// the last word's hash (0 after raw keys)
+	};
+	std::vector<std::vector<Prefix>> prefixes(fLength + 1);
+	prefixes[0].push_back(Prefix{0, nullptr, -1, -1, fContext});
 
 	// Every key can always be passed over as itself, so a path exists.
 	fRaw.reserve(fLength);
@@ -162,42 +195,72 @@ Decoder::_FindBest(const SyllableGraph& graph)
 		bool separator = key == '\'';
 		fRaw.push_back(WordEdge{at, at + 1,
 			separator ? std::string() : std::string(1, key),
-			separator ? 0 : kRawCost, WordEdge::kRaw, {}, {}});
+			separator ? 0 : kRawCost, separator ? 0 : kRawCost, 0,
+			WordEdge::kRaw, {}, {}});
 	}
 
-	for (int from = 0; from < fLength; from++) {
-		if (best[from] == kNone)
-			continue;
-		auto relax = [&](const WordEdge& word, float extra) {
-			float cost = best[from] + word.cost + extra;
-			if (cost < best[word.to]) {
-				best[word.to] = cost;
-				back[word.to] = &word;
+	auto offer = [&](int to, Prefix prefix) {
+		std::vector<Prefix>& here = prefixes[to];
+		for (Prefix& other : here) {
+			if (other.last == prefix.last) {
+				if (prefix.cost < other.cost)
+					other = prefix;
+				return;
 			}
-		};
-		relax(fRaw[from], 0);
-		for (int to = from + 1; to <= fLength; to++) {
-			if (!fEdges[from][to].empty())
-				relax(fEdges[from][to].front(), kWordPenalty);
+		}
+		if (here.size() < kBeam) {
+			here.push_back(prefix);
+			return;
+		}
+		auto worst = std::max_element(here.begin(), here.end(),
+			[](const Prefix& a, const Prefix& b) { return a.cost < b.cost; });
+		if (prefix.cost < worst->cost)
+			*worst = prefix;
+	};
+
+	for (int from = 0; from < fLength; from++) {
+		for (int index = 0; index < int(prefixes[from].size()); index++) {
+			const Prefix prefix = prefixes[from][index];
+			const WordEdge& raw = fRaw[from];
+			offer(from + 1, Prefix{prefix.cost + raw.cost, &raw, from, index,
+				raw.text.empty() ? prefix.last : 0});
+			for (int to = from + 1; to <= fLength; to++) {
+				const std::vector<WordEdge>& words = fEdges[from][to];
+				for (size_t i = 0; i < words.size() && i < kWordsTried; i++) {
+					const WordEdge& word = words[i];
+					float cost = prefix.cost + word.cost + kWordPenalty
+						+ _Transition(prefix.last, word);
+					offer(to, Prefix{cost, &word, from, index, word.hash});
+				}
+			}
 		}
 	}
 
-	for (int at = fLength; at > 0 && back[at] != nullptr;
-			at = back[at]->from) {
-		fBest.push_back(back[at]);
+	const std::vector<Prefix>& ends = prefixes[fLength];
+	if (ends.empty())
+		return;
+	int at = fLength;
+	int index = int(std::min_element(ends.begin(), ends.end(),
+		[](const Prefix& a, const Prefix& b) { return a.cost < b.cost; })
+		- ends.begin());
+	while (at > 0) {
+		const Prefix& prefix = prefixes[at][index];
+		fBest.push_back(prefix.word);
+		at = prefix.from;
+		index = prefix.previous;
 	}
 	std::reverse(fBest.begin(), fBest.end());
 }
 
 
 std::vector<Candidate>
-Decoder::Candidates(size_t limit) const
+Decoder::Candidates(const SyllableGraph& graph, size_t limit) const
 {
 	std::vector<Candidate> candidates;
 	std::unordered_set<std::string> seen;
 
 	if (!fBest.empty()) {
-		Candidate sentence{"", fLength, 0, {}, false};
+		Candidate sentence{"", fLength, 0, {}, false, ""};
 		int words = 0;
 		bool raw = false;
 		for (const WordEdge* word : fBest) {
@@ -209,10 +272,21 @@ Decoder::Candidates(size_t limit) const
 				words++;
 			else if (!word->text.empty())
 				raw = true;
+			for (int index : word->syllables) {
+				if (!graph.edges[index].complete)
+					sentence.guessed = true;
+			}
 		}
 		sentence.sentence = words > 1;
+		sentence.raw = raw;
 		if (raw)
 			sentence.key.clear();	// keys and text no longer line up
+		for (auto word = fBest.rbegin(); word != fBest.rend(); word++) {
+			if ((*word)->source != WordEdge::kRaw) {
+				sentence.tail = (*word)->text;
+				break;
+			}
+		}
 		if (!sentence.text.empty()) {
 			seen.insert(sentence.text);
 			candidates.push_back(std::move(sentence));
@@ -222,12 +296,18 @@ Decoder::Candidates(size_t limit) const
 	if (fLength == 0)
 		return candidates;
 	for (int to = fLength; to > 0; to--) {
-		for (const WordEdge& word : fEdges[0][to]) {
+		// After a word you've just typed, what usually follows it first.
+		std::vector<std::pair<float, const WordEdge*>> words;
+		for (const WordEdge& word : fEdges[0][to])
+			words.emplace_back(word.cost + _Transition(fContext, word), &word);
+		std::stable_sort(words.begin(), words.end(),
+			[](const auto& a, const auto& b) { return a.first < b.first; });
+		for (const auto& [cost, word] : words) {
 			if (candidates.size() >= limit)
 				return candidates;
-			if (seen.insert(word.text).second) {
-				candidates.push_back(Candidate{word.text, to, word.cost,
-					word.key, false});
+			if (seen.insert(word->text).second) {
+				candidates.push_back(Candidate{word->text, to, word->cost,
+					word->key, false, word->text});
 			}
 		}
 	}
