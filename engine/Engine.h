@@ -3,6 +3,7 @@
 #pragma once
 
 #include <memory>
+#include <unordered_map>
 #include <string>
 #include <vector>
 
@@ -27,6 +28,7 @@ struct Options {
 	Script script = Script::kSimplified;
 	int pageSize = 7;
 	bool fullwidthPunctuation = true;
+	bool emoji = true;				// 太阳 also offers ☀ 🌞
 };
 
 enum class Key {
@@ -109,6 +111,7 @@ private:
 	bool _Compose(Key key, char32_t character);
 	bool _IsLayoutKey(char32_t character) const;
 	void _Update();
+	void _AddEmoji();
 	void _Select(const Candidate& candidate);
 	void _Finish(const std::string& tail);
 	void _Move(int delta);
@@ -121,6 +124,7 @@ private:
 	Converter fToTraditional;
 	Converter fToTaiwan;
 	Converter fToHongKong;
+	std::unordered_map<std::string, std::vector<std::string>> fEmoji;
 	UserDict fUser;
 	std::string fUserPath;
 	int fUnsaved = 0;

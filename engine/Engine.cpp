@@ -1,12 +1,15 @@
 #include "Engine.h"
 
 #include <algorithm>
+#include <fstream>
+#include <sstream>
 
 namespace haikupinyin {
 
 static const size_t kLongestInput = 64;
 static const size_t kCandidateLimit = 600;
 static const int kSaveEvery = 5;	// commits between user dictionary saves
+static const size_t kEmojiReach = 5;	// candidates checked for emoji
 
 
 // The first or last character of UTF-8 text.
@@ -52,6 +55,19 @@ Engine::Load(const std::string& directory, std::string* error)
 	fToTraditional.Load(directory + "/s2t.txt");
 	fToTaiwan.Load(directory + "/tw.txt");
 	fToHongKong.Load(directory + "/hk.txt");
+
+	std::ifstream emoji(directory + "/emoji.txt");
+	std::string line;
+	while (std::getline(emoji, line)) {
+		size_t tab = line.find('\t');
+		if (tab == std::string::npos)
+			continue;
+		std::istringstream values(line.substr(tab + 1));
+		std::vector<std::string>& list = fEmoji[line.substr(0, tab)];
+		std::string value;
+		while (values >> value)
+			list.push_back(value);
+	}
 	return true;
 }
 
@@ -271,8 +287,36 @@ Engine::_Update()
 	}
 	fDecoder.Decode(fGraph);
 	fCandidates = fDecoder.Candidates(kCandidateLimit);
+	_AddEmoji();
 	fSpelled = fDecoder.Spelled(fGraph);
 	fHighlight = 0;
+}
+
+
+// Emoji go right after the word they stand for, among the first few
+// candidates. They have no key, so picking one teaches nothing.
+void
+Engine::_AddEmoji()
+{
+	if (!fOptions.emoji || fEmoji.empty())
+		return;
+	for (size_t i = 0; i < fCandidates.size() && i < kEmojiReach; i++) {
+		auto found = fEmoji.find(fCandidates[i].text);
+		if (found == fEmoji.end())
+			continue;
+		Candidate word = fCandidates[i];
+		size_t at = i + 1;
+		for (const std::string& emoji : found->second) {
+			bool shown = false;
+			for (const Candidate& candidate : fCandidates)
+				shown = shown || candidate.text == emoji;
+			if (shown)
+				continue;
+			fCandidates.insert(fCandidates.begin() + at++,
+				Candidate{emoji, word.consumed, word.cost, {}, false});
+		}
+		i = at - 1;
+	}
 }
 
 

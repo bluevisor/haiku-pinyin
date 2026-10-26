@@ -1,6 +1,6 @@
 // hpsettings: write 海酷拼音's settings file (development; the Deskbar menu is
 // the real way). Restart the input_server to apply.
-//   hpsettings layout=pyjj script=0..3 page=7 fullwidth=1 chinese=1
+//   hpsettings layout=pyjj script=0..3 page=7 fullwidth=1 chinese=1 emoji=1
 
 #include <File.h>
 #include <FindDirectory.h>
@@ -24,6 +24,7 @@ main(int argc, char** argv)
 	settings.AddInt32("page size", 7);
 	settings.AddBool("fullwidth", true);
 	settings.AddBool("chinese", true);
+	settings.AddBool("emoji", true);
 	for (int i = 1; i < argc; i++) {
 		const char* value = strchr(argv[i], '=');
 		if (value++ == NULL)
@@ -36,6 +37,8 @@ main(int argc, char** argv)
 			settings.ReplaceInt32("page size", atoi(value));
 		else if (strncmp(argv[i], "fullwidth=", 10) == 0)
 			settings.ReplaceBool("fullwidth", atoi(value) != 0);
+		else if (strncmp(argv[i], "emoji=", 6) == 0)
+			settings.ReplaceBool("emoji", atoi(value) != 0);
 		else if (strncmp(argv[i], "chinese=", 8) == 0)
 			settings.ReplaceBool("chinese", atoi(value) != 0);
 	}

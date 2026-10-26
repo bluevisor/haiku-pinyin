@@ -20,7 +20,7 @@ Mix(rgb_color a, rgb_color b, float amount)
 
 
 // BFont::StringWidth() doesn't see the fallback font that draws CJK, so it
-// comes up short for 中文: count wide characters as a full em.
+// comes up short for 中文 and emoji: count wide characters as a full em.
 static float
 TextWidth(const BFont& font, const char* text)
 {
@@ -41,7 +41,9 @@ TextWidth(const BFont& font, const char* text)
 		}
 		for (int i = 1; i < length && c[i] != 0; i++)
 			code = (code << 6) | (c[i] & 0x3f);
-		if (code >= 0x2e80)
+		if (code == 0xfe0f || code == 0x200d)
+			;	// selectors and joiners take no room
+		else if (code >= 0x2e80 || (code >= 0x2600 && code < 0x2800))
 			width += font.Size();
 		else
 			narrow.Append((const char*)c, length);

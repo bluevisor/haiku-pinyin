@@ -87,6 +87,24 @@ main(int argc, char** argv)
 	ExpectFirst("full", Script::kTaiwan, "ruanjian", "軟體");
 	ExpectFirst("full", Script::kHongKong, "toufa", "頭髮");
 
+	// Emoji follow their word, and switch off.
+	{
+		Engine engine;
+		engine.Load(sData);
+		Type(engine, "taiyang");
+		std::vector<std::string> page = engine.PageCandidates();
+		bool sun = false;
+		for (const std::string& candidate : page)
+			sun = sun || candidate == "🌞";
+		Expect("太阳 offers 🌞", sun ? "yes" : "no", "yes");
+		Options options;
+		options.emoji = false;
+		engine.SetOptions(options);
+		Type(engine, "taiyang");
+		page = engine.PageCandidates();
+		Expect("emoji off", page.size() > 1 ? page[1] : "", "抬眼");
+	}
+
 	// Punctuation, and digits after which it stays ASCII.
 	{
 		Engine engine;

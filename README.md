@@ -6,7 +6,7 @@ macOS pinyin input: whole-sentence conversion, abbreviations (`zgr` → 中国�
 inline composition.
 
 - **Full pinyin** and **shuangpin**: 拼音加加, 小鹤, 自然码, 微软, 智能ABC
-- **简体 / 繁體 / 繁體（台灣）/ 繁體（香港）** output
+- **简体 / 繁體** output
 - Full-width punctuation (`,` → `，`, `"` → `“”` or `「」`), left alone after digits
 - Shift tap switches 中/英; Caps Lock types English
 - Space or 1–9 pick, `-` `=` page, `[` `]` take the first/last character of a

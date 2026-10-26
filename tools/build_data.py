@@ -6,6 +6,7 @@ build/data/shuangpin.txt  "<scheme>\t<code>\t<syllable>" for every layout
 build/data/s2t.txt        simplified -> traditional phrases and characters
 build/data/tw.txt         traditional -> Taiwan variants and phrases
 build/data/hk.txt         traditional -> Hong Kong variants
+build/data/emoji.txt      word -> emoji, "<word>\t<emoji>"
 
 The lexicon format (little endian):
   "HPDICT01"
@@ -175,6 +176,34 @@ def build_table(name, sources):
 	print(f"{name}: {len(pairs)} entries")
 
 
+def build_emoji():
+	# Haiku draws one glyph per code point (no shaping), so keep emoji that
+	# are a single code point once the emoji-style selector is dropped: no
+	# flags, skin tones or ZWJ sequences.
+	lines, kept = [], 0
+	with open(os.path.join(SOURCES, "emoji.txt"), encoding="utf-8") as f:
+		for line in f:
+			parts = line.rstrip("\n").split("\t")
+			if len(parts) != 2:
+				continue
+			word, values = parts
+			emoji = []
+			for value in values.split(" "):
+				value = value.replace("\ufe0f", "")
+				if value != word and len(value) == 1 and ord(value) >= 0x2000 \
+						and value not in emoji:
+					emoji.append(value)
+			if emoji:
+				# One per word is enough. Prefer the pictographs (🌞) over the
+				# older symbol forms (☀).
+				best = next((e for e in emoji if ord(e) >= 0x1f000), emoji[0])
+				lines.append(f"{word}\t{best}\n")
+				kept += 1
+	with open(os.path.join(OUT, "emoji.txt"), "w", encoding="utf-8") as f:
+		f.writelines(lines)
+	print(f"emoji.txt: {kept} emoji for {len(lines)} words")
+
+
 def main():
 	os.makedirs(OUT, exist_ok=True)
 	syllables = build_lexicon()
@@ -182,6 +211,7 @@ def main():
 	build_table("s2t.txt", ["STPhrases", "STCharacters"])
 	build_table("tw.txt", ["TWPhrases", "TWVariants"])
 	build_table("hk.txt", ["HKVariants"])
+	build_emoji()
 
 
 if __name__ == "__main__":

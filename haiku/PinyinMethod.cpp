@@ -26,6 +26,7 @@ enum {
 	kMsgSetScript		= 'hpSc',	// "script" int32
 	kMsgTogglePunctuation = 'hpPu',
 	kMsgSetPageSize		= 'hpPg',	// "size" int32
+	kMsgToggleEmoji		= 'hpEm',
 };
 
 static const bigtime_t kShiftTapLimit = 400000;
@@ -42,9 +43,7 @@ static const struct {
 	{"abc", "双拼 · 智能ABC"},
 };
 
-static const char* const kScripts[] = {
-	"简体中文", "繁體中文", "繁體中文（台灣）", "繁體中文（香港）"
-};
+static const char* const kScripts[] = { "简体中文", "繁體中文" };
 
 
 static BPath
@@ -109,6 +108,7 @@ MethodLooper::MessageReceived(BMessage* message)
 		case kMsgSetScript:
 		case kMsgTogglePunctuation:
 		case kMsgSetPageSize:
+		case kMsgToggleEmoji:
 			fMethod->LooperMessage(message);
 			break;
 		default:
@@ -538,6 +538,11 @@ PinyinMethod::LooperMessage(BMessage* message)
 				_Cancel(&events);
 				fEngine.SetOptions(options);
 				break;
+			case kMsgToggleEmoji:
+				options.emoji = !options.emoji;
+				_Cancel(&events);
+				fEngine.SetOptions(options);
+				break;
 		}
 		_UpdateMenu();
 		_SaveSettings();
@@ -567,7 +572,7 @@ PinyinMethod::_UpdateMenu()
 	}
 	menu->AddSeparatorItem();
 
-	for (int32 i = 0; i < 4; i++) {
+	for (int32 i = 0; i < 2; i++) {
 		BMessage* message = new BMessage(kMsgSetScript);
 		message->AddInt32("script", i);
 		item = new BMenuItem(kScripts[i], message);
@@ -580,17 +585,22 @@ PinyinMethod::_UpdateMenu()
 	item->SetMarked(options.fullwidthPunctuation);
 	menu->AddItem(item);
 
-	BMenu* pageSizes = new BMenu("每页候选");
+	item = new BMenuItem("Emoji 候选", new BMessage(kMsgToggleEmoji));
+	item->SetMarked(options.emoji);
+	menu->AddItem(item);
+	menu->AddSeparatorItem();
+
+	// No submenus: Deskbar only targets the top level of a method's menu
+	// (SetTargetForItems doesn't recurse), so a submenu's picks get lost.
 	for (int32 size : {5, 7, 9}) {
 		BMessage* message = new BMessage(kMsgSetPageSize);
 		message->AddInt32("size", size);
 		BString label;
-		label << size;
+		label << "每页 " << size << " 个候选";
 		item = new BMenuItem(label.String(), message);
 		item->SetMarked(options.pageSize == size);
-		pageSizes->AddItem(item);
+		menu->AddItem(item);
 	}
-	menu->AddItem(pageSizes);
 
 	// The add-on only keeps (and finally deletes) the latest menu.
 	SetMenu(menu, BMessenger(fLooper));
@@ -658,9 +668,13 @@ PinyinMethod::_LoadSettings()
 	if (file.InitCheck() != B_OK || settings.Unflatten(&file) != B_OK)
 		return;
 	fSavedOptions.layout = settings.GetString("layout", "full");
-	fSavedOptions.script = (haikupinyin::Script)settings.GetInt32("script", 0);
+	// Only 简体 and 繁體 are offered; older settings may name a regional
+	// variant.
+	fSavedOptions.script = settings.GetInt32("script", 0) == 0
+		? haikupinyin::Script::kSimplified : haikupinyin::Script::kTraditional;
 	fSavedOptions.pageSize = settings.GetInt32("page size", 7);
 	fSavedOptions.fullwidthPunctuation = settings.GetBool("fullwidth", true);
+	fSavedOptions.emoji = settings.GetBool("emoji", true);
 	fSavedChinese = settings.GetBool("chinese", true);
 }
 
@@ -674,6 +688,7 @@ PinyinMethod::_SaveSettings()
 	settings.AddInt32("script", (int32)options.script);
 	settings.AddInt32("page size", options.pageSize);
 	settings.AddBool("fullwidth", options.fullwidthPunctuation);
+	settings.AddBool("emoji", options.emoji);
 	settings.AddBool("chinese", fEngine.Chinese());
 
 	BPath path = SettingsDirectory();
