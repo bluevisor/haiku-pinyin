@@ -27,16 +27,61 @@ inline composition.
 
 ## Install on Haiku
 
-Needs Noto Sans CJK (for the candidate window) and, for emoji, Noto Emoji in
-`~/config/non-packaged/data/fonts`: app_server already falls back to both.
+There's no package yet: build it on Haiku (or from a Mac, see Build) and
+install it into `~/config/non-packaged`:
+
+```sh
+tools/fetch_sources.sh            # the word lists (needs curl, ~60 MB)
+make data install                 # add-on + data
+haiku/restart-input-server.sh     # load it (keep Deskbar menus closed)
+```
+
+The candidate window needs a CJK font (Noto Sans CJK); for emoji, add Noto
+Emoji. Both go in `~/config/non-packaged/data/fonts`, and app_server falls
+back to them on its own.
+
+## Using it
+
+Pick **海酷拼音** from the keyboard menu in Deskbar, or cycle input methods
+with **Alt+Space**. With [Kigo](https://github.com/bluevisor/kigo), which
+takes Alt+Space for itself, it's **Win+Space** (⌘+Space on a Mac keyboard).
+
+| Key | |
+|---|---|
+| letters | pinyin (or shuangpin codes); the sentence is candidate 1 |
+| Space, 1–9 | take the highlighted / numbered candidate |
+| ← → ↑ ↓, `-` `=`, Page Up/Down | move the highlight, page |
+| `[` `]` | just the first / last character of the candidate (以词定字) |
+| Enter | type the letters as they are |
+| Backspace | delete a letter; past a pick, reopen it |
+| Escape | cancel |
+| Ctrl+Delete | forget the highlighted word it learned from you |
+| Shift (tap) | 中 / 英 |
+| Caps Lock | English while it's on |
+
+After a commit, 联想 shows likely next words: a number takes one, anything
+else carries on as usual. Clicks, the scroll wheel and the page arrows work
+in the candidate window.
+
+The Deskbar menu holds the settings: 全拼 or a shuangpin layout, 简体 /
+繁體, 全角标点, emoji, 联想, 中英混输, 云候选, the three 模糊音 groups,
+and candidates per page. They're saved in `~/config/settings/HaikuPinyin`,
+next to `user.dict`, the words it has learned (plain text).
+
+Views that are input method aware (BTextView, so StyledEdit and most apps;
+Terminal; [Temino](https://github.com/bluevisor/temino) 0.2.4+) show the
+pinyin inline; everywhere else the committed text arrives as typing.
+
+**Cloud candidates** send the pinyin of each composition, but nothing you've
+committed, to Google Input Tools. They're off until you turn them on.
 
 ## Layout
 
 | Path | What |
 |---|---|
-| `engine/` | Portable C++17 engine: lexicon, spelling graph, Viterbi decoder, user dictionary, S→T converter |
+| `engine/` | Portable C++17 engine: lexicon, syllable graph (full pinyin, shuangpin, 模糊音), bigram beam-search decoder, 联想, user dictionary, S→T converter |
 | `haiku/` | input_server method add-on and candidate window |
-| `cli/hpcli.cpp` | Drive the engine from a terminal |
+| `cli/hpcli.cpp` | Drive the engine from a terminal: `echo nihao \| build/hpcli --layout pyjj` |
 | `tests/` | Engine tests |
 | `tools/build_data.py` | Builds `build/data/` from `sources/` |
 | `tools/haiku-testkeys/` | Dev only: a virtual keyboard device + `hpkeys` to type through the input_server over ssh, `imtest`, `hpsettings` |
@@ -44,7 +89,7 @@ Needs Noto Sans CJK (for the candidate window) and, for emoji, Noto Emoji in
 ## Build
 
 ```sh
-tools/fetch_sources.sh      # rime-ice, OpenCC, rime-double-pinyin into sources/
+tools/fetch_sources.sh      # rime-ice, libpinyin, OpenCC, rime-double-pinyin
 make data test              # anywhere: data, engine, hpcli, tests
 echo zgr | build/hpcli      # try it
 haiku/sync.sh haiku-dbg     # copy to a Haiku machine and build there
@@ -52,8 +97,10 @@ haiku/sync.sh haiku-dbg     # copy to a Haiku machine and build there
 make install                # add-on + data into ~/config/non-packaged
 ```
 
-The input_server doesn't reload a replaced add-on: run
-`haiku/restart-input-server.sh` after installing (with no Deskbar menu open).
+The input_server doesn't reload a replaced add-on, so run
+`haiku/restart-input-server.sh` after each install, with no Deskbar menu open:
+the new input_server waits on Deskbar, and an open menu deadlocks it (keyboard
+and mouse stop until the script runs again over ssh).
 
 ## Data and licenses
 
