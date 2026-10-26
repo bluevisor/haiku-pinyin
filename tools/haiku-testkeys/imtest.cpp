@@ -1,24 +1,27 @@
 // imtest: a text view that mirrors its contents to /tmp/imtest.txt, for
 // checking what an input method typed.   imtest [--unaware]
+// IMTEST_FRAME="left,top,right,bottom" and IMTEST_FONT=<size> set the
+// window and text size (for screenshots).
 
 #include <Application.h>
 #include <TextView.h>
 #include <Window.h>
 
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 
 
 class MirrorView : public BTextView {
 public:
-	MirrorView(BRect frame, bool aware)
+	MirrorView(BRect frame, bool aware, float size)
 		: BTextView(frame, "text", frame.OffsetToCopy(0, 0).InsetByCopy(4, 4),
 			B_FOLLOW_ALL, B_WILL_DRAW | B_NAVIGABLE)
 	{
 		if (!aware)
 			SetFlags(Flags() & ~B_INPUT_METHOD_AWARE);
 		BFont font(be_plain_font);
-		font.SetSize(20);
+		font.SetSize(size);
 		SetFontAndColor(&font);
 	}
 
@@ -53,10 +56,15 @@ main(int argc, char** argv)
 {
 	bool aware = !(argc > 1 && strcmp(argv[1], "--unaware") == 0);
 	BApplication app("application/x-vnd.haiku-pinyin-imtest");
-	BWindow* window = new BWindow(BRect(200, 200, 900, 400),
+	BRect frame(200, 200, 900, 400);
+	if (const char* value = getenv("IMTEST_FRAME"))
+		sscanf(value, "%f,%f,%f,%f", &frame.left, &frame.top, &frame.right,
+			&frame.bottom);
+	float size = getenv("IMTEST_FONT") ? atof(getenv("IMTEST_FONT")) : 20;
+	BWindow* window = new BWindow(frame,
 		aware ? "imtest" : "imtest (unaware)", B_TITLED_WINDOW,
 		B_QUIT_ON_WINDOW_CLOSE);
-	MirrorView* view = new MirrorView(window->Bounds(), aware);
+	MirrorView* view = new MirrorView(window->Bounds(), aware, size);
 	window->AddChild(view);
 	view->MakeFocus();
 	window->Show();

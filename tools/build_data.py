@@ -112,7 +112,10 @@ def build_lexicon():
 		f.write(struct.pack(f"<{len(keys)}H", *keys))
 		f.write(pool)
 	print(f"pinyin.dict: {len(syllables)} syllables, {len(entries)} words")
-	return syllables
+	weights = {}
+	for (key, word), weight in words.items():
+		weights[word] = max(weights.get(word, 0), weight)
+	return syllables, weights
 
 
 def speller_rules(path):
@@ -216,6 +219,9 @@ def build_emoji():
 
 BIGRAM_MIN_COUNT = 5		# rarer pairs say little and cost room
 PREDICTIONS = 9				# 联想 kept per word
+PREDICTION_MIN_WEIGHT = 20000	# rime-ice weight a 联想 word needs: drops
+							# libpinyin's odd tokens (中的, 你了)
+PARTICLES = "的了啊吗呢吧"		# nor a word hanging off one: 他的, 你啊, 的人
 
 
 def fnv1a(text):
@@ -225,7 +231,7 @@ def fnv1a(text):
 	return h
 
 
-def build_bigram():
+def build_bigram(weights):
 	totals, pairs = {}, []
 	section = None
 	with open(os.path.join(SOURCES, "libpinyin", "interpolation2.text"),
@@ -253,7 +259,9 @@ def build_bigram():
 		records[key] = max(records.get(key, -1e9), logp)
 		# Predictions are words of two characters or more: 的 and 了 after
 		# everything would crowd them out.
-		if len(second) >= 2 and all("\u4e00" <= c <= "\u9fff" for c in second):
+		if len(second) >= 2 and all("\u4e00" <= c <= "\u9fff" for c in second) \
+				and weights.get(second, 0) >= PREDICTION_MIN_WEIGHT \
+				and second[0] != "的" and second[-1] not in PARTICLES:
 			successors.setdefault(first, []).append((logp, second))
 
 	with open(os.path.join(OUT, "bigram.bin"), "wb") as f:
@@ -290,14 +298,14 @@ def build_english():
 
 def main():
 	os.makedirs(OUT, exist_ok=True)
-	syllables = build_lexicon()
+	syllables, weights = build_lexicon()
 	build_shuangpin(syllables)
 	build_table("s2t.txt", ["STPhrases", "STCharacters"])
 	build_table("tw.txt", ["TWPhrases", "TWVariants"])
 	build_table("hk.txt", ["HKVariants"])
 	build_emoji()
 	build_english()
-	build_bigram()
+	build_bigram(weights)
 
 
 if __name__ == "__main__":
