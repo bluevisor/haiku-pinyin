@@ -4,6 +4,7 @@
 //
 //   hpcli [--data DIR] [--layout full|pyjj|xiaohe|ziranma|mspy|abc]
 //         [--script s|t|tw|hk] [--page N] [--user FILE]
+//         [--fuzzy MASK] [--predict 0|1]
 
 #include <cstdio>
 #include <cstring>
@@ -21,6 +22,13 @@ Show(Engine& engine)
 	std::string commit = engine.TakeCommit();
 	if (!commit.empty())
 		printf("commit: %s\n", commit.c_str());
+	if (engine.Predicting()) {
+		printf("  联想:");
+		for (const std::string& word : engine.PageCandidates())
+			printf(" %s", word.c_str());
+		printf("\n");
+		return;
+	}
 	if (!engine.Composing())
 		return;
 	printf("  %s\n ", engine.Preedit().c_str());
@@ -97,6 +105,10 @@ main(int argc, char** argv)
 			options.pageSize = atoi(value.c_str());
 		else if (flag == "--user")
 			user = value;
+		else if (flag == "--fuzzy")
+			options.fuzzy = unsigned(atoi(value.c_str()));
+		else if (flag == "--predict")
+			options.prediction = value != "0";
 		else if (flag == "--script") {
 			options.script = value == "t" ? Script::kTraditional
 				: value == "tw" ? Script::kTaiwan

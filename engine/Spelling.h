@@ -35,6 +35,21 @@ struct SyllableGraph {
 };
 
 
+// 模糊音: sounds many speakers don't tell apart.
+enum Fuzzy {
+	kFuzzyRetroflex	= 1,	// z/zh c/ch s/sh
+	kFuzzyNasal		= 2,	// an/ang en/eng in/ing ian/iang uan/uang
+	kFuzzyNL		= 4,	// n/l
+	kFuzzyFH		= 8,	// f/h
+	kFuzzyRL		= 16,	// r/l
+};
+
+// Adds, beside each whole syllable, an edge for the syllables it could be
+// mistaken for under rules (a Fuzzy mask), at a small cost.
+void AddFuzzy(SyllableGraph& graph, const Syllables& syllables,
+	unsigned rules);
+
+
 class FullPinyin {
 public:
 	static void Parse(std::string_view keys, const Syllables& syllables,

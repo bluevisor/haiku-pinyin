@@ -37,7 +37,7 @@ EdgeCharacter(const std::string& text, bool last)
 
 Engine::Engine()
 	:
-	fDecoder(fLexicon, fUser)
+	fDecoder(fLexicon, fUser, fBigram)
 {
 }
 
@@ -55,6 +55,17 @@ Engine::Load(const std::string& directory, std::string* error)
 	fToTraditional.Load(directory + "/s2t.txt");
 	fToTaiwan.Load(directory + "/tw.txt");
 	fToHongKong.Load(directory + "/hk.txt");
+
+	fBigram.Load(directory);
+	std::ifstream english(directory + "/english.txt");
+	std::string word;
+	while (std::getline(english, word)) {
+		std::string lower = word;
+		for (char& c : lower)
+			c = char(tolower(c));
+		fEnglish.push_back(word);
+		fEnglishLower.push_back(lower);
+	}
 
 	std::ifstream emoji(directory + "/emoji.txt");
 	std::string line;
@@ -123,11 +134,36 @@ Engine::ProcessKey(Key key, char32_t character, uint32_t modifiers)
 {
 	if (!Loaded())
 		return false;
+	// Ctrl or Shift + Delete forgets a word it learned from you.
+	if (Composing() && key == Key::kDelete
+		&& (modifiers & (kControl | kShift)) != 0) {
+		const Candidate& candidate = fCandidates.empty()
+			? Candidate{} : fCandidates[fHighlight];
+		if (!candidate.key.empty()
+			&& fUser.Forget(candidate.key, candidate.text)) {
+			SaveUserDictionary();
+			_Update();
+		}
+		return true;
+	}
 	// Shortcuts belong to the application, but not halfway through a word.
-	if ((modifiers & (kControl | kCommand)) != 0)
+	if ((modifiers & (kControl | kCommand)) != 0) {
+		fPredictions.clear();
 		return Composing();
+	}
 	if (!fChinese)
 		return false;
+
+	if (!Composing() && !fPredictions.empty()) {
+		int count = std::min(int(fPredictions.size()), fOptions.pageSize);
+		if (key == Key::kCharacter && character >= '1'
+			&& character < char32_t('1' + count)) {
+			return SelectOnPage(int(character - '1'));
+		}
+		fPredictions.clear();
+		if (key == Key::kEscape)
+			return true;
+	}
 
 	if (Composing()) {
 		bool used = _Compose(key, character);
@@ -285,8 +321,13 @@ Engine::_Update()
 		fShuangpin.Parse(fOptions.layout, remaining, fLexicon.GetSyllables(),
 			fGraph);
 	}
+	AddFuzzy(fGraph, fLexicon.GetSyllables(), fOptions.fuzzy);
+	// Only the first pick of a composition follows the last commit.
+	fDecoder.SetContext(fPicks.empty() ? fContext
+		: Bigram::Hash(fPicks.back().tail));
 	fDecoder.Decode(fGraph);
-	fCandidates = fDecoder.Candidates(kCandidateLimit);
+	fCandidates = fDecoder.Candidates(fGraph, kCandidateLimit);
+	_AddEnglish();
 	_AddEmoji();
 	fSpelled = fDecoder.Spelled(fGraph);
 	fHighlight = 0;
@@ -313,7 +354,7 @@ Engine::_AddEmoji()
 			if (shown)
 				continue;
 			fCandidates.insert(fCandidates.begin() + at++,
-				Candidate{emoji, word.consumed, word.cost, {}, false});
+				Candidate{emoji, word.consumed, word.cost, {}, false, ""});
 		}
 		i = at - 1;
 	}
@@ -324,7 +365,7 @@ void
 Engine::_Select(const Candidate& candidate)
 {
 	Pick pick{candidate.text, candidate.consumed, candidate.key,
-		candidate.cost};
+		candidate.cost, candidate.tail};
 	// A separator right after the pick belongs to it.
 	while (fUsed + pick.consumed < fKeys.size()
 		&& fKeys[fUsed + pick.consumed] == '\'') {
@@ -362,7 +403,143 @@ Engine::_Finish(const std::string& tail)
 		SaveUserDictionary();
 
 	fCommit += _Convert(text) + tail;
+	std::string last = fPicks.empty() || !tail.empty() ? std::string()
+		: fPicks.back().tail;
 	Reset();
+	if (last.empty())
+		ClearContext();
+	else
+		_Predict(last);
+}
+
+
+// The last word typed becomes the context, and its likely followers the
+// 联想 shown next.
+void
+Engine::_Predict(const std::string& word)
+{
+	fContext = Bigram::Hash(word);
+	fPredictions.clear();
+	if (fOptions.prediction)
+		fPredictions = fBigram.Predict(fContext, size_t(fOptions.pageSize));
+}
+
+
+void
+Engine::ClearContext()
+{
+	fContext = 0;
+	fPredictions.clear();
+}
+
+
+// Typed letters that make an English word are offered as that word: first
+// when the pinyin makes no sense, second when it only reads as pinyin by
+// guessing at syllables ("hello"), else third. Unfinished words complete
+// only when the pinyin makes no sense.
+void
+Engine::_AddEnglish()
+{
+	if (!fOptions.english || fOptions.layout != "full" || fEnglish.empty())
+		return;
+	std::string typed = _Remaining();
+	if (typed.size() < 2 || typed.find('\'') != std::string::npos)
+		return;
+	bool nonsense = !fCandidates.empty() && fCandidates[0].raw;
+
+	std::vector<std::string> words;
+	auto at = std::lower_bound(fEnglishLower.begin(), fEnglishLower.end(),
+		typed);
+	size_t index = size_t(at - fEnglishLower.begin());
+	if (at != fEnglishLower.end() && *at == typed)
+		words.push_back(fEnglish[index++]);
+	if (nonsense && typed.size() >= 3) {
+		std::vector<std::string> completions;
+		for (; index < fEnglishLower.size() && completions.size() < 40
+				&& fEnglishLower[index].compare(0, typed.size(), typed) == 0;
+				index++) {
+			completions.push_back(fEnglish[index]);
+		}
+		std::stable_sort(completions.begin(), completions.end(),
+			[](const std::string& a, const std::string& b) {
+				return a.size() < b.size();
+			});
+		for (size_t i = 0; i < completions.size() && i < 3; i++)
+			words.push_back(completions[i]);
+	}
+	if (words.empty())
+		return;
+
+	bool guessed = !fCandidates.empty() && fCandidates[0].guessed;
+	size_t insert = nonsense ? 0
+		: std::min<size_t>(guessed ? 1 : 2, fCandidates.size());
+	if (!nonsense)
+		words.resize(1);
+	for (const std::string& word : words) {
+		bool shown = false;
+		for (const Candidate& candidate : fCandidates)
+			shown = shown || candidate.text == word;
+		if (shown)
+			continue;
+		Candidate english{word, int(typed.size()), 0, {}, false, ""};
+		english.english = true;
+		fCandidates.insert(fCandidates.begin() + insert++, english);
+	}
+}
+
+
+std::string
+Engine::CloudQuery() const
+{
+	if (!Composing() || fCandidates.empty() || fCandidates[0].raw
+		|| fSpelled.find('/') != std::string::npos
+		|| std::count(fSpelled.begin(), fSpelled.end(), '\'') < 1) {
+		return std::string();
+	}
+	std::string query = fSpelled;
+	query.erase(std::remove(query.begin(), query.end(), '\''), query.end());
+	return query;
+}
+
+
+bool
+Engine::SetCloudResult(const std::string& query, const std::string& text)
+{
+	if (text.empty() || query.empty() || query != CloudQuery())
+		return false;
+	for (size_t i = 0; i < fCandidates.size(); i++) {
+		if (fCandidates[i].text != text)
+			continue;
+		if (i <= 1)
+			return false;	// already where it would go
+		fCandidates.erase(fCandidates.begin() + i);
+		break;
+	}
+	const Candidate& best = fCandidates[0];
+	Candidate cloud{text, int(fKeys.size() - fUsed), best.cost, {}, true,
+		text};
+	cloud.cloud = true;
+	// Learnable when it has a character per syllable, as it usually does.
+	size_t characters = 0;
+	for (unsigned char c : text)
+		characters += (c & 0xc0) != 0x80;
+	if (characters == best.key.size())
+		cloud.key = best.key;
+	fCandidates.insert(fCandidates.begin() + 1, cloud);
+	return true;
+}
+
+
+int
+Engine::CloudIndexOnPage() const
+{
+	size_t first = size_t(Page()) * fOptions.pageSize;
+	for (size_t i = first;
+			i < fCandidates.size() && i < first + fOptions.pageSize; i++) {
+		if (fCandidates[i].cloud)
+			return int(i - first);
+	}
+	return -1;
 }
 
 
@@ -467,6 +644,13 @@ std::vector<std::string>
 Engine::PageCandidates() const
 {
 	std::vector<std::string> page;
+	if (Predicting()) {
+		for (size_t i = 0; i < fPredictions.size()
+				&& int(i) < fOptions.pageSize; i++) {
+			page.push_back(_Convert(fPredictions[i]));
+		}
+		return page;
+	}
 	size_t first = size_t(Page()) * fOptions.pageSize;
 	for (size_t i = first;
 			i < fCandidates.size() && i < first + fOptions.pageSize; i++) {
@@ -486,6 +670,16 @@ Engine::HasNextPage() const
 bool
 Engine::SelectOnPage(int index)
 {
+	if (Predicting()) {
+		if (index < 0 || index >= int(fPredictions.size())
+			|| index >= fOptions.pageSize) {
+			return false;
+		}
+		std::string word = fPredictions[index];
+		fCommit += _Convert(word);
+		_Predict(word);
+		return true;
+	}
 	size_t at = size_t(Page()) * fOptions.pageSize + index;
 	if (index < 0 || index >= fOptions.pageSize || at >= fCandidates.size())
 		return false;

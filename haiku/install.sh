@@ -21,5 +21,5 @@ done
 methods=$(finddir B_USER_NONPACKAGED_ADDONS_DIRECTORY)/input_server/methods
 mkdir -p "$methods"
 replace build/HaikuPinyin "$methods"
-echo "Installed. Pick 海酷拼音 from the keyboard menu in Deskbar, or press"
-echo "Alt+Space (Cmd+Space with Kigo's remap) to cycle input methods."
+echo "Installed. Run haiku/restart-input-server.sh to load it, then pick 海酷拼音"
+echo "from the keyboard menu in Deskbar (or Win/⌘+Space with Kigo)."

@@ -105,6 +105,102 @@ main(int argc, char** argv)
 		Expect("emoji off", page.size() > 1 ? page[1] : "", "抬眼");
 	}
 
+	// 模糊音: z for zh, an for ang.
+	{
+		Engine engine;
+		engine.Load(sData);
+		Options options;
+		options.fuzzy = kFuzzyRetroflex | kFuzzyNasal;
+		engine.SetOptions(options);
+		Type(engine, "zongguo");
+		Expect("fuzzy z=zh", First(engine), "中国");
+		engine.ProcessKey(Key::kEscape, 0, 0);
+		Type(engine, "zhanxiang");
+		std::vector<std::string> page = engine.PageCandidates();
+		bool found = false;
+		for (const std::string& candidate : page)
+			found = found || candidate == "长相";
+		Expect("fuzzy an=ang", found ? "yes" : "no", "yes");
+		engine.ProcessKey(Key::kEscape, 0, 0);
+		engine.SetOptions(Options());
+		Type(engine, "zongguo");
+		Expect("fuzzy off", First(engine) == "中国" ? "same" : "differs",
+			"differs");
+	}
+
+	// The bigram model, and the word before as context.
+	ExpectFirst("full", Script::kSimplified, "wozaixuexizhongwen",
+		"我在学习中文");
+	{
+		Engine engine;
+		engine.Load(sData);
+		Type(engine, "zhongguo ");
+		engine.TakeCommit();
+		Expect("联想 after 中国", engine.Predicting() ? "yes" : "no", "yes");
+		std::vector<std::string> page = engine.PageCandidates();
+		bool found = false;
+		for (const std::string& candidate : page)
+			found = found || candidate == "人民";
+		Expect("联想 offers 人民", found ? "yes" : "no", "yes");
+		// Picking one commits it and predicts again; a letter moves on.
+		engine.SelectOnPage(0);
+		Expect("联想 commits", engine.TakeCommit().empty() ? "no" : "yes",
+			"yes");
+		Type(engine, "a");
+		Expect("typing ends 联想", engine.Predicting() ? "yes" : "no", "no");
+		engine.ProcessKey(Key::kEscape, 0, 0);
+		// After 中国, "ren" puts 人 first.
+		Type(engine, "zhongguo ren");
+		Expect("context", First(engine), "人");
+	}
+
+	// English among the candidates.
+	{
+		Engine engine;
+		engine.Load(sData);
+		Type(engine, "hello");
+		std::vector<std::string> page = engine.PageCandidates();
+		Expect("hello second", page.size() > 1 ? page[1] : "", "hello");
+		engine.ProcessKey(Key::kEscape, 0, 0);
+		Type(engine, "computer");
+		Expect("computer first", First(engine), "computer");
+	}
+
+	// A cloud answer goes second and can be learned.
+	{
+		Engine engine;
+		engine.Load(sData);
+		Type(engine, "shishishishi");
+		std::string query = engine.CloudQuery();
+		Expect("cloud query", query, "shishishishi");
+		engine.SetCloudResult(query, "实时事实");
+		std::vector<std::string> page = engine.PageCandidates();
+		Expect("cloud second", page.size() > 1 ? page[1] : "", "实时事实");
+		Expect("cloud marked", std::to_string(engine.CloudIndexOnPage()), "1");
+		Expect("stale answer", engine.SetCloudResult("nihao", "你好")
+			? "taken" : "ignored", "ignored");
+	}
+
+	// Ctrl+Delete forgets a learned word.
+	{
+		Engine engine;
+		engine.Load(sData);
+		char path[] = "/tmp/haiku-pinyin-forget-XXXXXX";
+		close(mkstemp(path));
+		engine.SetUserDictionary(path);
+		Type(engine, "shi");
+		std::string fifth = engine.PageCandidates()[4];
+		engine.SelectOnPage(4);
+		engine.TakeCommit();
+		engine.ClearContext();
+		Type(engine, "shi");
+		Expect("learned", First(engine), fifth);
+		engine.ProcessKey(Key::kDelete, 0, kControl);
+		Expect("forgotten", First(engine) == fifth ? "kept" : "forgotten",
+			"forgotten");
+		unlink(path);
+	}
+
 	// Punctuation, and digits after which it stays ASCII.
 	{
 		Engine engine;

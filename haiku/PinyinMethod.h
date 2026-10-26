@@ -47,6 +47,7 @@ private:
 			void				_Cancel(BList* events);
 			void				_Deliver(BList& events);
 			void				_ShowCandidates();
+			void				_AskCloud();
 			void				_UpdateMenu();
 			void				_UpdateIcon();
 			void				_LoadSettings();
@@ -69,6 +70,8 @@ private:
 			size_t				fShownPicked;
 			std::set<int32>		fSwallowedKeys;
 			BPoint				fMouse;
+			std::string			fCloudAsked;	// in flight
+			std::string			fCloudAnswered;	// last asked
 			bool				fShiftAlone;
 			bigtime_t			fShiftDown;
 };
