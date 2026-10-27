@@ -20,6 +20,12 @@
 
 using haikupinyin::Key;
 
+// The input_server's private per-method record; MethodActivated() is exported.
+class _BMethodAddOn_ {
+public:
+	status_t MethodActivated(bool activate);
+};
+
 enum {
 	kMsgToggleChinese	= 'hpCn',
 	kMsgSetLayout		= 'hpLy',	// "layout" string
@@ -159,6 +165,9 @@ PinyinMethod::PinyinMethod()
 	fLooper = new MethodLooper(this);
 	fLooper->Run();
 	_LoadSettings();
+	// Deskbar paints the stored icon before MethodActivated() runs, so it
+	// has to be right before the first switch.
+	_UpdateIcon();
 }
 
 
@@ -390,6 +399,7 @@ PinyinMethod::_HandleModifiers(BMessage* message)
 		fEngine.SetChinese(!fEngine.Chinese());
 		_UpdateIcon();
 		_UpdateMenu();
+		_RepaintDeskbar();
 		_SaveSettings();
 		return true;
 	}
@@ -551,6 +561,7 @@ PinyinMethod::LooperMessage(BMessage* message)
 				fEngine.SetChinese(!fEngine.Chinese());
 				_Sync(&events);
 				_UpdateIcon();
+				_RepaintDeskbar();
 				break;
 			case kMsgSetLayout:
 				options.layout = message->GetString("layout", "full");
@@ -704,7 +715,7 @@ PinyinMethod::_UpdateMenu()
 void
 PinyinMethod::_UpdateIcon()
 {
-	bool chinese = fEngine.Chinese();
+	bool chinese = fLoaded ? fEngine.Chinese() : fSavedChinese;
 	BRect bounds(0, 0, 15, 15);
 	BBitmap canvas(bounds, B_RGB32, true);
 	if (canvas.InitCheck() != B_OK)
@@ -746,6 +757,21 @@ PinyinMethod::_UpdateIcon()
 	for (int corner : {0, 15, 240, 255})
 		icon[corner] = B_TRANSPARENT_MAGIC_CMAP8;
 	SetIcon(icon);
+}
+
+
+// SetIcon() only reaches the method's menu item; Deskbar repaints its icon
+// when told a method was activated. The add-on's record does that, then
+// calls MethodActivated(true) here again, which is harmless while active.
+void
+PinyinMethod::_RepaintDeskbar()
+{
+	// fOwner is BInputServerMethod's last member.
+	_BMethodAddOn_* owner = *(_BMethodAddOn_**)((char*)
+		static_cast<BInputServerMethod*>(this)
+		+ sizeof(BInputServerMethod) - sizeof(_BMethodAddOn_*));
+	if (fActive && owner != NULL)
+		owner->MethodActivated(true);
 }
 
 
