@@ -50,6 +50,7 @@ private:
 			void				_AskCloud();
 			void				_UpdateMenu();
 			void				_UpdateIcon();
+			void				_RepaintDeskbar();
 			void				_LoadSettings();
 			void				_SaveSettings();
 
