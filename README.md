@@ -42,6 +42,24 @@ on its own.
 
 To build it yourself instead, see Build below.
 
+## Install on Linux
+
+On Linux it's an [IBus](https://github.com/ibus/ibus) engine (GNOME,
+and anywhere else IBus runs). Build it with the IBus headers:
+
+```sh
+sudo apt install build-essential libibus-1.0-dev curl python3   # Debian/Ubuntu
+tools/fetch_sources.sh && make data ibus
+sudo make install-ibus && ibus restart     # into /usr, where IBus looks
+# or, without root (GNOME, or another systemd user session):
+linux/install-user.sh                      # into ~/.local; --remove undoes it
+```
+
+Then add **海酷拼音 Haiku Pinyin** under Settings → Keyboard → Input
+Sources → Chinese, and switch to it with Super+Space. Everything in Using it
+below applies, except that the settings live in the input source menu in the
+top bar, and are saved in `~/.config/haiku-pinyin/` with `user.dict`.
+
 ## Using it
 
 Pick **海酷拼音** from the keyboard menu in Deskbar, or cycle input methods
@@ -83,6 +101,7 @@ committed, to Google Input Tools. They're off until you turn them on.
 |---|---|
 | `engine/` | Portable C++17 engine: lexicon, syllable graph (full pinyin, shuangpin, 模糊音), bigram beam-search decoder, 联想, user dictionary, S→T converter |
 | `haiku/` | input_server method add-on and candidate window |
+| `linux/` | IBus engine (`ibus-engine-haiku-pinyin`), its component XML, `install-user.sh` |
 | `cli/hpcli.cpp` | Drive the engine from a terminal: `echo nihao \| build/hpcli --layout pyjj` |
 | `tests/` | Engine tests |
 | `tools/build_data.py` | Builds `build/data/` from `sources/` |

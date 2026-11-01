@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64">
+	<rect width="64" height="64" rx="12" fill="#2f6fd6"/>
+	<text x="32" y="46" font-size="40" font-weight="bold" text-anchor="middle"
+		font-family="Noto Sans CJK SC, Noto Sans SC, sans-serif" fill="#fff">中</text>
+</svg>

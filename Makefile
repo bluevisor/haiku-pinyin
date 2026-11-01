@@ -1,9 +1,13 @@
 # Haiku Pinyin. The engine, its tools and tests build anywhere; the input method
-# add-on builds on Haiku.
-#   make            engine, hpcli, tests (+ the add-on on Haiku)
+# add-on builds on Haiku, the IBus engine on Linux.
+#   make            engine, hpcli, tests (+ the add-on on Haiku, the IBus
+#                   engine on Linux when ibus-1.0 is found)
 #   make data       build/data from sources/ (tools/fetch_sources.sh first)
 #   make test       run the engine tests
 #   make install    (Haiku) the add-on and data into ~/config/non-packaged
+#   make ibus       (Linux) build/ibus-engine-haiku-pinyin
+#   sudo make install-ibus      (Linux) into PREFIX (/usr), where IBus looks
+#   linux/install-user.sh       (Linux) into ~/.local, no root needed
 
 CXX ?= c++
 CXXFLAGS ?= -O2 -g
@@ -20,7 +24,18 @@ ADDON := $(BUILD)/HaikuPinyin
 ADDON_SOURCES := $(wildcard haiku/*.cpp)
 ADDON_OBJECTS := $(ADDON_SOURCES:haiku/%.cpp=$(OBJ)/haiku_%.o)
 
-all: $(ENGINE) $(BUILD)/hpcli $(BUILD)/engine_test $(if $(HAIKU),$(ADDON))
+VERSION := $(shell cat VERSION)
+PKG_CONFIG ?= pkg-config
+LINUX := $(shell uname -s | grep -q Linux && echo yes)
+IBUS_FOUND := $(if $(LINUX),$(shell $(PKG_CONFIG) --exists ibus-1.0 && echo yes))
+IBUS_ENGINE := $(BUILD)/ibus-engine-haiku-pinyin
+PREFIX ?= /usr
+LIBEXECDIR ?= $(PREFIX)/libexec
+DATADIR ?= $(PREFIX)/share/haiku-pinyin
+COMPONENTDIR ?= $(PREFIX)/share/ibus/component
+
+all: $(ENGINE) $(BUILD)/hpcli $(BUILD)/engine_test $(if $(HAIKU),$(ADDON)) \
+	$(if $(IBUS_FOUND),$(IBUS_ENGINE))
 
 $(OBJ)/%.o: engine/%.cpp engine/*.h
 	@mkdir -p $(OBJ)
@@ -56,7 +71,33 @@ $(ADDON): $(ADDON_OBJECTS) $(ENGINE)
 install: all data
 	haiku/install.sh
 
-clean:
-	rm -rf $(OBJ) $(ENGINE) $(BUILD)/hpcli $(BUILD)/engine_test $(ADDON)
+ibus: $(IBUS_ENGINE)
 
-.PHONY: all data test install clean
+$(IBUS_ENGINE): linux/main.cpp engine/*.h $(ENGINE)
+	$(CXX) $(CXXFLAGS) $$($(PKG_CONFIG) --cflags ibus-1.0) \
+		-DHP_DATADIR='"$(DATADIR)"' -DHP_VERSION='"$(VERSION)"' \
+		$< $(ENGINE) $$($(PKG_CONFIG) --libs ibus-1.0) -pthread -o $@
+
+# IBus only reads components from /usr/share/ibus/component (or
+# $$IBUS_COMPONENT_PATH), so PREFIX defaults to /usr.
+install-ibus: $(IBUS_ENGINE) data
+	install -Dm755 $(IBUS_ENGINE) $(DESTDIR)$(LIBEXECDIR)/ibus-engine-haiku-pinyin
+	install -d $(DESTDIR)$(DATADIR)
+	install -m644 build/data/* linux/icon.svg $(DESTDIR)$(DATADIR)
+	install -d $(DESTDIR)$(COMPONENTDIR)
+	sed -e 's|@LIBEXECDIR@|$(LIBEXECDIR)|g' -e 's|@DATADIR@|$(DATADIR)|g' \
+		-e 's|@VERSION@|$(VERSION)|g' linux/haiku-pinyin.xml.in \
+		> $(DESTDIR)$(COMPONENTDIR)/haiku-pinyin.xml
+	@echo "Installed. Run 'ibus restart', then add 海酷拼音 Haiku Pinyin under"
+	@echo "Settings > Keyboard > Input Sources > Chinese."
+
+uninstall-ibus:
+	rm -f $(DESTDIR)$(LIBEXECDIR)/ibus-engine-haiku-pinyin \
+		$(DESTDIR)$(COMPONENTDIR)/haiku-pinyin.xml
+	rm -rf $(DESTDIR)$(DATADIR)
+
+clean:
+	rm -rf $(OBJ) $(ENGINE) $(BUILD)/hpcli $(BUILD)/engine_test $(ADDON) \
+		$(IBUS_ENGINE)
+
+.PHONY: all data test install ibus install-ibus uninstall-ibus clean
