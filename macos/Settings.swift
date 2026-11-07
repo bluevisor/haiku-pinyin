@@ -83,11 +83,18 @@ struct SettingsView: View {
 	@AppStorage("pageSize") private var pageSize = 7
 	@AppStorage("fullwidth") private var fullwidth = true
 	@AppStorage("emoji") private var emoji = true
-	@AppStorage("prediction") private var prediction = true
 	@AppStorage("english") private var english = true
 	@AppStorage("cloud") private var cloud = false
 	@AppStorage("fuzzy") private var fuzzy = 0
 	@AppStorage("vowels") private var vowels = 0	// engine's Vowels
+	@AppStorage("aiPicks") private var aiPicks = true
+	@AppStorage("aiComplete") private var aiComplete = true
+	@AppStorage("aiModel") private var aiModel = ""		// "": 自动
+	@State private var models = installedModels()
+
+	private var aiInstalled: Bool {
+		!models.isEmpty && Bundle.main.path(forAuxiliaryExecutable: "HaikuPinyinAI") != nil
+	}
 
 	private var version: String {
 		Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString")
@@ -147,9 +154,6 @@ struct SettingsView: View {
 			}
 
 			Section {
-				Toggle(isOn: $prediction) {
-					Row(title: "联想", symbol: "text.append", color: .green)
-				}
 				Toggle(isOn: $english) {
 					Row(title: "中英混输", symbol: "textformat.abc", color: .teal)
 				}
@@ -162,9 +166,45 @@ struct SettingsView: View {
 			} header: {
 				Text("候选")
 			} footer: {
-				Text("联想：上屏后列出可能接着输入的词，按数字键选择。中英混输：hello 也给出 hello。")
+				Text("中英混输：hello 也给出 hello。")
 					.foregroundStyle(.secondary)
 			}
+
+			Section {
+				Toggle(isOn: $aiPicks) {
+					Row(title: "AI 选词", symbol: "sparkles", color: .purple)
+				}
+				Toggle(isOn: $aiComplete) {
+					Row(title: "AI 补全 (Tab)", symbol: "text.append", color: .green)
+				}
+				Picker(selection: $aiModel) {
+					Text("自动").tag("")
+					ForEach(models, id: \.name) { model in
+						Text("\(model.name)  \(model.size)").tag(model.name)
+					}
+					// A chosen model that's gone: shown, so the choice is clear.
+					if !aiModel.isEmpty && !models.contains(where: { $0.name == aiModel }) {
+						Text("\(aiModel)（未找到）").tag(aiModel)
+					}
+				} label: {
+					Row(title: "模型", symbol: "cpu", color: .gray)
+				}
+				LabeledContent {
+					Button("在访达中显示") { revealModels() }
+						.glassButton()
+				} label: {
+					Row(title: "模型文件夹", symbol: "folder.fill", color: .blue)
+				}
+			} header: {
+				Text("AI")
+			} footer: {
+				Text(aiInstalled
+					? "在本机运行的语言模型读光标前的文字：把更通顺的候选排到第一（标 ✦），上屏后给出接下来的字，按 Tab 输入。文字不离开这台 Mac。自动：用 Qwen3-1.7B，这台 Mac 跑得慢时换小的。模型文件夹里的 MLX 模型都可以选。"
+					: "未安装模型：运行 macos/ai/fetch-models.sh，或把 MLX 模型放进模型文件夹。需要 Apple 芯片。")
+					.foregroundStyle(.secondary)
+			}
+			.disabled(!aiInstalled && models.isEmpty)
+			.onAppear { models = installedModels() }
 
 			Section("模糊音") {
 				ForEach(fuzzyGroups, id: \.mask) {
@@ -199,6 +239,13 @@ struct SettingsView: View {
 		.frame(minHeight: 360, idealHeight: 720)
 	}
 
+	private func revealModels() {
+		let folder = modelsFolder()
+		try? FileManager.default.createDirectory(at: folder,
+			withIntermediateDirectories: true)
+		NSWorkspace.shared.open(folder)
+	}
+
 	private func revealUserDictionary() {
 		let support = FileManager.default.urls(for: .applicationSupportDirectory,
 			in: .userDomainMask)[0].appendingPathComponent("HaikuPinyin")
@@ -208,6 +255,37 @@ struct SettingsView: View {
 		} else {
 			NSWorkspace.shared.open(support)
 		}
+	}
+}
+
+// ~/Library/Application Support/HaikuPinyin/models, as AI.mm has it.
+private func modelsFolder() -> URL {
+	FileManager.default.urls(for: .applicationSupportDirectory,
+		in: .userDomainMask)[0].appendingPathComponent("HaikuPinyin/models")
+}
+
+struct InstalledModel {
+	let name: String
+	let size: String		// of its weights
+}
+
+// The MLX models there: folders (or links to them) with a config.json.
+private func installedModels() -> [InstalledModel] {
+	let manager = FileManager.default
+	let folder = modelsFolder()
+	let names = (try? manager.contentsOfDirectory(atPath: folder.path)) ?? []
+	return names.sorted().compactMap { name in
+		let directory = folder.appendingPathComponent(name).resolvingSymlinksInPath()
+		guard manager.fileExists(atPath: directory.appendingPathComponent("config.json").path)
+		else { return nil }
+		let files = (try? manager.contentsOfDirectory(atPath: directory.path)) ?? []
+		let bytes = files.filter { $0.hasSuffix(".safetensors") }.reduce(Int64(0)) {
+			let size = (try? manager.attributesOfItem(atPath:
+				directory.appendingPathComponent($1).path)[.size]) as? Int64
+			return $0 + (size ?? 0)
+		}
+		return InstalledModel(name: name, size: ByteCountFormatter.string(
+			fromByteCount: bytes, countStyle: .file))
 	}
 }
 

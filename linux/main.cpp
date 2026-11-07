@@ -120,8 +120,6 @@ LoadSettings()
 			options.fullwidthPunctuation = on;
 		else if (name == "emoji")
 			options.emoji = on;
-		else if (name == "prediction")
-			options.prediction = on;
 		else if (name == "english")
 			options.english = on;
 		else if (name == "cloud")
@@ -153,7 +151,6 @@ SaveSettings()
 			<< "page_size=" << options.pageSize << "\n"
 			<< "fullwidth=" << options.fullwidthPunctuation << "\n"
 			<< "emoji=" << options.emoji << "\n"
-			<< "prediction=" << options.prediction << "\n"
 			<< "english=" << options.english << "\n"
 			<< "cloud=" << options.cloud << "\n"
 			<< "fuzzy=" << options.fuzzy << "\n"
@@ -297,8 +294,6 @@ BuildProperties()
 		"全角标点", options.fullwidthPunctuation));
 	ibus_prop_list_append(toggles, NewProperty("emoji", PROP_TYPE_TOGGLE,
 		"Emoji 候选", options.emoji));
-	ibus_prop_list_append(toggles, NewProperty("prediction", PROP_TYPE_TOGGLE,
-		"联想", options.prediction));
 	ibus_prop_list_append(toggles, NewProperty("english", PROP_TYPE_TOGGLE,
 		"中英混输", options.english));
 	ibus_prop_list_append(toggles, NewProperty("cloud", PROP_TYPE_TOGGLE,
@@ -384,7 +379,7 @@ static void
 ShowCandidates(IBusEngine* engine)
 {
 	haikupinyin::Engine& pinyin = sShared->engine;
-	if (!pinyin.Composing() && !pinyin.Predicting()) {
+	if (!pinyin.Composing()) {
 		HideCandidates(engine);
 		return;
 	}
@@ -426,7 +421,7 @@ ShowCandidates(IBusEngine* engine)
 	ibus_lookup_table_set_orientation(table, IBUS_ORIENTATION_HORIZONTAL);
 	ibus_engine_update_lookup_table(engine, table, TRUE);
 
-	// The spelled pinyin while composing; 联想 is just the words.
+	// The spelled pinyin while composing.
 	if (pinyin.Composing()) {
 		ibus_engine_update_auxiliary_text(engine,
 			ibus_text_new_from_string(pinyin.Spelled().c_str()), TRUE);
@@ -795,8 +790,6 @@ PropertyActivate(IBusEngine* engine, const gchar* name, guint state)
 		options.fullwidthPunctuation = !options.fullwidthPunctuation;
 	else if (property == "emoji")
 		options.emoji = !options.emoji;
-	else if (property == "prediction")
-		options.prediction = !options.prediction;
 	else if (property == "english")
 		options.english = !options.english;
 	else if (property == "cloud")

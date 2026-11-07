@@ -198,29 +198,94 @@ main(int argc, char** argv)
 		engine.Load(sData);
 		Type(engine, "zhongguo ");
 		engine.TakeCommit();
-		Expect("联想 after 中国", engine.Predicting() ? "yes" : "no", "yes");
-		std::vector<std::string> page = engine.PageCandidates();
-		bool found = false;
-		for (const std::string& candidate : page)
-			found = found || candidate == "人民";
-		Expect("联想 offers 人民", found ? "yes" : "no", "yes");
-		// Picking one commits it and predicts again; a letter moves on.
-		engine.SelectOnPage(0);
-		Expect("联想 commits", engine.TakeCommit().empty() ? "no" : "yes",
-			"yes");
-		Type(engine, "a");
-		Expect("typing ends 联想", engine.Predicting() ? "yes" : "no", "no");
-		engine.ProcessKey(Key::kEscape, 0, 0);
-		// Phrases come first: 祝你生日 -> 快乐.
-		engine.ProcessKey(Key::kEscape, 0, 0);
-		Type(engine, "zhunishengri ");
-		engine.TakeCommit();
-		Expect("phrase 联想", engine.PageCandidates().empty() ? ""
-			: engine.PageCandidates()[0], "快乐");
-		engine.ProcessKey(Key::kEscape, 0, 0);
 		// After 中国, "ren" puts 人 first.
-		Type(engine, "zhongguo ren");
+		Type(engine, "ren");
 		Expect("context", First(engine), "人");
+		engine.ProcessKey(Key::kEscape, 0, 0);
+		// The text before the cursor is context too: its last word.
+		engine.SetContextText("这件");
+		Type(engine, "shi");
+		Expect("field context 这件", First(engine), "事");
+		engine.ProcessKey(Key::kEscape, 0, 0);
+		engine.SetContextText("警方正在调查这起");
+		Type(engine, "shijian");
+		Expect("field context 这起", First(engine), "事件");
+		engine.ProcessKey(Key::kEscape, 0, 0);
+		engine.ClearContext();
+		Type(engine, "shi");
+		Expect("no context", First(engine), "是");
+		engine.ProcessKey(Key::kEscape, 0, 0);
+	}
+
+	// The AI's pick moves first when it's clearly better, unless the
+	// candidates changed since it was asked.
+	{
+		Engine engine;
+		engine.Load(sData);
+		engine.SetContextText("我妹妹说");
+		Type(engine, "ta");
+		Engine::AIQuery query = engine.AIPickQuery();
+		Expect("pick prompt", query.prompt, "我妹妹说");
+		std::vector<double> scores(query.options.size(), -9);
+		scores[0] = -5;
+		for (size_t i = 0; i < query.options.size(); i++) {
+			if (query.options[i] == "她")
+				scores[i] = -1;
+		}
+		Expect("pick taken", engine.SetAIPickResult(query, scores) ? "yes" : "no",
+			"yes");
+		Expect("picked first", First(engine), "她");
+		Expect("pick marked", std::to_string(engine.AIIndexOnPage()), "0");
+		Expect("stale pick", engine.SetAIPickResult(query, scores) ? "yes" : "no",
+			"no");
+		Expect("no second question", engine.AIPickQuery().options.empty()
+			? "yes" : "no", "yes");
+		engine.ProcessKey(Key::kEscape, 0, 0);
+
+		// A narrow lead leaves the engine's order.
+		Type(engine, "ta");
+		query = engine.AIPickQuery();
+		scores.assign(query.options.size(), -9);
+		scores[0] = -2;
+		scores[1] = -1.5;
+		Expect("narrow lead", engine.SetAIPickResult(query, scores) ? "yes" : "no",
+			"no");
+		// Only candidates that spell all the keys are options.
+		Type(engine, "de");
+		bool partial = false;
+		for (const std::string& option : engine.AIPickQuery().options)
+			partial = partial || option == "他";
+		Expect("only whole spellings", partial ? "yes" : "no", "no");
+		engine.ProcessKey(Key::kEscape, 0, 0);
+	}
+
+	// After a commit, the AI's completion is offered; Tab takes it, another
+	// key drops it.
+	{
+		Engine engine;
+		engine.Load(sData);
+		engine.ClearContext();
+		Type(engine, "zhuni shengri ");
+		engine.TakeCommit();
+		std::string prompt = engine.AICompletionQuery();
+		Expect("completion prompt", prompt, "祝你生日");
+		Expect("completion taken", engine.SetAICompletion(prompt, "快乐")
+			? "yes" : "no", "yes");
+		Expect("suggestion", engine.Suggestion(), "快乐");
+		engine.ProcessKey(Key::kTab, 0, 0);
+		Expect("tab commits it", engine.TakeCommit(), "快乐");
+		Expect("context grows", engine.ContextText(), "祝你生日快乐");
+		engine.SetAICompletion(engine.AICompletionQuery(), "啊");
+		Type(engine, "n");
+		Expect("a key drops it", engine.Suggestion(), "");
+		engine.ProcessKey(Key::kEscape, 0, 0);
+		Expect("stale completion", engine.SetAICompletion("祝你", "好")
+			? "yes" : "no", "no");
+		Type(engine, ",");
+		engine.TakeCommit();
+		Expect("not after punctuation", engine.AICompletionQuery(), "");
+		engine.ProcessKey(Key::kReturn, 0, 0);
+		Expect("return clears context", engine.ContextText(), "");
 	}
 
 	// English among the candidates.

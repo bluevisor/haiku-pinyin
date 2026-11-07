@@ -11,10 +11,6 @@ build/data/english.txt    English words, one per line
 build/data/bigram.bin     word pairs: "HPBIGR01", u32 count, then (u32 hash of
                           the first word, u32 hash of the second, f32
                           ln P(second | first)) sorted by the hashes
-build/data/predict.bin    likeliest next words (联想): "HPPRED01", u32 count,
-                          u32 word bytes, then (u32 hash of the first word,
-                          u32 offset, u32 length, f32 ln P) sorted by hash
-                          and likelihood, then the words (UTF-8)
 
 Hashes are 32-bit FNV-1a of the UTF-8 word.
 
@@ -218,10 +214,6 @@ def build_emoji():
 
 
 BIGRAM_MIN_COUNT = 5		# rarer pairs say little and cost room
-PREDICTIONS = 9				# 联想 kept per word
-PREDICTION_MIN_WEIGHT = 20000	# rime-ice weight a 联想 word needs: drops
-							# libpinyin's odd tokens (中的, 你了)
-PARTICLES = "的了啊吗呢吧"		# nor a word hanging off one: 他的, 你啊, 的人
 
 
 def fnv1a(text):
@@ -231,7 +223,7 @@ def fnv1a(text):
 	return h
 
 
-def build_bigram(weights):
+def build_bigram():
 	totals, pairs = {}, []
 	section = None
 	with open(os.path.join(SOURCES, "libpinyin", "interpolation2.text"),
@@ -252,38 +244,16 @@ def build_bigram(weights):
 				pairs.append((first, second, count))
 
 	records = {}
-	successors = {}
 	for first, second, count in pairs:
 		logp = math.log(count / totals[first])
 		key = (fnv1a(first), fnv1a(second))
 		records[key] = max(records.get(key, -1e9), logp)
-		# Predictions are words of two characters or more: 的 and 了 after
-		# everything would crowd them out.
-		if len(second) >= 2 and all("\u4e00" <= c <= "\u9fff" for c in second) \
-				and weights.get(second, 0) >= PREDICTION_MIN_WEIGHT \
-				and second[0] != "的" and second[-1] not in PARTICLES:
-			successors.setdefault(first, []).append((logp, second))
 
 	with open(os.path.join(OUT, "bigram.bin"), "wb") as f:
 		f.write(struct.pack("<8sI", b"HPBIGR01", len(records)))
 		for (h1, h2) in sorted(records):
 			f.write(struct.pack("<IIf", h1, h2, records[(h1, h2)]))
-
-	entries, pool = [], bytearray()
-	for first, following in successors.items():
-		following.sort(reverse=True)
-		for logp, second in following[:PREDICTIONS]:
-			data = second.encode()
-			entries.append((fnv1a(first), -logp, len(pool), len(data), logp))
-			pool += data
-	entries.sort()
-	with open(os.path.join(OUT, "predict.bin"), "wb") as f:
-		f.write(struct.pack("<8sII", b"HPPRED01", len(entries), len(pool)))
-		for h, _, offset, length, logp in entries:
-			f.write(struct.pack("<IIIf", h, offset, length, logp))
-		f.write(pool)
-	print(f"bigram.bin: {len(records)} pairs; predict.bin: {len(entries)} "
-		f"for {len(successors)} words")
+	print(f"bigram.bin: {len(records)} pairs")
 
 
 def build_english():
@@ -298,14 +268,14 @@ def build_english():
 
 def main():
 	os.makedirs(OUT, exist_ok=True)
-	syllables, weights = build_lexicon()
+	syllables, _ = build_lexicon()
 	build_shuangpin(syllables)
 	build_table("s2t.txt", ["STPhrases", "STCharacters"])
 	build_table("tw.txt", ["TWPhrases", "TWVariants"])
 	build_table("hk.txt", ["HKVariants"])
 	build_emoji()
 	build_english()
-	build_bigram(weights)
+	build_bigram()
 
 
 if __name__ == "__main__":

@@ -34,14 +34,14 @@ shift_tap() { focused; xdotool keydown Shift_L; sleep 0.05; xdotool keyup Shift_
 t zgr; k space				# 中国人 (abbreviation)
 t ,						# ，
 shift_tap; t "hello "; shift_tap	# English mode
-t nihao; k 1				# 你好, then 联想 shows
-t .						# 。 (联想 dropped)
+t nihao; k 1				# 你好
+t .						# 。
 t bjdx; k Return			# bjdx, as typed
 t zhongguo; k Escape		# nothing
 t shuru; k bracketright		# 入 (以词定字)
 k Return
 t wozaixuexizhongwen; k space	# a sentence
-t shengri; k space; k 1		# 生日, then 联想 1 (快乐)
+t shengrikuaile; k space	# 生日快乐
 k Return
 t xiexie; k equal minus 1	# page on and back, then 谢谢
 t nihaoma; k BackSpace BackSpace space	# 你好

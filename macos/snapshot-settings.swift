@@ -28,7 +28,7 @@ struct SnapshotSettings {
 				? .darkAqua : .aqua)
 			NSApp.appearance = backdrop.appearance
 			backdrop.orderFrontRegardless()
-			showCandidates("啥玩意兒\n啥玩意\n殺完\n沙灣\n傻", 0, 2, false, true,
+			showCandidates("啥玩意兒\n啥玩意\n殺完\n沙灣\n傻", 0, 2, 0, false, true,
 				420, 470, 20)
 			RunLoop.main.run(until: Date().addingTimeInterval(0.5))
 			capture(NSApp.windows.first { $0 is NSPanel }!, to: arguments[1])

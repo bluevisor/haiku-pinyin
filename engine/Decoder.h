@@ -32,10 +32,11 @@ struct Candidate {
 	float cost;
 	std::vector<SyllableId> key;
 	bool sentence;		// built from several words
-	std::string tail;	// the last word, for what follows (联想, bigrams)
+	std::string tail;	// the last word, the context for what follows
 	bool raw = false;	// keys no word explains are in it
 	bool guessed = false;	// some syllables were abbreviated or unfinished
 	bool cloud = false;	// from the cloud
+	bool ai = false;	// moved first by the AI
 	bool english = false;
 };
 

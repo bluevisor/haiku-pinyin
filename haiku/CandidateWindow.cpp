@@ -99,7 +99,6 @@ CandidateView::_Layout()
 	font_height spelledHeight, candidateHeight;
 	fSpelledFont.GetHeight(&spelledHeight);
 	fCandidateFont.GetHeight(&candidateHeight);
-	// 联想 has no pinyin to show: candidates only.
 	float top = kPadding;
 	if (!fSpelled.IsEmpty())
 		top += ceilf(spelledHeight.ascent + spelledHeight.descent) + kRowGap;

@@ -21,7 +21,11 @@ extern "C" void HPShowModeBubble(bool chinese, double x, double y);
 // Candidates.swift. candidates: the page, joined with newlines.
 typedef void (*HPIndexHandler)(int32_t);
 extern "C" void HPSetCandidateHandlers(HPIndexHandler pick, HPIndexHandler page);
+// ai: the candidate the AI moved first, or -1.
 extern "C" void HPShowCandidates(const char* candidates, int32_t highlight,
-	int32_t cloud, bool hasPrevious, bool hasNext, double x, double y,
+	int32_t cloud, int32_t ai, bool hasPrevious, bool hasNext, double x,
+	double y, double lineHeight);
+// An AI completion, taken with Tab.
+extern "C" void HPShowSuggestion(const char* text, double x, double y,
 	double lineHeight);
 extern "C" void HPHideCandidates(void);

@@ -12,7 +12,7 @@ ice=https://raw.githubusercontent.com/iDvel/rime-ice/main/cn_dicts
 for f in 8105 41448 base ext; do curl -fsSLO "$ice/$f.dict.yaml"; done
 curl -fsSLO https://raw.githubusercontent.com/iDvel/rime-ice/main/opencc/emoji.txt
 curl -fsSLO https://raw.githubusercontent.com/iDvel/rime-ice/main/en_dicts/en.dict.yaml
-# libpinyin's open-gram model: word bigrams for sentences and 联想
+# libpinyin's open-gram model: word bigrams for sentences
 mkdir -p libpinyin
 curl -fsSL https://downloads.sourceforge.net/libpinyin/models/model20.text.tar.gz \
 	| tar xzf - -C libpinyin interpolation2.text

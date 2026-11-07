@@ -4,9 +4,12 @@
 // becomes the client's marked text, and its page of candidates goes to the
 // candidate window (Candidates.swift). A Shift tap switches 中/英. The
 // settings window (Settings.swift) writes the user defaults; they're applied
-// as they change.
+// as they change. With the AI helper (AI.mm) running, a language model that
+// reads the text before the cursor moves the candidate it likes first, and
+// offers what likely comes after a commit, taken with Tab.
 
 #import "InputController.h"
+#import "AI.h"
 
 #import <Carbon/Carbon.h>
 
@@ -19,8 +22,36 @@ using haikupinyin::Key;
 
 static const NSTimeInterval kShiftTapLimit = 0.4;
 static const double kCloudDelay = 0.12;		// seconds, let typing settle
+// How sure the AI must be of a completion, all of it, to offer it.
+static const double kAIThreshold = 0.7;
+static const NSUInteger kContextLength = 64;	// characters before the cursor
 
 // #pragma mark - shared state
+
+
+// `defaults write com.bluevisor.inputmethod.HaikuPinyin debugLog -bool YES`
+// and restart it: every key, where it came from and what was sent back, in
+// ~/Library/Logs/HaikuPinyin.log.
+static bool sDebug;
+static FILE* sDebugFile;
+#define HPDebug(...) do { if (sDebug) DebugLine([NSString stringWithFormat:__VA_ARGS__]); } while (0)
+
+static void
+DebugLine(NSString* line)
+{
+	if (sDebugFile == nullptr) {
+		NSString* path = [NSHomeDirectory()
+			stringByAppendingPathComponent:@"Library/Logs/HaikuPinyin.log"];
+		sDebugFile = fopen(path.fileSystemRepresentation, "a");
+		if (sDebugFile == nullptr)
+			return;
+	}
+	NSDateFormatter* format = [NSDateFormatter new];
+	format.dateFormat = @"HH:mm:ss.SSS";
+	fprintf(sDebugFile, "%s %s\n", [format stringFromDate:NSDate.date].UTF8String,
+		line.UTF8String);
+	fflush(sDebugFile);
+}
 
 
 static haikupinyin::Engine* sEngine;
@@ -28,6 +59,8 @@ static bool sLoaded;
 static __weak HPInputController* sLast;	// the client the engine state is for
 static std::string sCloudAsked;			// in flight
 static std::string sCloudAnswered;		// last asked
+static uint32_t sAIPickAsked = UINT32_MAX;	// the candidates' revision
+static std::string sAICompletionAsked;		// the text
 
 
 static NSString*
@@ -62,11 +95,12 @@ RegisterDefaults()
 		@"pageSize": @(options.pageSize),
 		@"fullwidth": @(options.fullwidthPunctuation),
 		@"emoji": @(options.emoji),
-		@"prediction": @(options.prediction),
 		@"english": @(options.english),
 		@"cloud": @(options.cloud),
 		@"fuzzy": @(options.fuzzy),
 		@"vowels": @(int(options.vowels)),
+		@"aiPicks": @YES,
+		@"aiComplete": @YES,
 	}];
 }
 
@@ -84,7 +118,6 @@ LoadSettings()
 		options.pageSize = int(size);
 	options.fullwidthPunctuation = [defaults boolForKey:@"fullwidth"];
 	options.emoji = [defaults boolForKey:@"emoji"];
-	options.prediction = [defaults boolForKey:@"prediction"];
 	options.english = [defaults boolForKey:@"english"];
 	options.cloud = [defaults boolForKey:@"cloud"];
 	options.fuzzy = unsigned([defaults integerForKey:@"fuzzy"]);
@@ -101,7 +134,7 @@ SameOptions(const haikupinyin::Options& a, const haikupinyin::Options& b)
 	return a.layout == b.layout && a.script == b.script
 		&& a.pageSize == b.pageSize
 		&& a.fullwidthPunctuation == b.fullwidthPunctuation
-		&& a.emoji == b.emoji && a.prediction == b.prediction
+		&& a.emoji == b.emoji
 		&& a.english == b.english && a.cloud == b.cloud && a.fuzzy == b.fuzzy
 		&& a.vowels == b.vowels;
 }
@@ -120,7 +153,11 @@ PickCandidate(int32_t index)
 	HPInputController* last = sLast;
 	if (!sLoaded || last == nil)
 		return;
-	sEngine->SelectOnPage(index);
+	// The AI's completion, alone in the window: as with Tab.
+	if (!sEngine->Composing() && !sEngine->Suggestion().empty())
+		sEngine->ProcessKey(Key::kTab, 0, 0);
+	else
+		sEngine->SelectOnPage(index);
 	[last sync];
 }
 
@@ -158,6 +195,8 @@ HPSetUp(IMKServer* server)
 	// observer below: registering defaults posts a change.)
 	RegisterDefaults();
 	sEngine->SetOptions(LoadSettings());
+	sDebug = [NSUserDefaults.standardUserDefaults boolForKey:@"debugLog"];
+	HPAIUpdate();
 
 	HPSetCandidateHandlers(PickCandidate, TurnPage);
 
@@ -165,6 +204,7 @@ HPSetUp(IMKServer* server)
 	[NSNotificationCenter.defaultCenter
 		addObserverForName:NSUserDefaultsDidChangeNotification object:nil
 		queue:NSOperationQueue.mainQueue usingBlock:^(NSNotification*) {
+			HPAIUpdate();
 			haikupinyin::Options options = LoadSettings();
 			if (SameOptions(options, sEngine->GetOptions()))
 				return;
@@ -271,9 +311,17 @@ CloudAnswer(NSData* data, NSString* query)
 
 
 @implementation HPInputController {
+	__weak id _client;			// where the last event came from
 	BOOL _shiftAlone;
 	NSTimeInterval _shiftDown;
 	BOOL _markedShown;
+}
+
+
+- (void)takeClient:(id)sender
+{
+	if ([sender respondsToSelector:@selector(insertText:replacementRange:)])
+		_client = sender;
 }
 
 
@@ -283,9 +331,14 @@ CloudAnswer(NSData* data, NSString* query)
 }
 
 
+// The text field the last key came from. IMK passes it with each event, and
+// it isn't always self.client: answering that instead sends the composition
+// to another view of the app (winit apps such as Temino then type the raw
+// letters).
 - (id<IMKTextInput>)textClient
 {
-	return (id<IMKTextInput>)self.client;
+	id client = _client != nil ? _client : self.client;
+	return (id<IMKTextInput>)client;
 }
 
 
@@ -326,6 +379,7 @@ CloudAnswer(NSData* data, NSString* query)
 		// Replaces the marked text, if any.
 		[client insertText:NS(commit)
 			replacementRange:NSMakeRange(NSNotFound, NSNotFound)];
+		HPDebug(@"insertText %s to %p", commit.c_str(), client);
 		_markedShown = NO;
 	}
 
@@ -351,6 +405,7 @@ CloudAnswer(NSData* data, NSString* query)
 		[client setMarkedText:marked
 			selectionRange:NSMakeRange(text.length, 0)
 			replacementRange:NSMakeRange(NSNotFound, NSNotFound)];
+		HPDebug(@"setMarkedText %@ to %p", text, client);
 		_markedShown = YES;
 	} else
 		[self hideComposition];
@@ -361,11 +416,22 @@ CloudAnswer(NSData* data, NSString* query)
 
 - (void)showCandidates
 {
-	if (!sEngine->Composing() && !sEngine->Predicting()) {
-		HPHideCandidates();
+	// Under the start of the composition, or the cursor.
+	NSRect line = NSZeroRect;
+	[self.textClient attributesForCharacterIndex:0 lineHeightRectangle:&line];
+	if (!sEngine->Composing()) {
+		std::string suggestion = sEngine->Suggestion();
+		if (suggestion.empty()) {
+			HPHideCandidates();
+			[self askAICompletion];
+		} else {
+			HPShowSuggestion(suggestion.c_str(), line.origin.x, line.origin.y,
+				line.size.height);
+		}
 		return;
 	}
 	[self askCloud];
+	[self askAIPick];
 
 	std::string joined;
 	for (const std::string& candidate : sEngine->PageCandidates()) {
@@ -373,11 +439,9 @@ CloudAnswer(NSData* data, NSString* query)
 			joined += '\n';
 		joined += candidate;
 	}
-	// Under the start of the composition.
-	NSRect line = NSZeroRect;
-	[self.textClient attributesForCharacterIndex:0 lineHeightRectangle:&line];
 	HPShowCandidates(joined.c_str(), sEngine->Highlighted(),
-		sEngine->CloudIndexOnPage(), sEngine->HasPreviousPage(),
+		sEngine->CloudIndexOnPage(), sEngine->AIIndexOnPage(),
+		sEngine->HasPreviousPage(),
 		sEngine->HasNextPage(), line.origin.x, line.origin.y,
 		line.size.height);
 }
@@ -388,9 +452,14 @@ CloudAnswer(NSData* data, NSString* query)
 
 - (BOOL)handleEvent:(NSEvent*)event client:(id)sender
 {
+	[self takeClient:sender];
 	if (!sLoaded)
 		return NO;
 	[self claim];
+	if (event.type == NSEventTypeKeyDown && (event.modifierFlags
+			& NSEventModifierFlagCapsLock) != 0) {
+		HPDebug(@"key %hu with Caps Lock: English", event.keyCode);
+	}
 
 	if (event.type == NSEventTypeFlagsChanged) {
 		[self flagsChanged:event];
@@ -413,7 +482,16 @@ CloudAnswer(NSData* data, NSString* query)
 	if (key == Key::kTab && (modifiers & haikupinyin::kShift) != 0)
 		key = Key::kPageUp;
 
+	// A word starts: what's before the cursor is its context.
+	if (!sEngine->Composing() && key == Key::kCharacter && sEngine->Chinese())
+		[self readContext];
 	bool used = sEngine->ProcessKey(key, character, modifiers);
+	HPDebug(@"key %hu %@ flags %lx from %@ (%p, self.client %p): %s, composing %d, chinese %d",
+		event.keyCode, event.characters, (unsigned long)event.modifierFlags,
+		[sender respondsToSelector:@selector(bundleIdentifier)]
+			? [sender bundleIdentifier] : @"?",
+		sender, self.client, used ? "used" : "passed", sEngine->Composing(),
+		sEngine->Chinese());
 	[self sync];
 	return used ? YES : NO;
 }
@@ -438,8 +516,10 @@ CloudAnswer(NSData* data, NSString* query)
 	}
 	bool tap = _shiftAlone && event.timestamp - _shiftDown <= kShiftTapLimit;
 	_shiftAlone = NO;
-	if (tap)
+	if (tap) {
+		HPDebug(@"Shift tap: %s", sEngine->Chinese() ? "英" : "中");
 		[self toggleChinese];
+	}
 }
 
 
@@ -448,10 +528,16 @@ CloudAnswer(NSData* data, NSString* query)
 	bool chinese = !sEngine->Chinese();
 	sEngine->SetChinese(chinese);
 	[self sync];
-	// Which one is on, under the text for a moment.
+	[self showMode];
+}
+
+
+// Which one is on, under the text for a moment.
+- (void)showMode
+{
 	NSRect line = NSZeroRect;
 	[self.textClient attributesForCharacterIndex:0 lineHeightRectangle:&line];
-	HPShowModeBubble(chinese, line.origin.x, line.origin.y);
+	HPShowModeBubble(sEngine->Chinese(), line.origin.x, line.origin.y);
 }
 
 
@@ -460,7 +546,13 @@ CloudAnswer(NSData* data, NSString* query)
 
 - (void)activateServer:(id)sender
 {
+	[self takeClient:sender];
+	HPDebug(@"activate %@ (%p)", [sender respondsToSelector:@selector(bundleIdentifier)]
+		? [sender bundleIdentifier] : @"?", sender);
 	[self claim];
+	// English is easy to forget it's on: say so on arriving in a field.
+	if (sLoaded && !sEngine->Chinese())
+		[self showMode];
 }
 
 
@@ -477,6 +569,7 @@ CloudAnswer(NSData* data, NSString* query)
 // input source): the letters go in as typed, as with Return.
 - (void)commitComposition:(id)sender
 {
+	[self takeClient:sender];
 	if (!sLoaded || sLast != self)
 		return;
 	if (sEngine->Composing())
@@ -492,13 +585,12 @@ CloudAnswer(NSData* data, NSString* query)
 - (NSMenu*)menu
 {
 	NSMenu* menu = [NSMenu new];
-	NSMenuItem* mode = [[NSMenuItem alloc]
-		initWithTitle:sLoaded && !sEngine->Chinese()
-			? @"切换到中文 (Shift)" : @"切换到英文 (Shift)"
-		action:@selector(toggleFromMenu:) keyEquivalent:@""];
-	[menu addItem:mode];
 	[menu addItem:[[NSMenuItem alloc] initWithTitle:@"设置…"
 		action:@selector(showPreferences:) keyEquivalent:@""]];
+	[menu addItem:[[NSMenuItem alloc]
+		initWithTitle:sLoaded && !sEngine->Chinese()
+			? @"现在是英文：切换到中文 (Shift)" : @"切换到英文 (Shift)"
+		action:@selector(toggleFromMenu:) keyEquivalent:@""]];
 	return menu;
 }
 
@@ -508,6 +600,7 @@ CloudAnswer(NSData* data, NSString* query)
 	if (!sLoaded)
 		return;
 	[self claim];
+	HPDebug(@"menu: %s", sEngine->Chinese() ? "英" : "中");
 	[self toggleChinese];
 }
 
@@ -515,6 +608,76 @@ CloudAnswer(NSData* data, NSString* query)
 - (void)showPreferences:(id)sender
 {
 	HPShowSettings();
+}
+
+
+// #pragma mark - AI
+
+
+// The text before the cursor, for clients that say (many terminals don't:
+// the engine then goes by what was typed here).
+- (void)readContext
+{
+	id<IMKTextInput> client = self.textClient;
+	NSRange selection = [client selectedRange];
+	if (selection.location == NSNotFound)
+		return;
+	NSUInteger start = selection.location > kContextLength
+		? selection.location - kContextLength : 0;
+	NSAttributedString* text = [client attributedSubstringFromRange:
+		NSMakeRange(start, selection.location - start)];
+	if (text != nil)
+		sEngine->SetContextText(text.string.UTF8String);
+}
+
+
+// As with the cloud: the engine says what to ask, the helper answers on the
+// side, and the engine takes the answer if it still fits. Which candidate
+// reads best after the text, as the keys change.
+- (void)askAIPick
+{
+	if (!HPAIReady() || ![NSUserDefaults.standardUserDefaults boolForKey:@"aiPicks"])
+		return;
+	haikupinyin::Engine::AIQuery query = sEngine->AIPickQuery();
+	if (query.options.empty() || query.revision == sAIPickAsked)
+		return;
+	sAIPickAsked = query.revision;
+	NSMutableArray<NSString*>* options = [NSMutableArray new];
+	for (const std::string& option : query.options)
+		[options addObject:NS(option)];
+	HPAIRank(NS(query.prompt), options, ^(NSArray<NSNumber*>* answer) {
+		std::vector<double> scores;
+		for (NSNumber* score : answer)
+			scores.push_back(score.doubleValue);
+		HPInputController* last = sLast;
+		bool moved = sLoaded && sEngine->SetAIPickResult(query, scores);
+		HPDebug(@"AI pick after %s: %s", query.prompt.c_str(),
+			moved ? "moved" : "kept");
+		if (moved && last != nil)
+			[last showCandidates];
+	});
+}
+
+
+// What likely comes after a commit.
+- (void)askAICompletion
+{
+	if (!HPAIReady()
+		|| ![NSUserDefaults.standardUserDefaults boolForKey:@"aiComplete"]) {
+		return;
+	}
+	std::string prompt = sEngine->AICompletionQuery();
+	if (prompt.empty() || prompt == sAICompletionAsked)
+		return;
+	sAICompletionAsked = prompt;
+	HPAIComplete(NS(prompt), kAIThreshold, ^(NSString* text) {
+		HPInputController* last = sLast;
+		if (sLoaded && sEngine->SetAICompletion(prompt, text.UTF8String)
+			&& last != nil) {
+			HPDebug(@"AI completion after %s: %@", prompt.c_str(), text);
+			[last showCandidates];
+		}
+	});
 }
 
 
