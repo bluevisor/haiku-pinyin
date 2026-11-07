@@ -76,6 +76,9 @@ main(int argc, char** argv)
 	ExpectFirst("pyjj", Script::kSimplified, "nihd", "你好");
 	ExpectFirst("pyjj", Script::kSimplified, "iurufa", "输入法");
 		// pyjj: sh=i, so 输 is "iu"; "uu" is 出
+	// A lone a (not "aa") is a syllable, and the pairs after it still line up.
+	ExpectFirst("pyjj", Script::kSimplified, "iawfyieqawwirme",
+		"啥玩意儿啊为什么");
 	ExpectFirst("xiaohe", Script::kSimplified, "vsgo", "中国");
 	ExpectFirst("xiaohe", Script::kSimplified, "uurufa", "输入法");
 	ExpectFirst("ziranma", Script::kSimplified, "vsgo", "中国");
