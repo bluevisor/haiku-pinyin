@@ -168,7 +168,9 @@ Engine::ProcessKey(Key key, char32_t character, uint32_t modifiers)
 
 	if (Composing()) {
 		bool used = _Compose(key, character);
-		fLastCharacter = key == Key::kCharacter ? character : 0;
+		// Digits pick candidates here; they never reach the text.
+		bool digit = character >= '0' && character <= '9';
+		fLastCharacter = key == Key::kCharacter && !digit ? character : 0;
 		return used;
 	}
 
