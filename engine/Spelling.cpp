@@ -13,6 +13,8 @@ static const float kUnfinishedPenalty = 1.5f;
 	// the last syllable is still being typed: "zho"
 static const float kAbbreviationPenalty = 3.0f;
 	// an initial standing for a whole syllable: "zgr" for 中国人
+static const float kSingleVowelPenalty = 1.0f;
+	// shuangpin: a, o or e typed once, for the syllable alone
 
 static const char* const kInitials[] = {
 	"b", "p", "m", "f", "d", "t", "n", "l", "g", "k", "h", "j", "q", "x",
@@ -304,12 +306,27 @@ Shuangpin::Parse(const std::string& layoutName, std::string_view keys,
 		return;
 	const Layout& layout = found->second;
 
-	int from = 0;
-	while (from < length) {
+	// Keys go in pairs, but a, o or e typed once is a syllable too, as
+	// shuangpin methods allow ("er a wei" for 儿啊为): so a pair can start at
+	// more than one place.
+	std::vector<bool> reachable(length + 1, false);
+	reachable[0] = true;
+	for (int from = 0; from < length; from++) {
+		if (!reachable[from])
+			continue;
 		if (keys[from] == '\'') {
 			graph.Add(SyllableEdge{from, from + 1, {}, true, 0, "'"});
-			from++;
+			reachable[from + 1] = true;
 			continue;
+		}
+		char key = keys[from];
+		if (key == 'a' || key == 'o' || key == 'e') {
+			int vowel = syllables.Find(std::string(1, key));
+			if (vowel >= 0 && from + 1 < length && keys[from + 1] != '\'') {
+				graph.Add(SyllableEdge{from, from + 1, {SyllableId(vowel)}, true,
+					kSingleVowelPenalty, std::string(1, key)});
+				reachable[from + 1] = true;
+			}
 		}
 		if (from + 1 < length && keys[from + 1] != '\'') {
 			auto code = layout.codes.find(std::string(keys.substr(from, 2)));
@@ -320,16 +337,16 @@ Shuangpin::Parse(const std::string& layoutName, std::string_view keys,
 				graph.Add(SyllableEdge{from, from + 2, code->second, true, 0,
 					display});
 			}
-			from += 2;
+			reachable[from + 2] = true;
 			continue;
 		}
-		auto first = layout.firstKeys.find(keys[from]);
+		auto first = layout.firstKeys.find(key);
 		if (first != layout.firstKeys.end()) {
 			graph.Add(SyllableEdge{from, from + 1, first->second, false,
 				kUnfinishedPenalty,
-				CommonStart(first->second, syllables, keys[from])});
+				CommonStart(first->second, syllables, key)});
 		}
-		from++;
+		reachable[from + 1] = true;
 	}
 }
 

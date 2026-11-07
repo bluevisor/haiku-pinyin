@@ -8,6 +8,8 @@
 #   make ibus       (Linux) build/ibus-engine-haiku-pinyin
 #   sudo make install-ibus      (Linux) into PREFIX (/usr), where IBus looks
 #   linux/install-user.sh       (Linux) into ~/.local, no root needed
+#   make mac        (macOS) build/HaikuPinyin.app, universal
+#   make install-mac            (macOS) into ~/Library/Input Methods
 
 CXX ?= c++
 CXXFLAGS ?= -O2 -g
@@ -96,8 +98,17 @@ uninstall-ibus:
 		$(DESTDIR)$(COMPONENTDIR)/haiku-pinyin.xml
 	rm -rf $(DESTDIR)$(DATADIR)
 
+# The app bundle builds with clang and swiftc from a script: two
+# architectures, Settings.swift, the data inside, signing.
+mac: data
+	macos/build.sh
+
+install-mac: mac
+	macos/install.sh
+
 clean:
 	rm -rf $(OBJ) $(ENGINE) $(BUILD)/hpcli $(BUILD)/engine_test $(ADDON) \
 		$(IBUS_ENGINE)
 
-.PHONY: all data test install ibus install-ibus uninstall-ibus clean
+.PHONY: all data test install ibus install-ibus uninstall-ibus mac install-mac \
+	clean

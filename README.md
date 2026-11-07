@@ -1,6 +1,6 @@
 # 海酷拼音 Haiku Pinyin
 
-A modern Chinese input method for Haiku, in the spirit of 搜狗拼音 and the
+A modern Chinese input method for Haiku (and Linux and macOS), in the spirit of 搜狗拼音 and the
 macOS pinyin input: whole-sentence conversion, abbreviations (`zgr` → 中国人,
 `bjdx` → 北京大学), half-typed syllables, learning from what you pick, and
 inline composition.
@@ -64,6 +64,24 @@ started outside the desktop session need `GTK_IM_MODULE=ibus` to reach it. Every
 below applies, except that the settings live in the input source menu in the
 top bar, and are saved in `~/.config/haiku-pinyin/` with `user.dict`.
 
+## Install on macOS
+
+On a Mac it's an InputMethodKit input method (macOS 13 or later, Apple
+silicon or Intel). Build it with Xcode's command line tools:
+
+```sh
+tools/fetch_sources.sh && make data install-mac   # into ~/Library/Input Methods
+```
+
+Then add it yourself, as macOS asks: System Settings → Keyboard → Input
+Sources → Edit… → **+** → Chinese, Simplified → **Haiku Pinyin**, and switch
+to it with Control+Space or 🌐. The candidates show in the system's own
+candidate window. A Shift tap switches 中/英, with a 中 or 英 by the text to
+say which; **设置…** in the input menu opens the settings window. Control-Delete
+forgets a learned word. What it learns is in
+`~/Library/Application Support/HaikuPinyin/user.dict`; `macos/install.sh
+--remove` uninstalls it.
+
 ## Using it
 
 Pick **海酷拼音** from the keyboard menu in Deskbar, or cycle input methods
@@ -105,6 +123,7 @@ committed, to Google Input Tools. They're off until you turn them on.
 |---|---|
 | `engine/` | Portable C++17 engine: lexicon, syllable graph (full pinyin, shuangpin, 模糊音), bigram beam-search decoder, 联想, user dictionary, S→T converter |
 | `haiku/` | input_server method add-on and candidate window |
+| `macos/` | InputMethodKit method (`InputController.mm`), settings window and 中/英 bubble (`Settings.swift`), `build.sh`, `install.sh`; dev only: `test-session.sh` types through it in a test window |
 | `linux/` | IBus engine (`main.cpp`), component file, installers (`enable.sh`, `install-user.sh`); dev only: `sync.sh` builds on a Linux box over ssh, `test-session.sh` types through gedit with xdotool |
 | `cli/hpcli.cpp` | Drive the engine from a terminal: `echo nihao \| build/hpcli --layout pyjj` |
 | `tests/` | Engine tests |
