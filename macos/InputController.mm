@@ -2,7 +2,7 @@
 //
 // Keys go to the engine first; what it commits is inserted, its composition
 // becomes the client's marked text, and its page of candidates goes to the
-// system candidate window (IMKCandidates). A Shift tap switches 中/英. The
+// candidate window (Candidates.swift). A Shift tap switches 中/英. The
 // settings window (Settings.swift) writes the user defaults; they're applied
 // as they change.
 
@@ -20,19 +20,11 @@ using haikupinyin::Key;
 static const NSTimeInterval kShiftTapLimit = 0.4;
 static const double kCloudDelay = 0.12;		// seconds, let typing settle
 
-// Key codes of 1–9, for the candidate window's labels.
-static const unsigned short kDigitKeys[] = {
-	kVK_ANSI_1, kVK_ANSI_2, kVK_ANSI_3, kVK_ANSI_4, kVK_ANSI_5, kVK_ANSI_6,
-	kVK_ANSI_7, kVK_ANSI_8, kVK_ANSI_9,
-};
-
-
 // #pragma mark - shared state
 
 
 static haikupinyin::Engine* sEngine;
 static bool sLoaded;
-static IMKCandidates* sCandidates;
 static __weak HPInputController* sLast;	// the client the engine state is for
 static std::string sCloudAsked;			// in flight
 static std::string sCloudAnswered;		// last asked
@@ -74,6 +66,7 @@ RegisterDefaults()
 		@"english": @(options.english),
 		@"cloud": @(options.cloud),
 		@"fuzzy": @(options.fuzzy),
+		@"vowels": @(int(options.vowels)),
 	}];
 }
 
@@ -95,6 +88,9 @@ LoadSettings()
 	options.english = [defaults boolForKey:@"english"];
 	options.cloud = [defaults boolForKey:@"cloud"];
 	options.fuzzy = unsigned([defaults integerForKey:@"fuzzy"]);
+	NSInteger vowels = [defaults integerForKey:@"vowels"];
+	if (vowels >= 0 && vowels <= int(haikupinyin::Vowels::kSingle))
+		options.vowels = haikupinyin::Vowels(vowels);
 	return options;
 }
 
@@ -106,7 +102,38 @@ SameOptions(const haikupinyin::Options& a, const haikupinyin::Options& b)
 		&& a.pageSize == b.pageSize
 		&& a.fullwidthPunctuation == b.fullwidthPunctuation
 		&& a.emoji == b.emoji && a.prediction == b.prediction
-		&& a.english == b.english && a.cloud == b.cloud && a.fuzzy == b.fuzzy;
+		&& a.english == b.english && a.cloud == b.cloud && a.fuzzy == b.fuzzy
+		&& a.vowels == b.vowels;
+}
+
+
+@interface HPInputController ()
+- (void)sync;
+- (void)showCandidates;
+@end
+
+
+// A click in the candidate window.
+static void
+PickCandidate(int32_t index)
+{
+	HPInputController* last = sLast;
+	if (!sLoaded || last == nil)
+		return;
+	sEngine->SelectOnPage(index);
+	[last sync];
+}
+
+
+// Its arrows and the scroll wheel.
+static void
+TurnPage(int32_t delta)
+{
+	HPInputController* last = sLast;
+	if (!sLoaded || last == nil)
+		return;
+	sEngine->ProcessKey(delta > 0 ? Key::kPageDown : Key::kPageUp, 0, 0);
+	[last showCandidates];
 }
 
 
@@ -132,20 +159,7 @@ HPSetUp(IMKServer* server)
 	RegisterDefaults();
 	sEngine->SetOptions(LoadSettings());
 
-	sCandidates = [[IMKCandidates alloc] initWithServer:server
-		panelType:kIMKSingleRowSteppingCandidatePanel];
-	// Keys come to the controller first; the window only shows the page.
-	[sCandidates setAttributes:@{
-		IMKCandidatesSendServerKeyEventFirst: @YES,
-	}];
-	[sCandidates setDismissesAutomatically:NO];
-	// The labels (1–9) are the selection keys as this layout types them;
-	// without one the window draws none.
-	TISInputSourceRef layout = TISCopyCurrentASCIICapableKeyboardLayoutInputSource();
-	if (layout != NULL) {
-		[sCandidates setSelectionKeysKeylayout:layout];
-		CFRelease(layout);
-	}
+	HPSetCandidateHandlers(PickCandidate, TurnPage);
 
 	// The settings window changed something.
 	[NSNotificationCenter.defaultCenter
@@ -159,7 +173,7 @@ HPSetUp(IMKServer* server)
 				[last commitComposition:nil];
 			sEngine->Reset();
 			sEngine->SetOptions(options);
-			[sCandidates hide];
+			HPHideCandidates();
 		}];
 }
 
@@ -260,7 +274,6 @@ CloudAnswer(NSData* data, NSString* query)
 	BOOL _shiftAlone;
 	NSTimeInterval _shiftDown;
 	BOOL _markedShown;
-	NSArray<NSString*>* _page;
 }
 
 
@@ -288,7 +301,7 @@ CloudAnswer(NSData* data, NSString* query)
 		sEngine->Reset();
 		sEngine->ClearContext();
 	}
-	[sCandidates hide];
+	HPHideCandidates();
 	sLast = self;
 }
 
@@ -349,55 +362,24 @@ CloudAnswer(NSData* data, NSString* query)
 - (void)showCandidates
 {
 	if (!sEngine->Composing() && !sEngine->Predicting()) {
-		_page = nil;
-		[sCandidates hide];
+		HPHideCandidates();
 		return;
 	}
 	[self askCloud];
 
-	std::vector<std::string> page = sEngine->PageCandidates();
-	int cloud = sEngine->CloudIndexOnPage();
-	NSMutableArray<NSString*>* strings = [NSMutableArray new];
-	for (size_t i = 0; i < page.size(); i++) {
-		NSString* text = NS(page[i]);
-		[strings addObject:int(i) == cloud
-			? [text stringByAppendingString:@" ☁"] : text];
+	std::string joined;
+	for (const std::string& candidate : sEngine->PageCandidates()) {
+		if (!joined.empty())
+			joined += '\n';
+		joined += candidate;
 	}
-	_page = strings;
-
-	NSMutableArray<NSNumber*>* keys = [NSMutableArray new];
-	int pageSize = sEngine->GetOptions().pageSize;
-	for (int i = 0; i < pageSize && i < 9; i++)
-		[keys addObject:@(kDigitKeys[i])];
-	[sCandidates setSelectionKeys:keys];
-	[sCandidates updateCandidates];
-	[sCandidates show:kIMKLocateCandidatesBelowHint];
-	int highlight = sEngine->Highlighted();
-	[sCandidates selectCandidateWithIdentifier:[sCandidates
-		candidateIdentifierAtLineNumber:highlight >= 0 ? highlight : 0]];
-}
-
-
-// IMKCandidates asks for the page it shows.
-- (NSArray*)candidates:(id)sender
-{
-	return _page != nil ? _page : @[];
-}
-
-
-// A click in the candidate window.
-- (void)candidateSelected:(NSAttributedString*)candidate
-{
-	NSUInteger index = [_page indexOfObject:candidate.string];
-	if (!sLoaded || sLast != self || index == NSNotFound)
-		return;
-	sEngine->SelectOnPage(int(index));
-	[self sync];
-}
-
-
-- (void)candidateSelectionChanged:(NSAttributedString*)candidate
-{
+	// Under the start of the composition.
+	NSRect line = NSZeroRect;
+	[self.textClient attributesForCharacterIndex:0 lineHeightRectangle:&line];
+	HPShowCandidates(joined.c_str(), sEngine->Highlighted(),
+		sEngine->CloudIndexOnPage(), sEngine->HasPreviousPage(),
+		sEngine->HasNextPage(), line.origin.x, line.origin.y,
+		line.size.height);
 }
 
 
@@ -485,10 +467,8 @@ CloudAnswer(NSData* data, NSString* query)
 - (void)deactivateServer:(id)sender
 {
 	[self commitComposition:sender];
-	if (sLast == self) {
-		_page = nil;
-		[sCandidates hide];
-	}
+	if (sLast == self)
+		HPHideCandidates();
 	HPSave();
 }
 

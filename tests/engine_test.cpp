@@ -43,16 +43,35 @@ Expect(const char* what, const std::string& got, const std::string& want)
 
 static void
 ExpectFirst(const char* layout, Script script, const std::string& keys,
-	const std::string& want)
+	const std::string& want, Vowels vowels = Vowels::kDoubled)
 {
 	Engine engine;
 	engine.Load(sData);
 	Options options;
 	options.layout = layout;
 	options.script = script;
+	options.vowels = vowels;
 	engine.SetOptions(options);
 	Type(engine, keys);
 	Expect((std::string(layout) + " " + keys).c_str(), First(engine), want);
+}
+
+
+// How the keys were read: "sha'wan'yi'er'a'wei'shen'me".
+static void
+ExpectSpelled(const char* layout, Vowels vowels, const std::string& keys,
+	const std::string& want)
+{
+	Engine engine;
+	engine.Load(sData);
+	Options options;
+	options.layout = layout;
+	options.vowels = vowels;
+	engine.SetOptions(options);
+	Type(engine, keys);
+	static const char* const kNames[] = {"aa", "oa", "a"};
+	Expect((std::string(layout) + " " + kNames[int(vowels)] + " " + keys
+		+ " spelled").c_str(), engine.Spelled(), want);
 }
 
 
@@ -76,9 +95,49 @@ main(int argc, char** argv)
 	ExpectFirst("pyjj", Script::kSimplified, "nihd", "你好");
 	ExpectFirst("pyjj", Script::kSimplified, "iurufa", "输入法");
 		// pyjj: sh=i, so 输 is "iu"; "uu" is 出
-	// A lone a (not "aa") is a syllable, and the pairs after it still line up.
+	ExpectFirst("mspy", Script::kSimplified, "vsgo", "中国");
+	// 微软 types ing with ;.
+	ExpectSpelled("mspy", Vowels::kDoubled, "b;", "bing");
+	// The last key alone stands for every syllable it starts; ' separates.
+	ExpectFirst("pyjj", Script::kSimplified, "vyg", "中国");
+	ExpectSpelled("pyjj", Vowels::kDoubled, "ni'hd", "ni'hao");
+
+	// a, o and e, three ways, in every layout.
+	for (const char* layout : {"pyjj", "xiaohe", "ziranma", "mspy", "abc"}) {
+		bool abc = std::string(layout) == "abc";
+		// Doubled; in 智能ABC aa and ee are zha and che, so a and e keep
+		// their own oa and oe.
+		ExpectSpelled(layout, Vowels::kDoubled, "aa", abc ? "zha" : "a");
+		ExpectSpelled(layout, Vowels::kDoubled, "ee", abc ? "che" : "e");
+		ExpectSpelled(layout, Vowels::kDoubled, "oo", "o");
+		if (abc)
+			ExpectSpelled(layout, Vowels::kDoubled, "oa", "a");
+		ExpectSpelled(layout, Vowels::kOLed, "oa", "a");
+		ExpectSpelled(layout, Vowels::kOLed, "oe", "e");
+		ExpectSpelled(layout, Vowels::kOLed, "oo", "o");
+		if (!abc) {
+			// One key each: two a's are two syllables, and oa isn't a.
+			ExpectSpelled(layout, Vowels::kSingle, "aa", "a'a");
+			ExpectFirst(layout, Script::kSimplified, "oa", "啊", Vowels::kOLed);
+			ExpectFirst(layout, Script::kSimplified, "aa", "啊", Vowels::kDoubled);
+		}
+	}
+	// The pairs line up again after a single vowel, anywhere.
+	ExpectSpelled("pyjj", Vowels::kSingle, "iawfyieqawwirme",
+		"sha'wan'yi'er'a'wei'shen'me");
 	ExpectFirst("pyjj", Script::kSimplified, "iawfyieqawwirme",
-		"啥玩意儿啊为什么");
+		"啥玩意儿啊为什么", Vowels::kSingle);
+	ExpectSpelled("pyjj", Vowels::kSingle, "ewo", "e'wo");
+	ExpectSpelled("pyjj", Vowels::kSingle, "awoaiwo", "a'wo'a'shei'o");
+	// …and the other ways spell the same sentence with their own pairs.
+	ExpectFirst("pyjj", Script::kSimplified, "iawfyieqaawwirme",
+		"啥玩意儿啊为什么", Vowels::kDoubled);
+	ExpectFirst("pyjj", Script::kSimplified, "iawfyieqoawwirme",
+		"啥玩意儿啊为什么", Vowels::kOLed);
+	// Other ways' codes are not a: oa when doubled, aa when o-led, left as
+	// typed.
+	ExpectSpelled("xiaohe", Vowels::kDoubled, "oaaa", "oa'a");
+	ExpectSpelled("pyjj", Vowels::kOLed, "aaoa", "aa'a");
 	ExpectFirst("xiaohe", Script::kSimplified, "vsgo", "中国");
 	ExpectFirst("xiaohe", Script::kSimplified, "uurufa", "输入法");
 	ExpectFirst("ziranma", Script::kSimplified, "vsgo", "中国");

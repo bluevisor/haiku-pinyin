@@ -57,6 +57,14 @@ public:
 };
 
 
+// How shuangpin spells a, o and e, the syllables with no initial.
+enum class Vowels {
+	kDoubled,	// aa, oo, ee
+	kOLed,		// oa, oo, oe
+	kSingle		// a, o, e: one key
+};
+
+
 class Shuangpin {
 public:
 	// shuangpin.txt: "<layout>\t<code>\t<syllable>" lines.
@@ -65,8 +73,9 @@ public:
 	bool HasLayout(const std::string& layout) const;
 	// The keys a layout uses beyond a-z (";" for some).
 	bool IsKey(const std::string& layout, char key) const;
-	void Parse(const std::string& layout, std::string_view keys,
-		const Syllables& syllables, SyllableGraph& graph) const;
+	void Parse(const std::string& layout, Vowels vowels,
+		std::string_view keys, const Syllables& syllables,
+		SyllableGraph& graph) const;
 
 private:
 	struct Layout {

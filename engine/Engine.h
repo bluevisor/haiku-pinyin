@@ -34,6 +34,8 @@ struct Options {
 	bool prediction = true;			// 联想 after each commit
 	bool english = true;			// "hello" also offers hello
 	bool cloud = false;				// the front end asks a cloud service
+	Vowels vowels = Vowels::kDoubled;	// shuangpin: aa oo ee, oa oo oe,
+										// or a o e
 };
 
 enum class Key {

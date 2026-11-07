@@ -50,6 +50,11 @@ static const struct {
 
 static const char* const kScripts[] = { "简体中文", "繁體中文" };
 
+// How shuangpin spells a, o and e; in the order of haikupinyin::Vowels.
+static const char* const kVowels[] = {
+	"双拼 a o e: aa oo ee", "双拼 a o e: oa oo oe", "双拼 a o e: a o e 单键",
+};
+
 static const struct {
 	unsigned mask;
 	const char* label;
@@ -123,6 +128,11 @@ LoadSettings()
 			options.cloud = on;
 		else if (name == "fuzzy")
 			options.fuzzy = unsigned(atoi(value.c_str()));
+		else if (name == "vowels") {
+			int vowels = atoi(value.c_str());
+			if (vowels >= 0 && vowels <= 2)
+				options.vowels = haikupinyin::Vowels(vowels);
+		}
 		else if (name == "chinese")
 			sShared->savedChinese = on;
 	}
@@ -147,6 +157,7 @@ SaveSettings()
 			<< "english=" << options.english << "\n"
 			<< "cloud=" << options.cloud << "\n"
 			<< "fuzzy=" << options.fuzzy << "\n"
+			<< "vowels=" << int(options.vowels) << "\n"
 			<< "chinese=" << sShared->engine.Chinese() << "\n";
 		if (!file)
 			return;
@@ -259,6 +270,17 @@ BuildProperties()
 	}
 	ibus_prop_list_append(list, NewProperty("layout", PROP_TYPE_MENU,
 		layoutLabel.c_str(), false, layouts));
+
+	// Always there: GNOME Shell takes the menu's shape only once.
+	IBusPropList* vowels = ibus_prop_list_new();
+	int chosen = int(options.vowels);
+	for (int i = 0; i < 3; i++) {
+		ibus_prop_list_append(vowels, NewProperty(
+			(std::string("vowels.") + std::to_string(i)).c_str(),
+			PROP_TYPE_RADIO, kVowels[i], chosen == i));
+	}
+	ibus_prop_list_append(list, NewProperty("vowels", PROP_TYPE_MENU,
+		kVowels[chosen], false, vowels));
 
 	IBusPropList* scripts = ibus_prop_list_new();
 	int script = options.script == haikupinyin::Script::kSimplified ? 0 : 1;
@@ -755,7 +777,8 @@ PropertyActivate(IBusEngine* engine, const gchar* name, guint state)
 	}
 	// Radio items are also activated as they're unchecked.
 	bool radio = property.rfind("layout.", 0) == 0
-		|| property.rfind("script.", 0) == 0 || property.rfind("page.", 0) == 0;
+		|| property.rfind("script.", 0) == 0 || property.rfind("page.", 0) == 0
+		|| property.rfind("vowels.", 0) == 0;
 	if (radio && state != PROP_STATE_CHECKED)
 		return;
 
@@ -766,6 +789,8 @@ PropertyActivate(IBusEngine* engine, const gchar* name, guint state)
 			: haikupinyin::Script::kTraditional;
 	} else if (starts("page.", &rest))
 		options.pageSize = atoi(rest.c_str());
+	else if (starts("vowels.", &rest))
+		options.vowels = haikupinyin::Vowels(atoi(rest.c_str()));
 	else if (property == "fullwidth")
 		options.fullwidthPunctuation = !options.fullwidthPunctuation;
 	else if (property == "emoji")

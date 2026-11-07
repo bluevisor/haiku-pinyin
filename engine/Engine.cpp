@@ -321,8 +321,8 @@ Engine::_Update()
 	if (fOptions.layout == "full") {
 		FullPinyin::Parse(remaining, fLexicon.GetSyllables(), fGraph);
 	} else {
-		fShuangpin.Parse(fOptions.layout, remaining, fLexicon.GetSyllables(),
-			fGraph);
+		fShuangpin.Parse(fOptions.layout, fOptions.vowels, remaining,
+			fLexicon.GetSyllables(), fGraph);
 	}
 	AddFuzzy(fGraph, fLexicon.GetSyllables(), fOptions.fuzzy);
 	// Only the first pick of a composition follows the last commit.

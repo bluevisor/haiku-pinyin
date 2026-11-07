@@ -20,7 +20,64 @@ private let fuzzyGroups: [(mask: Int, name: String)] = [
 	(4 | 8 | 16, "n = l   f = h   r = l"),
 ]
 
-private struct SettingsView: View {
+// A System Settings row icon: a symbol on a colored tile.
+private struct Tile: View {
+	let symbol: String
+	let color: Color
+
+	var body: some View {
+		Image(systemName: symbol)
+			.font(.system(size: 11, weight: .semibold))
+			.foregroundStyle(.white)
+			.frame(width: 20, height: 20)
+			.background(color.gradient, in: RoundedRectangle(cornerRadius: 5,
+				style: .continuous))
+	}
+}
+
+private struct Row: View {
+	let title: String
+	let symbol: String
+	let color: Color
+
+	var body: some View {
+		HStack(spacing: 8) {
+			Tile(symbol: symbol, color: color)
+			Text(title)
+		}
+	}
+}
+
+// The method's icon: 中 on blue glass.
+private struct Badge: View {
+	var body: some View {
+		let shape = RoundedRectangle(cornerRadius: 12, style: .continuous)
+		let text = Text("中")
+			.font(.system(size: 27, weight: .semibold))
+			.foregroundStyle(.white)
+			.frame(width: 52, height: 52)
+		if #available(macOS 26, *) {
+			text
+				.background(Color.accentColor.gradient, in: shape)
+				.glassEffect(.regular.tint(.accentColor.opacity(0.35)), in: shape)
+		} else {
+			text.background(Color.accentColor.gradient, in: shape)
+		}
+	}
+}
+
+private extension View {
+	// Glass buttons from macOS 26 on.
+	@ViewBuilder func glassButton() -> some View {
+		if #available(macOS 26, *) {
+			buttonStyle(.glass)
+		} else {
+			self
+		}
+	}
+}
+
+struct SettingsView: View {
 	@AppStorage("layout") private var layout = "full"
 	@AppStorage("script") private var script = 0
 	@AppStorage("pageSize") private var pageSize = 7
@@ -30,6 +87,12 @@ private struct SettingsView: View {
 	@AppStorage("english") private var english = true
 	@AppStorage("cloud") private var cloud = false
 	@AppStorage("fuzzy") private var fuzzy = 0
+	@AppStorage("vowels") private var vowels = 0	// engine's Vowels
+
+	private var version: String {
+		Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString")
+			as? String ?? ""
+	}
 
 	private func fuzzyGroup(_ mask: Int) -> Binding<Bool> {
 		Binding(get: { fuzzy & mask == mask },
@@ -39,40 +102,91 @@ private struct SettingsView: View {
 	var body: some View {
 		Form {
 			Section {
-				Picker("拼写方式", selection: $layout) {
-					ForEach(layouts, id: \.id) { Text($0.name).tag($0.id) }
+				HStack(spacing: 14) {
+					Badge()
+					VStack(alignment: .leading, spacing: 3) {
+						Text("海酷拼音")
+							.font(.title2.weight(.semibold))
+						Text("全拼与双拼，整句输入")
+							.foregroundStyle(.secondary)
+					}
+					Spacer()
+					Text(version)
+						.font(.callout.monospacedDigit())
+						.foregroundStyle(.tertiary)
 				}
-				Picker("字形", selection: $script) {
+				.padding(.vertical, 4)
+			}
+
+			Section("输入") {
+				Picker(selection: $layout) {
+					ForEach(layouts, id: \.id) { Text($0.name).tag($0.id) }
+				} label: {
+					Row(title: "拼写方式", symbol: "keyboard", color: .blue)
+				}
+				if layout != "full" {
+					Picker(selection: $vowels) {
+						Text("aa  oo  ee").tag(0)
+						Text("oa  oo  oe").tag(1)
+						Text("a  o  e（单键）").tag(2)
+					} label: {
+						Row(title: "双拼 a o e", symbol: "character", color: .indigo)
+					}
+				}
+				Picker(selection: $script) {
 					Text("简体中文").tag(0)
 					Text("繁體中文").tag(1)
+				} label: {
+					Row(title: "字形", symbol: "character.book.closed", color: .orange)
 				}
-				Picker("每页候选", selection: $pageSize) {
+				Picker(selection: $pageSize) {
 					ForEach([5, 7, 9], id: \.self) { Text("\($0) 个").tag($0) }
+				} label: {
+					Row(title: "每页候选", symbol: "list.number", color: .gray)
 				}
 			}
+
 			Section {
-				Toggle("联想", isOn: $prediction)
-				Toggle("中英混输", isOn: $english)
-				Toggle("Emoji 候选", isOn: $emoji)
-				Toggle("全角标点", isOn: $fullwidth)
+				Toggle(isOn: $prediction) {
+					Row(title: "联想", symbol: "text.append", color: .green)
+				}
+				Toggle(isOn: $english) {
+					Row(title: "中英混输", symbol: "textformat.abc", color: .teal)
+				}
+				Toggle(isOn: $emoji) {
+					Row(title: "Emoji 候选", symbol: "face.smiling", color: .yellow)
+				}
+				Toggle(isOn: $fullwidth) {
+					Row(title: "全角标点", symbol: "quote.opening", color: .pink)
+				}
+			} header: {
+				Text("候选")
 			} footer: {
 				Text("联想：上屏后列出可能接着输入的词，按数字键选择。中英混输：hello 也给出 hello。")
 					.foregroundStyle(.secondary)
 			}
+
 			Section("模糊音") {
 				ForEach(fuzzyGroups, id: \.mask) {
 					Toggle($0.name, isOn: fuzzyGroup($0.mask))
 				}
 			}
+
 			Section {
-				Toggle("云候选 (Google)", isOn: $cloud)
+				Toggle(isOn: $cloud) {
+					Row(title: "云候选 (Google)", symbol: "cloud.fill", color: .cyan)
+				}
 			} footer: {
 				Text("把正在输入的拼音发给 Google 输入工具，不含已上屏的文字。")
 					.foregroundStyle(.secondary)
 			}
+
 			Section {
-				LabeledContent("学到的词") {
+				LabeledContent {
 					Button("在访达中显示") { revealUserDictionary() }
+						.glassButton()
+				} label: {
+					Row(title: "学到的词", symbol: "book.closed.fill", color: .brown)
 				}
 			} footer: {
 				Text("轻按 Shift 切换中 / 英；在候选上按 Control-Delete 忘掉学到的词。")
@@ -80,8 +194,9 @@ private struct SettingsView: View {
 			}
 		}
 		.formStyle(.grouped)
-		.frame(width: 460)
-		.fixedSize(horizontal: false, vertical: true)
+		// Scrolls under the clear title bar when the screen is short.
+		.frame(width: 480)
+		.frame(minHeight: 360, idealHeight: 720)
 	}
 
 	private func revealUserDictionary() {
@@ -103,8 +218,13 @@ public func showSettings() {
 	if settingsWindow == nil {
 		let window = NSWindow(contentViewController:
 			NSHostingController(rootView: SettingsView()))
-		window.title = "海酷拼音设置"
-		window.styleMask = [.titled, .closable]
+		window.title = "海酷拼音"
+		// The form runs under a clear title bar, as System Settings does.
+		window.styleMask = [.titled, .closable, .resizable,
+			.fullSizeContentView]
+		window.titlebarAppearsTransparent = true
+		window.setContentSize(NSSize(width: 480, height: min(720,
+			(NSScreen.main?.visibleFrame.height ?? 800) - 80)))
 		window.isReleasedWhenClosed = false
 		window.center()
 		settingsWindow = window
@@ -115,45 +235,56 @@ public func showSettings() {
 
 // #pragma mark - the 中/英 bubble
 
+// A circle, so the glyph has the same space on every side.
+private let bubbleSize: CGFloat = 30
+
+struct ModeBubble: View {
+	var chinese: Bool
+
+	var body: some View {
+		let text = Text(chinese ? "中" : "英")
+			.font(.system(size: 16, weight: .semibold))
+			.frame(width: bubbleSize, height: bubbleSize)
+		if #available(macOS 26, *) {
+			text.glassEffect(.regular, in: Circle())
+		} else {
+			text.background(.regularMaterial, in: Circle())
+		}
+	}
+}
+
 private var bubble: NSPanel?
-private var bubbleLabel: NSTextField?
+private var bubbleView: NSHostingView<ModeBubble>?
 private var bubbleShown = 0
+
+private func makeBubble() -> NSPanel {
+	let panel = NSPanel(contentRect: NSRect(x: 0, y: 0, width: bubbleSize,
+			height: bubbleSize),
+		styleMask: [.borderless, .nonactivatingPanel], backing: .buffered,
+		defer: true)
+	panel.level = .popUpMenu
+	panel.isOpaque = false
+	panel.backgroundColor = .clear
+	panel.hasShadow = true
+	panel.ignoresMouseEvents = true
+	let view = NSHostingView(rootView: ModeBubble(chinese: true))
+	panel.contentView = view
+	bubbleView = view
+	return panel
+}
 
 // Shows 中 or 英 under the line at (x, y), the bottom left of the line in
 // screen coordinates, for a moment.
 @_cdecl("HPShowModeBubble")
 public func showModeBubble(_ chinese: Bool, _ x: Double, _ y: Double) {
-	if bubble == nil {
-		let panel = NSPanel(contentRect: NSRect(x: 0, y: 0, width: 30, height: 26),
-			styleMask: [.borderless, .nonactivatingPanel], backing: .buffered,
-			defer: true)
-		panel.level = .popUpMenu
-		panel.isOpaque = false
-		panel.backgroundColor = .clear
-		panel.hasShadow = true
-		panel.ignoresMouseEvents = true
-		let effect = NSVisualEffectView(frame: panel.contentLayoutRect)
-		effect.material = .popover
-		effect.state = .active
-		effect.wantsLayer = true
-		effect.layer?.cornerRadius = 6
-		effect.layer?.masksToBounds = true
-		let label = NSTextField(labelWithString: "")
-		label.font = .systemFont(ofSize: 15, weight: .medium)
-		label.alignment = .center
-		label.frame = NSRect(x: 0, y: 3, width: 30, height: 20)
-		effect.addSubview(label)
-		panel.contentView = effect
-		bubble = panel
-		bubbleLabel = label
-	}
-	guard let panel = bubble else { return }
-	bubbleLabel?.stringValue = chinese ? "中" : "英"
-	var origin = NSPoint(x: x, y: y - panel.frame.height - 4)
+	let panel = bubble ?? makeBubble()
+	bubble = panel
+	bubbleView?.rootView = ModeBubble(chinese: chinese)
+	var origin = NSPoint(x: x, y: y - bubbleSize - 4)
 	if x == 0 && y == 0 {
 		// The client didn't say where its text is: by the pointer.
 		let mouse = NSEvent.mouseLocation
-		origin = NSPoint(x: mouse.x + 8, y: mouse.y - panel.frame.height - 12)
+		origin = NSPoint(x: mouse.x + 8, y: mouse.y - bubbleSize - 12)
 	}
 	panel.setFrameOrigin(origin)
 	panel.alphaValue = 1

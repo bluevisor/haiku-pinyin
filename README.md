@@ -105,7 +105,8 @@ After a commit, 联想 shows likely next words: a number takes one, anything
 else carries on as usual. Clicks, the scroll wheel and the page arrows work
 in the candidate window.
 
-The Deskbar menu holds the settings: 全拼 or a shuangpin layout, 简体 /
+The Deskbar menu holds the settings: 全拼 or a shuangpin layout, how
+shuangpin spells a, o and e (aa oo ee, oa oo oe, or one key each), 简体 /
 繁體, 全角标点, emoji, 联想, 中英混输, 云候选, the three 模糊音 groups,
 and candidates per page. They're saved in `~/config/settings/HaikuPinyin`,
 next to `user.dict`, the words it has learned (plain text).
@@ -123,7 +124,7 @@ committed, to Google Input Tools. They're off until you turn them on.
 |---|---|
 | `engine/` | Portable C++17 engine: lexicon, syllable graph (full pinyin, shuangpin, 模糊音), bigram beam-search decoder, 联想, user dictionary, S→T converter |
 | `haiku/` | input_server method add-on and candidate window |
-| `macos/` | InputMethodKit method (`InputController.mm`), settings window and 中/英 bubble (`Settings.swift`), `build.sh`, `install.sh`; dev only: `test-session.sh` types through it in a test window |
+| `macos/` | InputMethodKit method (`InputController.mm`), settings window and 中/英 bubble (`Settings.swift`), `build.sh`, `install.sh`; dev only: `test-session.sh` types through it in a test window (full pinyin, then shuangpin), `snapshot-settings.swift` renders the settings window and bubble to PNG |
 | `linux/` | IBus engine (`main.cpp`), component file, installers (`enable.sh`, `install-user.sh`); dev only: `sync.sh` builds on a Linux box over ssh, `test-session.sh` types through gedit with xdotool |
 | `cli/hpcli.cpp` | Drive the engine from a terminal: `echo nihao \| build/hpcli --layout pyjj` |
 | `tests/` | Engine tests |

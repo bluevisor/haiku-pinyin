@@ -12,7 +12,7 @@ contents=$app/Contents
 
 rm -rf "$app"
 mkdir -p "$contents/MacOS" "$contents/Resources"
-# The engine and controller with clang, then Settings.swift and the link with
+# The engine and controller with clang, then the Swift UI and the link with
 # swiftc, once per architecture.
 binaries=
 for arch in arm64 x86_64; do
@@ -24,7 +24,8 @@ for arch in arm64 x86_64; do
 		clang++ -target $target -std=c++17 -O2 -g -fobjc-arc \
 			-Wall -Wextra -Wno-unused-parameter -c "$source" -o "$object"
 	done
-	swiftc -target $target -O -g -parse-as-library macos/Settings.swift \
+	swiftc -target $target -O -g -parse-as-library \
+		macos/Settings.swift macos/Candidates.swift \
 		"$objects"/*.o -lc++ \
 		-framework Cocoa -framework InputMethodKit -framework Carbon \
 		-o "$objects/HaikuPinyin"
