@@ -14,7 +14,7 @@ static const float kUnfinishedPenalty = 1.5f;
 static const float kAbbreviationPenalty = 3.0f;
 	// an initial standing for a whole syllable: "zgr" for 中国人
 static const float kSingleVowelPenalty = 1.0f;
-	// shuangpin: a, o or e typed once, for the syllable alone
+	// shuangpin's single vowels: a, o or e as one key
 
 static const char* const kInitials[] = {
 	"b", "p", "m", "f", "d", "t", "n", "l", "g", "k", "h", "j", "q", "x",
@@ -296,8 +296,9 @@ CommonStart(const std::vector<SyllableId>& ids, const Syllables& syllables,
 
 
 void
-Shuangpin::Parse(const std::string& layoutName, std::string_view keys,
-	const Syllables& syllables, SyllableGraph& graph) const
+Shuangpin::Parse(const std::string& layoutName, Vowels vowels,
+	std::string_view keys, const Syllables& syllables,
+	SyllableGraph& graph) const
 {
 	int length = int(keys.size());
 	graph.Reset(keys);
@@ -306,9 +307,42 @@ Shuangpin::Parse(const std::string& layoutName, std::string_view keys,
 		return;
 	const Layout& layout = found->second;
 
-	// Keys go in pairs, but a, o or e typed once is a syllable too, as
-	// shuangpin methods allow ("er a wei" for 儿啊为): so a pair can start at
-	// more than one place.
+	// a, o and e are spelled the chosen way, not the layout's: aa or oa
+	// for a, and so on. Where the layout already uses that pair for another
+	// syllable (aa is zha in 智能ABC), its own codes stay.
+	std::map<std::string, SyllableId> vowelCodes;
+	std::vector<SyllableId> vowelIds;
+	for (char vowel : {'a', 'o', 'e'}) {
+		int id = syllables.Find(std::string(1, vowel));
+		if (id < 0)
+			continue;
+		vowelIds.push_back(SyllableId(id));
+		if (vowels == Vowels::kSingle)
+			continue;
+		std::string want = vowels == Vowels::kDoubled
+			? std::string(2, vowel) : std::string("o") + vowel;
+		auto code = layout.codes.find(want);
+		bool taken = false;
+		if (code != layout.codes.end()) {
+			for (SyllableId other : code->second)
+				taken = taken || other != SyllableId(id);
+		}
+		if (!taken) {
+			vowelCodes[want] = SyllableId(id);
+			continue;
+		}
+		for (const auto& [pair, ids] : layout.codes) {
+			if (std::find(ids.begin(), ids.end(), SyllableId(id)) != ids.end())
+				vowelCodes[pair] = SyllableId(id);
+		}
+	}
+	auto isVowel = [&](SyllableId id) {
+		return std::find(vowelIds.begin(), vowelIds.end(), id)
+			!= vowelIds.end();
+	};
+
+	// Keys go in pairs, but a single vowel is one key: then a pair can start
+	// at more than one place ("er a wei" for 儿啊为).
 	std::vector<bool> reachable(length + 1, false);
 	reachable[0] = true;
 	for (int from = 0; from < length; from++) {
@@ -320,31 +354,55 @@ Shuangpin::Parse(const std::string& layoutName, std::string_view keys,
 			continue;
 		}
 		char key = keys[from];
-		if (key == 'a' || key == 'o' || key == 'e') {
+		if (vowels == Vowels::kSingle
+			&& (key == 'a' || key == 'o' || key == 'e')) {
 			int vowel = syllables.Find(std::string(1, key));
-			if (vowel >= 0 && from + 1 < length && keys[from + 1] != '\'') {
-				graph.Add(SyllableEdge{from, from + 1, {SyllableId(vowel)}, true,
-					kSingleVowelPenalty, std::string(1, key)});
+			if (vowel >= 0) {
+				graph.Add(SyllableEdge{from, from + 1, {SyllableId(vowel)},
+					true, kSingleVowelPenalty, std::string(1, key)});
 				reachable[from + 1] = true;
 			}
 		}
 		if (from + 1 < length && keys[from + 1] != '\'') {
-			auto code = layout.codes.find(std::string(keys.substr(from, 2)));
+			std::string pair(keys.substr(from, 2));
+			std::vector<SyllableId> ids;
+			auto code = layout.codes.find(pair);
 			if (code != layout.codes.end()) {
-				std::string display = syllables.Name(code->second[0]);
-				for (size_t i = 1; i < code->second.size(); i++)
-					display += "/" + syllables.Name(code->second[i]);
-				graph.Add(SyllableEdge{from, from + 2, code->second, true, 0,
-					display});
+				for (SyllableId id : code->second) {
+					if (!isVowel(id))
+						ids.push_back(id);
+				}
+			}
+			auto vowel = vowelCodes.find(pair);
+			if (vowel != vowelCodes.end())
+				ids.push_back(vowel->second);
+			if (!ids.empty()) {
+				std::string display = syllables.Name(ids[0]);
+				for (size_t i = 1; i < ids.size(); i++)
+					display += "/" + syllables.Name(ids[i]);
+				graph.Add(SyllableEdge{from, from + 2, ids, true, 0, display});
 			}
 			reachable[from + 2] = true;
 			continue;
 		}
+		// The last key: every syllable it can start.
+		std::vector<SyllableId> ids;
 		auto first = layout.firstKeys.find(key);
 		if (first != layout.firstKeys.end()) {
-			graph.Add(SyllableEdge{from, from + 1, first->second, false,
-				kUnfinishedPenalty,
-				CommonStart(first->second, syllables, key)});
+			for (SyllableId id : first->second) {
+				if (!isVowel(id))
+					ids.push_back(id);
+			}
+		}
+		for (const auto& [pair, id] : vowelCodes) {
+			if (pair[0] == key
+				&& std::find(ids.begin(), ids.end(), id) == ids.end()) {
+				ids.push_back(id);
+			}
+		}
+		if (!ids.empty()) {
+			graph.Add(SyllableEdge{from, from + 1, ids, false,
+				kUnfinishedPenalty, CommonStart(ids, syllables, key)});
 		}
 		reachable[from + 1] = true;
 	}

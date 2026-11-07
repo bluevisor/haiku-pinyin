@@ -138,6 +138,22 @@ final class Pad: NSObject, NSApplicationDelegate {
 		guard current == chineseMode else { finish("input source is \(current), not 海酷拼音") }
 		usleep(800_000)
 
+		if phase == "shuangpin" {
+			shuangpin()
+		} else {
+			fullPinyin()
+		}
+		usleep(500_000)
+
+		let typed = onMain { text.string }
+		report += typed + "\n"
+		finish("done")
+	}
+}
+
+extension Pad {
+	// Default settings.
+	func fullPinyin() {
 		t("zgr"); k(kSpace)					// 中国人 (abbreviation)
 		t(",")								// ，
 		shiftTap(); t("hello "); shiftTap()	// English mode
@@ -154,14 +170,23 @@ final class Pad: NSObject, NSApplicationDelegate {
 		t("nihaoma"); k(kDelete, kDelete, kSpace)	// 你好
 		k(kReturn)
 		t("nihao1.")						// 你好。 (period after a digit pick)
-		usleep(500_000)
+	}
 
-		let typed = onMain { text.string }
-		report += typed + "\n"
-		finish("done")
+	// 拼音加加, a o e one key each.
+	func shuangpin() {
+		t("vygo"); k(kSpace)				// 中国
+		t(",")								// ，
+		t("iawfyieqawwirme"); k(kSpace)		// 啥玩意儿啊为什么: a lone a
+		k(kReturn)
+		t("nihd"); k(kReturn)				// nihd, as typed
+		t("iurufa"); k(kSpace)				// 输入法 (sh = i)
+		t("vyg"); k(kSpace)					// 中国: the last key alone
+		k(kReturn)
+		t("ewo"); k(kSpace)					// 饿我: a lone e
 	}
 }
 
+let phase = CommandLine.arguments.count > 2 ? CommandLine.arguments[2] : "full"
 let app = NSApplication.shared
 let pad = Pad()
 app.delegate = pad

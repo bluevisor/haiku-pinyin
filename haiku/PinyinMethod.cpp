@@ -35,6 +35,7 @@ enum {
 	kMsgToggleEmoji		= 'hpEm',
 	kMsgToggleOption	= 'hpOp',	// "option": prediction, english, cloud
 	kMsgToggleFuzzy		= 'hpFz',	// "mask" int32
+	kMsgSetVowels		= 'hpVw',	// "vowels" int32, a haikupinyin::Vowels
 	kMsgCloudResult		= 'hpCl',	// "query", "text"
 };
 
@@ -605,6 +606,12 @@ PinyinMethod::LooperMessage(BMessage* message)
 				_Cancel(&events);
 				fEngine.SetOptions(options);
 				break;
+			case kMsgSetVowels:
+				options.vowels = (haikupinyin::Vowels)message->GetInt32(
+					"vowels", 0);
+				_Cancel(&events);
+				fEngine.SetOptions(options);
+				break;
 			case kMsgCloudResult:
 				fCloudAsked.clear();
 				if (fEngine.SetCloudResult(message->GetString("query", ""),
@@ -646,6 +653,21 @@ PinyinMethod::_UpdateMenu()
 		menu->AddItem(item);
 	}
 	menu->AddSeparatorItem();
+
+	// How shuangpin spells a, o and e.
+	if (options.layout != "full") {
+		static const char* const kVowels[] = {
+			"a o e:  aa oo ee", "a o e:  oa oo oe", "a o e:  单键",
+		};
+		for (int32 i = 0; i < 3; i++) {
+			BMessage* message = new BMessage(kMsgSetVowels);
+			message->AddInt32("vowels", i);
+			item = new BMenuItem(kVowels[i], message);
+			item->SetMarked((int32)options.vowels == i);
+			menu->AddItem(item);
+		}
+		menu->AddSeparatorItem();
+	}
 
 	for (int32 i = 0; i < 2; i++) {
 		BMessage* message = new BMessage(kMsgSetScript);
@@ -796,6 +818,9 @@ PinyinMethod::_LoadSettings()
 	fSavedOptions.english = settings.GetBool("english", true);
 	fSavedOptions.cloud = settings.GetBool("cloud", false);
 	fSavedOptions.fuzzy = (unsigned)settings.GetInt32("fuzzy", 0);
+	int32 vowels = settings.GetInt32("vowels", 0);
+	if (vowels >= 0 && vowels <= (int32)haikupinyin::Vowels::kSingle)
+		fSavedOptions.vowels = (haikupinyin::Vowels)vowels;
 	fSavedChinese = settings.GetBool("chinese", true);
 }
 
@@ -814,6 +839,7 @@ PinyinMethod::_SaveSettings()
 	settings.AddBool("english", options.english);
 	settings.AddBool("cloud", options.cloud);
 	settings.AddInt32("fuzzy", (int32)options.fuzzy);
+	settings.AddInt32("vowels", (int32)options.vowels);
 	settings.AddBool("chinese", fEngine.Chinese());
 
 	BPath path = SettingsDirectory();

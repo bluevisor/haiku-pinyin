@@ -4,7 +4,7 @@
 //
 //   hpcli [--data DIR] [--layout full|pyjj|xiaohe|ziranma|mspy|abc]
 //         [--script s|t|tw|hk] [--page N] [--user FILE]
-//         [--fuzzy MASK] [--predict 0|1]
+//         [--fuzzy MASK] [--predict 0|1] [--vowels aa|oa|a]
 
 #include <cstdio>
 #include <cstring>
@@ -107,7 +107,11 @@ main(int argc, char** argv)
 			user = value;
 		else if (flag == "--fuzzy")
 			options.fuzzy = unsigned(atoi(value.c_str()));
-		else if (flag == "--predict")
+		else if (flag == "--vowels") {
+			options.vowels = value == "a" ? haikupinyin::Vowels::kSingle
+				: value == "oa" ? haikupinyin::Vowels::kOLed
+				: haikupinyin::Vowels::kDoubled;
+		} else if (flag == "--predict")
 			options.prediction = value != "0";
 		else if (flag == "--script") {
 			options.script = value == "t" ? Script::kTraditional
