@@ -31,7 +31,6 @@ struct Options {
 	bool fullwidthPunctuation = true;
 	bool emoji = true;				// 太阳 also offers 🌞
 	unsigned fuzzy = 0;				// 模糊音, a Fuzzy mask
-	bool prediction = true;			// 联想 after each commit
 	bool english = true;			// "hello" also offers hello
 	bool cloud = false;				// the front end asks a cloud service
 	Vowels vowels = Vowels::kDoubled;	// shuangpin: aa oo ee, oa oo oe,
@@ -91,10 +90,15 @@ public:
 	std::string TakeCommit();
 
 	bool Composing() const { return !fKeys.empty(); }
-	// Showing 联想: words likely to follow what was just committed.
-	bool Predicting() const { return !Composing() && !fPredictions.empty(); }
-	// Forgets the last word (and its 联想): the cursor moved elsewhere.
+	// Forgets the last word and the text before the cursor: the cursor
+	// moved elsewhere.
 	void ClearContext();
+	// The text before the cursor, from a front end that can read it. Its
+	// last word becomes the context, and the AI reads all of it. Without
+	// one, the engine goes by what was committed and typed through since
+	// the last ClearContext().
+	void SetContextText(const std::string& text);
+	const std::string& ContextText() const { return fContextText; }
 	// Inline text: what's picked so far, then the spelled pinyin.
 	std::string Preedit() const;
 	// The part of Preedit() that is picked text (bytes).
@@ -103,8 +107,7 @@ public:
 
 	// Candidates on the current page, in the chosen script.
 	std::vector<std::string> PageCandidates() const;
-	int Highlighted() const
-		{ return Predicting() ? -1 : fHighlight % fOptions.pageSize; }
+	int Highlighted() const { return fHighlight % fOptions.pageSize; }
 	int Page() const { return fHighlight / fOptions.pageSize; }
 	bool HasPreviousPage() const { return Page() > 0; }
 	bool HasNextPage() const;
@@ -117,6 +120,33 @@ public:
 	// Where the cloud candidate sits on this page, or -1.
 	int CloudIndexOnPage() const;
 
+	// AI picks and completions, for a front end with a language model that
+	// reads the text before the cursor. Like the cloud, it's asked on the
+	// side, and an answer that no longer fits what's on screen is ignored.
+	//
+	// Picks: which of the candidates that spell all the keys reads best
+	// after the prompt. No options when there's nothing to ask.
+	struct AIQuery {
+		std::string prompt;		// the text before the cursor, then the picks
+		std::vector<std::string> options;	// simplified, as the lexicon has
+		uint32_t revision = 0;	// of the candidates asked about
+		std::vector<int> indexes;	// of the options among them
+	};
+	AIQuery AIPickQuery() const;
+	// ln P(option | prompt) for each option. A clear winner moves first,
+	// unless the candidates changed or the highlight moved since the query.
+	// True when it moved.
+	bool SetAIPickResult(const AIQuery& query, const std::vector<double>& scores);
+	// Where the candidate the AI moved sits on this page, or -1.
+	int AIIndexOnPage() const;
+	// Completions: the text to continue ("" when nothing worth asking, as
+	// after English or punctuation), and the model's guess at what follows.
+	// True when it's taken: Suggestion() offers it until the next key, and
+	// Tab commits it.
+	std::string AICompletionQuery() const;
+	bool SetAICompletion(const std::string& prompt, const std::string& text);
+	std::string Suggestion() const;
+
 	void Reset();
 
 private:
@@ -128,17 +158,15 @@ private:
 		std::string tail;
 	};
 
+	bool _ProcessKey(Key key, char32_t character, uint32_t modifiers);
 	bool _Compose(Key key, char32_t character);
+	// shown goes to the client; context, simplified, to ContextText().
+	void _Commit(const std::string& shown, const std::string& context);
+	void _AddContext(const std::string& text);
 	bool _IsLayoutKey(char32_t character) const;
 	void _Update();
 	void _AddEmoji();
 	void _AddEnglish();
-	// text and key: everything just committed, when its syllables are
-	// known, for phrases it starts (祝你生日 -> 快乐).
-	void _Predict(const std::string& word, const std::string& text = "",
-		const std::vector<SyllableId>& key = {});
-	std::vector<std::string> _Continuations(const std::string& text,
-		const std::vector<SyllableId>& key, size_t limit) const;
 	void _Select(const Candidate& candidate);
 	void _Finish(const std::string& tail);
 	void _Move(int delta);
@@ -173,7 +201,9 @@ private:
 
 	std::string fCommit;
 	uint32_t fContext = 0;		// Bigram::Hash of the last committed word
-	std::vector<std::string> fPredictions;
+	uint32_t fRevision = 0;		// of fCandidates
+	std::string fContextText;	// before the cursor, the last few characters
+	std::string fSuggestion;	// the AI's completion on offer
 	char32_t fLastCharacter = 0;
 	bool fDoubleQuoteOpen = false;
 	bool fSingleQuoteOpen = false;

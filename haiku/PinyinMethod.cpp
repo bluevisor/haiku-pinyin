@@ -33,7 +33,7 @@ enum {
 	kMsgTogglePunctuation = 'hpPu',
 	kMsgSetPageSize		= 'hpPg',	// "size" int32
 	kMsgToggleEmoji		= 'hpEm',
-	kMsgToggleOption	= 'hpOp',	// "option": prediction, english, cloud
+	kMsgToggleOption	= 'hpOp',	// "option": english, cloud
 	kMsgToggleFuzzy		= 'hpFz',	// "mask" int32
 	kMsgSetVowels		= 'hpVw',	// "vowels" int32, a haikupinyin::Vowels
 	kMsgCloudResult		= 'hpCl',	// "query", "text"
@@ -266,10 +266,8 @@ PinyinMethod::Filter(BMessage* message, BList* outList)
 			message->FindPoint("where", &fMouse);
 			// A click elsewhere: what was typed before no longer leads.
 			BAutolock _(fLock);
-			if (fLoaded && fEngine.Predicting()) {
+			if (fLoaded && !fEngine.Composing())
 				fEngine.ClearContext();
-				_ShowCandidates();
-			}
 			return B_DISPATCH_MESSAGE;
 		}
 		case B_MODIFIERS_CHANGED:
@@ -500,7 +498,7 @@ PinyinMethod::_ShowCandidates()
 {
 	if (fWindow == NULL)
 		return;
-	if (!fEngine.Composing() && !fEngine.Predicting()) {
+	if (!fEngine.Composing()) {
 		fWindow->PostMessage(kMsgHideCandidates);
 		return;
 	}
@@ -591,9 +589,7 @@ PinyinMethod::LooperMessage(BMessage* message)
 			case kMsgToggleOption:
 			{
 				BString option = message->GetString("option", "");
-				if (option == "prediction")
-					options.prediction = !options.prediction;
-				else if (option == "english")
+				if (option == "english")
 					options.english = !options.english;
 				else if (option == "cloud")
 					options.cloud = !options.cloud;
@@ -690,7 +686,6 @@ PinyinMethod::_UpdateMenu()
 		const char* option;
 		const char* label;
 	} kToggles[] = {
-		{"prediction", "联想"},
 		{"english", "中英混输"},
 		{"cloud", "云候选 (Google)"},
 	};
@@ -699,8 +694,7 @@ PinyinMethod::_UpdateMenu()
 		message->AddString("option", toggle.option);
 		item = new BMenuItem(toggle.label, message);
 		BString option = toggle.option;
-		item->SetMarked(option == "prediction" ? options.prediction
-			: option == "english" ? options.english : options.cloud);
+		item->SetMarked(option == "english" ? options.english : options.cloud);
 		menu->AddItem(item);
 	}
 	menu->AddSeparatorItem();
@@ -814,7 +808,6 @@ PinyinMethod::_LoadSettings()
 	fSavedOptions.pageSize = settings.GetInt32("page size", 7);
 	fSavedOptions.fullwidthPunctuation = settings.GetBool("fullwidth", true);
 	fSavedOptions.emoji = settings.GetBool("emoji", true);
-	fSavedOptions.prediction = settings.GetBool("prediction", true);
 	fSavedOptions.english = settings.GetBool("english", true);
 	fSavedOptions.cloud = settings.GetBool("cloud", false);
 	fSavedOptions.fuzzy = (unsigned)settings.GetInt32("fuzzy", 0);
@@ -835,7 +828,6 @@ PinyinMethod::_SaveSettings()
 	settings.AddInt32("page size", options.pageSize);
 	settings.AddBool("fullwidth", options.fullwidthPunctuation);
 	settings.AddBool("emoji", options.emoji);
-	settings.AddBool("prediction", options.prediction);
 	settings.AddBool("english", options.english);
 	settings.AddBool("cloud", options.cloud);
 	settings.AddInt32("fuzzy", (int32)options.fuzzy);

@@ -127,6 +127,7 @@ Engine::SetChinese(bool chinese)
 	if (!chinese && Composing())
 		_Finish(_Remaining());
 	fChinese = chinese;
+	fSuggestion.clear();
 }
 
 
@@ -135,6 +136,34 @@ Engine::ProcessKey(Key key, char32_t character, uint32_t modifiers)
 {
 	if (!Loaded())
 		return false;
+	// A completion on offer: Tab takes it, any other key drops it.
+	if (!fSuggestion.empty()) {
+		std::string suggestion;
+		suggestion.swap(fSuggestion);
+		if (key == Key::kTab && modifiers == 0 && !Composing()) {
+			_Commit(_Convert(suggestion), suggestion);
+			SetContextText(fContextText);
+			return true;
+		}
+	}
+	bool composing = Composing();
+	bool used = _ProcessKey(key, character, modifiers);
+	if (!used && !composing && !Composing()) {
+		// Typed through: a character still reads before the cursor; Return,
+		// arrows and shortcuts mean somewhere new.
+		if (key == Key::kCharacter && character >= 0x20 && character < 0x80
+			&& (modifiers & (kControl | kCommand | kOption)) == 0) {
+			_AddContext(std::string(1, char(character)));
+		} else
+			fContextText.clear();
+	}
+	return used;
+}
+
+
+bool
+Engine::_ProcessKey(Key key, char32_t character, uint32_t modifiers)
+{
 	// Ctrl or Shift + Delete forgets a word it learned from you.
 	if (Composing() && key == Key::kDelete
 		&& (modifiers & (kControl | kShift)) != 0) {
@@ -148,23 +177,10 @@ Engine::ProcessKey(Key key, char32_t character, uint32_t modifiers)
 		return true;
 	}
 	// Shortcuts belong to the application, but not halfway through a word.
-	if ((modifiers & (kControl | kCommand)) != 0) {
-		fPredictions.clear();
+	if ((modifiers & (kControl | kCommand)) != 0)
 		return Composing();
-	}
 	if (!fChinese)
 		return false;
-
-	if (!Composing() && !fPredictions.empty()) {
-		int count = std::min(int(fPredictions.size()), fOptions.pageSize);
-		if (key == Key::kCharacter && character >= '1'
-			&& character < char32_t('1' + count)) {
-			return SelectOnPage(int(character - '1'));
-		}
-		fPredictions.clear();
-		if (key == Key::kEscape)
-			return true;
-	}
 
 	if (Composing()) {
 		bool used = _Compose(key, character);
@@ -188,7 +204,7 @@ Engine::ProcessKey(Key key, char32_t character, uint32_t modifiers)
 	fLastCharacter = character;
 	if (punctuation.empty())
 		return false;
-	fCommit += punctuation;
+	_Commit(punctuation, punctuation);
 	return true;
 }
 
@@ -299,7 +315,7 @@ Engine::_Compose(Key key, char32_t character)
 		_Finish(_Remaining());
 	if (punctuation.empty())
 		return false;
-	fCommit += punctuation;
+	_Commit(punctuation, punctuation);
 	return true;
 }
 
@@ -317,6 +333,7 @@ Engine::_IsLayoutKey(char32_t character) const
 void
 Engine::_Update()
 {
+	fRevision++;
 	std::string remaining = _Remaining();
 	if (fOptions.layout == "full") {
 		FullPinyin::Parse(remaining, fLexicon.GetSyllables(), fGraph);
@@ -405,126 +422,12 @@ Engine::_Finish(const std::string& tail)
 	if (!fPicks.empty() && ++fUnsaved >= kSaveEvery)
 		SaveUserDictionary();
 
-	fCommit += _Convert(text) + tail;
+	_Commit(_Convert(text) + tail, text + tail);
 	std::string last = fPicks.empty() || !tail.empty() ? std::string()
 		: fPicks.back().tail;
 	Reset();
-	if (last.empty())
-		ClearContext();
-	else
-		_Predict(last, learnable ? text : std::string(), key);
-}
-
-
-// The last word typed becomes the context, and its likely followers the
-// 联想 shown next.
-void
-Engine::_Predict(const std::string& word, const std::string& text,
-	const std::vector<SyllableId>& key)
-{
-	fContext = Bigram::Hash(word);
-	fPredictions.clear();
-	if (!fOptions.prediction)
-		return;
-	size_t limit = size_t(fOptions.pageSize);
-	// Phrases what was typed begins come first, then words that tend to
-	// follow the last one.
-	fPredictions = _Continuations(text, key, limit);
-	for (const std::string& next : fBigram.Predict(fContext, limit * 2)) {
-		if (fPredictions.size() >= limit)
-			break;
-		if (std::find(fPredictions.begin(), fPredictions.end(), next)
-				== fPredictions.end()) {
-			fPredictions.push_back(next);
-		}
-	}
-}
-
-
-// Words that start with 的 or end in a particle make poor 联想: 的人, 你啊.
-static bool
-IsParticleBound(const std::string& word)
-{
-	static const char* const kParticles[] = {
-		"的", "了", "啊", "吗", "呢", "吧"
-	};
-	if (word.compare(0, 3, "的") == 0)
-		return true;
-	for (const char* particle : kParticles) {
-		size_t size = strlen(particle);
-		if (word.size() >= size
-			&& word.compare(word.size() - size, size, particle) == 0) {
-			return true;
-		}
-	}
-	return false;
-}
-
-
-// Lexicon phrases that start with the end of text ("祝你生日" begins
-// 祝你生日快乐): what they add, longer matches of what was typed first,
-// then by how common the phrase is. text has one character per syllable
-// of key.
-std::vector<std::string>
-Engine::_Continuations(const std::string& text,
-	const std::vector<SyllableId>& key, size_t limit) const
-{
-	std::vector<std::string> found;
-	std::vector<size_t> starts;
-	for (size_t i = 0; i < text.size(); i++) {
-		if ((static_cast<unsigned char>(text[i]) & 0xc0) != 0x80)
-			starts.push_back(i);
-	}
-	if (key.size() < 2 || starts.size() != key.size())
-		return found;
-
-	static const size_t kLongestContext = 6;
-	// Rarer phrases are mostly noise (你好给力呀); this is rime-ice weight
-	// 1000 (生日快乐 is 58750).
-	static const float kRarestPhrase = 15.8f;
-	size_t first = key.size() > kLongestContext ? key.size() - kLongestContext
-		: 0;
-	for (size_t from = first; from + 2 <= key.size(); from++) {
-		std::string context = text.substr(starts[from]);
-		int depth = int(key.size() - from);
-		KeyIndex::Range range = fLexicon.All();
-		for (int i = 0; i < depth && !range.Empty(); i++)
-			range = fLexicon.Narrow(range, i, key[from + i]);
-		range.begin = fLexicon.Exact(range, depth).end;	// longer ones only
-		std::vector<std::pair<float, std::string>> here;
-		for (uint32_t i = range.begin; i < range.end; i++) {
-			std::string_view word = fLexicon.Word(i);
-			if (fLexicon.Cost(i) > kRarestPhrase || word.size() <= context.size()
-				|| word.compare(0, context.size(), context) != 0) {
-				continue;
-			}
-			std::string rest(word.substr(context.size()));
-			size_t characters = 0;
-			for (unsigned char c : rest)
-				characters += (c & 0xc0) != 0x80;
-			if (characters < 2 || IsParticleBound(rest))
-				continue;
-			// Only when what it adds is a word of its own: 快乐, not 给力呀.
-			KeyIndex::Range own = fLexicon.All();
-			int length = fLexicon.KeyLength(i);
-			for (int k = depth; k < length && !own.Empty(); k++)
-				own = fLexicon.Narrow(own, k - depth, fLexicon.KeyAt(i, k));
-			own = fLexicon.Exact(own, length - depth);
-			bool known = false;
-			for (uint32_t j = own.begin; j < own.end && !known; j++)
-				known = fLexicon.Word(j) == rest;
-			if (known)
-				here.emplace_back(fLexicon.Cost(i), rest);
-		}
-		std::sort(here.begin(), here.end());
-		for (const auto& [cost, rest] : here) {
-			if (found.size() >= limit)
-				return found;
-			if (std::find(found.begin(), found.end(), rest) == found.end())
-				found.push_back(rest);
-		}
-	}
-	return found;
+	// The last word typed is the context for the next.
+	fContext = last.empty() ? 0 : Bigram::Hash(last);
 }
 
 
@@ -532,7 +435,61 @@ void
 Engine::ClearContext()
 {
 	fContext = 0;
-	fPredictions.clear();
+	fContextText.clear();
+	fSuggestion.clear();
+}
+
+
+void
+Engine::_Commit(const std::string& shown, const std::string& context)
+{
+	fCommit += shown;
+	_AddContext(context);
+}
+
+
+// Keeps the last kContextLength characters.
+void
+Engine::_AddContext(const std::string& text)
+{
+	static const size_t kContextLength = 64;
+	fContextText += text;
+	size_t characters = 0;
+	for (size_t i = fContextText.size(); i-- > 0;) {
+		if ((static_cast<unsigned char>(fContextText[i]) & 0xc0) != 0x80
+			&& ++characters > kContextLength) {
+			fContextText.erase(0, i + 1);
+			break;
+		}
+	}
+}
+
+
+// The text before the cursor: its last word (the longest ending that pairs
+// with anything) becomes the context.
+void
+Engine::SetContextText(const std::string& text)
+{
+	if (&text != &fContextText) {
+		fContextText.clear();
+		_AddContext(text);
+	}
+	fContext = 0;
+	std::vector<size_t> starts;
+	for (size_t i = 0; i < text.size(); i++) {
+		if ((static_cast<unsigned char>(text[i]) & 0xc0) != 0x80)
+			starts.push_back(i);
+	}
+	static const size_t kLongestWord = 4;
+	size_t first = starts.size() > kLongestWord
+		? starts.size() - kLongestWord : 0;
+	for (size_t from = first; from < starts.size(); from++) {
+		uint32_t hash = Bigram::Hash(std::string_view(text).substr(starts[from]));
+		if (fBigram.HasFollowers(hash)) {
+			fContext = hash;
+			return;
+		}
+	}
 }
 
 
@@ -629,6 +586,7 @@ Engine::SetCloudResult(const std::string& query, const std::string& text)
 	if (characters == best.key.size())
 		cloud.key = best.key;
 	fCandidates.insert(fCandidates.begin() + 1, cloud);
+	fRevision++;
 	return true;
 }
 
@@ -643,6 +601,124 @@ Engine::CloudIndexOnPage() const
 			return int(i - first);
 	}
 	return -1;
+}
+
+
+// How much likelier (ln) the AI must find a candidate to move it first: the
+// engine's order is right most of the time.
+static const double kAIMargin = 1.0;
+
+
+Engine::AIQuery
+Engine::AIPickQuery() const
+{
+	AIQuery query;
+	if (!Composing() || fHighlight != 0 || fCandidates.empty()
+		|| fCandidates[0].ai) {
+		return query;
+	}
+	int remaining = int(fKeys.size() - fUsed);
+	for (size_t i = 0; i < fCandidates.size() && query.indexes.size() < 5; i++) {
+		const Candidate& candidate = fCandidates[i];
+		if (candidate.consumed == remaining && !candidate.raw
+			&& !candidate.english && !candidate.key.empty()) {
+			query.indexes.push_back(int(i));
+			query.options.push_back(candidate.text);
+		}
+	}
+	if (query.indexes.size() < 2 || query.indexes[0] != 0)
+		return AIQuery();
+	query.prompt = fContextText;
+	for (const Pick& pick : fPicks)
+		query.prompt += pick.text;
+	query.revision = fRevision;
+	return query;
+}
+
+
+bool
+Engine::SetAIPickResult(const AIQuery& query, const std::vector<double>& scores)
+{
+	if (query.revision != fRevision || fHighlight != 0 || scores.empty()
+		|| scores.size() != query.indexes.size()) {
+		return false;
+	}
+	size_t best = std::max_element(scores.begin(), scores.end()) - scores.begin();
+	if (best == 0 || scores[best] - scores[0] < kAIMargin)
+		return false;
+	Candidate chosen = fCandidates[query.indexes[best]];
+	chosen.ai = true;
+	fCandidates.erase(fCandidates.begin() + query.indexes[best]);
+	fCandidates.insert(fCandidates.begin(), chosen);
+	fRevision++;
+	return true;
+}
+
+
+int
+Engine::AIIndexOnPage() const
+{
+	size_t first = size_t(Page()) * fOptions.pageSize;
+	for (size_t i = first;
+			i < fCandidates.size() && i < first + fOptions.pageSize; i++) {
+		if (fCandidates[i].ai)
+			return int(i - first);
+	}
+	return -1;
+}
+
+
+// Whether text ends with a Chinese character: what a completion follows.
+static bool
+EndsWithHanzi(const std::string& text)
+{
+	size_t start = text.size();
+	while (start > 0 && (static_cast<unsigned char>(text[start - 1]) & 0xc0) == 0x80)
+		start--;
+	if (start == 0)
+		return false;
+	start--;
+	const unsigned char* bytes
+		= reinterpret_cast<const unsigned char*>(text.data()) + start;
+	char32_t c;
+	size_t length = text.size() - start;
+	if (length == 3 && (bytes[0] & 0xf0) == 0xe0)
+		c = (bytes[0] & 0x0f) << 12 | (bytes[1] & 0x3f) << 6 | (bytes[2] & 0x3f);
+	else if (length == 4 && (bytes[0] & 0xf8) == 0xf0)
+		c = (bytes[0] & 0x07) << 18 | (bytes[1] & 0x3f) << 12
+			| (bytes[2] & 0x3f) << 6 | (bytes[3] & 0x3f);
+	else
+		return false;
+	return (c >= 0x3400 && c <= 0x9fff) || (c >= 0xf900 && c <= 0xfaff)
+		|| (c >= 0x20000 && c <= 0x3ffff);
+}
+
+
+std::string
+Engine::AICompletionQuery() const
+{
+	if (Composing() || !fChinese || !fSuggestion.empty()
+		|| !EndsWithHanzi(fContextText)) {
+		return std::string();
+	}
+	return fContextText;
+}
+
+
+bool
+Engine::SetAICompletion(const std::string& prompt, const std::string& text)
+{
+	if (text.empty() || prompt.empty() || prompt != AICompletionQuery())
+		return false;
+	fSuggestion = text;
+	return true;
+}
+
+
+std::string
+Engine::Suggestion() const
+{
+	return fSuggestion.empty() ? std::string() : _Convert(fSuggestion);
 }
 
 
@@ -747,13 +823,6 @@ std::vector<std::string>
 Engine::PageCandidates() const
 {
 	std::vector<std::string> page;
-	if (Predicting()) {
-		for (size_t i = 0; i < fPredictions.size()
-				&& int(i) < fOptions.pageSize; i++) {
-			page.push_back(_Convert(fPredictions[i]));
-		}
-		return page;
-	}
 	size_t first = size_t(Page()) * fOptions.pageSize;
 	for (size_t i = first;
 			i < fCandidates.size() && i < first + fOptions.pageSize; i++) {
@@ -773,16 +842,6 @@ Engine::HasNextPage() const
 bool
 Engine::SelectOnPage(int index)
 {
-	if (Predicting()) {
-		if (index < 0 || index >= int(fPredictions.size())
-			|| index >= fOptions.pageSize) {
-			return false;
-		}
-		std::string word = fPredictions[index];
-		fCommit += _Convert(word);
-		_Predict(word);
-		return true;
-	}
 	size_t at = size_t(Page()) * fOptions.pageSize + index;
 	if (index < 0 || index >= fOptions.pageSize || at >= fCandidates.size())
 		return false;

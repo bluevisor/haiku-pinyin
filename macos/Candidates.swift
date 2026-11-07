@@ -21,6 +21,8 @@ struct CandidateBar: View {
 	var candidates: [String]
 	var highlight: Int
 	var cloud: Int
+	var ai: Int = -1			// the one the AI moved first
+	var suggestion = false		// one AI completion, taken with Tab
 	var hasPrevious: Bool
 	var hasNext: Bool
 	@State private var hover: Int?
@@ -46,11 +48,18 @@ struct CandidateBar: View {
 
 	private func cell(_ index: Int, _ text: String) -> some View {
 		let selected = index == highlight
+		let mark = selected ? AnyShapeStyle(.white.opacity(0.75))
+			: AnyShapeStyle(.secondary)
 		return HStack(alignment: .firstTextBaseline, spacing: 5) {
-			Text("\(index + 1)")
-				.font(.system(size: 12, weight: .medium).monospacedDigit())
-				.foregroundStyle(selected ? AnyShapeStyle(.white.opacity(0.75))
-					: AnyShapeStyle(.secondary))
+			if suggestion {
+				Image(systemName: "sparkles")
+					.font(.system(size: 11, weight: .medium))
+					.foregroundStyle(mark)
+			} else {
+				Text("\(index + 1)")
+					.font(.system(size: 12, weight: .medium).monospacedDigit())
+					.foregroundStyle(mark)
+			}
 			Text(text)
 				.font(.system(size: 16))
 				.foregroundStyle(selected ? AnyShapeStyle(.white)
@@ -58,8 +67,17 @@ struct CandidateBar: View {
 			if index == cloud {
 				Image(systemName: "cloud")
 					.font(.system(size: 10, weight: .medium))
-					.foregroundStyle(selected ? AnyShapeStyle(.white.opacity(0.75))
-						: AnyShapeStyle(.secondary))
+					.foregroundStyle(mark)
+			}
+			if index == ai {
+				Image(systemName: "sparkles")
+					.font(.system(size: 10, weight: .medium))
+					.foregroundStyle(mark)
+			}
+			if suggestion {
+				Text("⇥ Tab")
+					.font(.system(size: 11, weight: .medium))
+					.foregroundStyle(mark)
 			}
 		}
 		.fixedSize()	// never truncated: the panel grows instead
@@ -142,15 +160,30 @@ public func setCandidateHandlers(_ pick: HPIndexHandler?, _ page: HPIndexHandler
 // with newlines.
 @_cdecl("HPShowCandidates")
 public func showCandidates(_ joined: UnsafePointer<CChar>, _ highlight: Int32,
-	_ cloud: Int32, _ hasPrevious: Bool, _ hasNext: Bool, _ x: Double,
-	_ y: Double, _ lineHeight: Double) {
+	_ cloud: Int32, _ ai: Int32, _ hasPrevious: Bool, _ hasNext: Bool,
+	_ x: Double, _ y: Double, _ lineHeight: Double) {
+	let candidates = String(cString: joined).split(separator: "\n",
+		omittingEmptySubsequences: false).map(String.init)
+	show(CandidateBar(candidates: candidates, highlight: Int(highlight),
+		cloud: Int(cloud), ai: Int(ai), hasPrevious: hasPrevious, hasNext: hasNext),
+		x, y, lineHeight)
+}
+
+// An AI completion of what was just typed, alone in the window.
+@_cdecl("HPShowSuggestion")
+public func showSuggestion(_ text: UnsafePointer<CChar>, _ x: Double, _ y: Double,
+	_ lineHeight: Double) {
+	show(CandidateBar(candidates: [String(cString: text)], highlight: -1,
+		cloud: -1, suggestion: true, hasPrevious: false, hasNext: false),
+		x, y, lineHeight)
+}
+
+private func show(_ bar: CandidateBar, _ x: Double, _ y: Double,
+	_ lineHeight: Double) {
 	let window = panel ?? makePanel()
 	panel = window
 	guard let view = hosting else { return }
-	let candidates = String(cString: joined).split(separator: "\n",
-		omittingEmptySubsequences: false).map(String.init)
-	view.rootView = CandidateBar(candidates: candidates, highlight: Int(highlight),
-		cloud: Int(cloud), hasPrevious: hasPrevious, hasNext: hasNext)
+	view.rootView = bar
 	let size = view.fittingSize
 	window.setContentSize(size)
 

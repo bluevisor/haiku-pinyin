@@ -16,16 +16,25 @@ cat > "$app/Contents/Info.plist" <<PLIST
 </dict></plist>
 PLIST
 codesign --force -s - "$app" 2>/dev/null
-# Each pass sets the method's settings and restarts it so it reads them;
-# yours are put back afterwards.
+# Each pass sets the method's settings and restarts it so it reads them, with
+# no learned words (what it learns from the test would change your typing).
+# Your settings and words are put back afterwards.
 domain=com.bluevisor.inputmethod.HaikuPinyin
 saved=$PWD/build/test-session-settings.plist
-rm -f "$saved"
+words="$HOME/Library/Application Support/HaikuPinyin/user.dict"
+saved_words=$PWD/build/test-session-user.dict
+rm -f "$saved" "$saved_words"
 defaults export $domain "$saved" 2>/dev/null || true
+pkill -x HaikuPinyin || true	# it saves its words as it quits
+sleep 0.5
+[ -f "$words" ] && mv "$words" "$saved_words"
 restore() {
 	defaults delete $domain 2>/dev/null || true
 	if [ -f "$saved" ]; then defaults import $domain "$saved"; rm -f "$saved"; fi
 	pkill -x HaikuPinyin || true
+	sleep 0.5
+	rm -f "$words"
+	[ -f "$saved_words" ] && mv "$saved_words" "$words"
 }
 trap restore EXIT
 
@@ -35,11 +44,16 @@ pass() {
 	name=$1 expected=$2
 	shift 2
 	defaults delete $domain 2>/dev/null || true
+	# The AI's moves depend on the model: only its own pass has it on.
+	defaults write $domain aiPicks -bool NO
+	defaults write $domain aiComplete -bool NO
 	while [ $# -gt 0 ]; do
 		defaults write $domain "$1" $2 "$3"
 		shift 3
 	done
 	pkill -x HaikuPinyin || true
+	sleep 0.5
+	rm -f "$words"
 	out="$PWD/build/test-session.txt"
 	rm -f "$out"
 	open -W -n "$app" --args "$out" "$name"
@@ -60,4 +74,9 @@ pass full "中国人，hello 你好。bjdx入
 pass shuangpin "中国，啥玩意儿啊为什么
 nihd输入法中国
 饿我" layout -string pyjj vowels -int 2
+# Needs the models (macos/ai/fetch-models.sh); skipped without them.
+if [ -f "$HOME/Library/Application Support/HaikuPinyin/models/Qwen3-1.7B-Base-4bit/config.json" ]; then
+	pass ai "我妹妹说她
+祝你生日快乐" aiPicks -bool YES aiComplete -bool YES
+fi
 exit $failed

@@ -18,7 +18,7 @@ let keyCodes: [Character: CGKeyCode] = [
 	",": 43, "/": 44, "n": 45, "m": 46, ".": 47, " ": 49,
 ]
 let kReturn: CGKeyCode = 36, kDelete: CGKeyCode = 51, kEscape: CGKeyCode = 53
-let kSpace: CGKeyCode = 49, kShift: CGKeyCode = 56
+let kSpace: CGKeyCode = 49, kShift: CGKeyCode = 56, kTab: CGKeyCode = 48
 
 func inputSource(_ id: String) -> TISInputSource? {
 	let filter = [kTISPropertyInputSourceID as String: id] as CFDictionary
@@ -140,6 +140,8 @@ final class Pad: NSObject, NSApplicationDelegate {
 
 		if phase == "shuangpin" {
 			shuangpin()
+		} else if phase == "ai" {
+			ai()
 		} else {
 			fullPinyin()
 		}
@@ -157,19 +159,30 @@ extension Pad {
 		t("zgr"); k(kSpace)					// 中国人 (abbreviation)
 		t(",")								// ，
 		shiftTap(); t("hello "); shiftTap()	// English mode
-		t("nihao"); k(keyCodes["1"]!)		// 你好, then 联想 shows
-		t(".")								// 。 (联想 dropped)
+		t("nihao"); k(keyCodes["1"]!)		// 你好
+		t(".")								// 。
 		t("bjdx"); k(kReturn)				// bjdx, as typed
 		t("zhongguo"); k(kEscape)			// nothing
 		t("shuru"); k(keyCodes["]"]!)		// 入 (以词定字)
 		k(kReturn)
 		t("wozaixuexizhongwen"); k(kSpace)	// a sentence
-		t("shengri"); k(kSpace); k(keyCodes["1"]!)	// 生日, then 联想 1 (快乐)
+		t("shengrikuaile"); k(kSpace)		// 生日快乐
 		k(kReturn)
 		t("xiexie"); k(keyCodes["="]!, keyCodes["-"]!, keyCodes["1"]!)	// page, back, 谢谢
 		t("nihaoma"); k(kDelete, kDelete, kSpace)	// 你好
 		k(kReturn)
 		t("nihao1.")						// 你好。 (period after a digit pick)
+	}
+
+	// The AI on: it reads what's before the cursor. Its answers come on the
+	// side, so each step waits for one.
+	func ai() {
+		usleep(6_000_000)					// the model loads
+		t("womeimeishuo"); k(kSpace)		// 我妹妹说
+		t("ta"); usleep(800_000); k(kSpace)	// 她, not 他: the AI moved it
+		k(kReturn)
+		t("zhunishengri"); k(kSpace)		// 祝你生日
+		usleep(800_000); k(kTab)			// 快乐, the AI's completion
 	}
 
 	// 拼音加加, a o e one key each.

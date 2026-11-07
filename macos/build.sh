@@ -1,6 +1,7 @@
 #!/bin/sh
 # Builds build/HaikuPinyin.app: the engine and the InputMethodKit front end,
-# universal (arm64 + x86_64), with the data inside. Run `make data` first.
+# universal (arm64 + x86_64), with the data inside, and the AI helper
+# (macos/ai, arm64). Run `make data` first.
 #   SIGN="Developer ID Application: …" macos/build.sh    to sign for release
 #                                                       (default: ad hoc)
 set -e
@@ -32,13 +33,35 @@ for arch in arm64 x86_64; do
 	binaries="$binaries $objects/HaikuPinyin"
 done
 lipo -create $binaries -output "$contents/MacOS/HaikuPinyin"
+# The AI helper, Apple silicon only (MLX). NO_AI=1 skips it.
+if [ -z "$NO_AI" ]; then
+	(cd macos/ai && xcodebuild -scheme HaikuPinyinAI -configuration Release \
+		-destination 'platform=macOS,arch=arm64' \
+		-derivedDataPath ../../build/ai-derived \
+		-skipMacroValidation -skipPackagePluginValidation build) \
+		> build/ai-build.log 2>&1 \
+		|| { echo "AI helper build failed: build/ai-build.log" >&2; exit 1; }
+	products=build/ai-derived/Build/Products/Release
+	cp "$products/HaikuPinyinAI" "$contents/MacOS/"
+	# Its packages' resource bundles (Bundle.module traps when one's
+	# missing), and MLX's GPU kernels, which it's told are here: it can't
+	# find them in their bundle from inside an app.
+	cp -R "$products"/*.bundle "$contents/Resources/"
+	cp "$products/mlx-swift_Cmlx.bundle/Contents/Resources/default.metallib" \
+		"$contents/Resources/mlx.metallib"
+fi
 sed "s/@VERSION@/$version/g" macos/Info.plist.in > "$contents/Info.plist"
 cp -R macos/Resources/ "$contents/Resources/"
 cp -R build/data "$contents/Resources/data"
 
-if [ -n "$SIGN" ]; then
-	codesign --force --options runtime --timestamp -s "$SIGN" "$app"
-else
-	codesign --force -s - "$app"
-fi
+# The helper first: an app's signature covers what's nested in it.
+sign() {
+	if [ -n "$SIGN" ]; then
+		codesign --force --options runtime --timestamp -s "$SIGN" "$1"
+	else
+		codesign --force -s - "$1"
+	fi
+}
+if [ -f "$contents/MacOS/HaikuPinyinAI" ]; then sign "$contents/MacOS/HaikuPinyinAI"; fi
+sign "$app"
 echo "$app"

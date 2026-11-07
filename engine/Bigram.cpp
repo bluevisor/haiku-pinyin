@@ -15,8 +15,6 @@ Bigram::~Bigram()
 {
 	if (fPairFile.address != nullptr)
 		munmap(fPairFile.address, fPairFile.size);
-	if (fPredictionFile.address != nullptr)
-		munmap(fPredictionFile.address, fPredictionFile.size);
 }
 
 
@@ -69,18 +67,6 @@ Bigram::Load(const std::string& directory)
 			fPairCount = count;
 		}
 	}
-	if (const char* data = _Map(directory + "/predict.bin", "HPPRED01",
-			fPredictionFile)) {
-		uint32_t header[2];
-		memcpy(header, data, 8);
-		size_t need = 16 + size_t(header[0]) * sizeof(Prediction) + header[1];
-		if (need <= fPredictionFile.size) {
-			fPredictions = reinterpret_cast<const Prediction*>(data + 8);
-			fPredictionCount = header[0];
-			fWords = data + 8 + size_t(header[0]) * sizeof(Prediction);
-			fWordBytes = header[1];
-		}
-	}
 }
 
 
@@ -101,20 +87,15 @@ Bigram::LogProbability(uint32_t first, uint32_t second, float& logp) const
 }
 
 
-std::vector<std::string>
-Bigram::Predict(uint32_t first, size_t limit) const
+bool
+Bigram::HasFollowers(uint32_t first) const
 {
-	std::vector<std::string> words;
-	if (fPredictions == nullptr)
-		return words;
-	const Prediction* end = fPredictions + fPredictionCount;
-	const Prediction* at = std::lower_bound(fPredictions, end, first,
-		[](const Prediction& p, uint32_t key) { return p.first < key; });
-	for (; at != end && at->first == first && words.size() < limit; at++) {
-		if (size_t(at->offset) + at->length <= fWordBytes)
-			words.emplace_back(fWords + at->offset, at->length);
-	}
-	return words;
+	if (fPairs == nullptr)
+		return false;
+	const Pair* end = fPairs + fPairCount;
+	const Pair* found = std::lower_bound(fPairs, end, first,
+		[](const Pair& pair, uint32_t key) { return pair.first < key; });
+	return found != end && found->first == first;
 }
 
 }	// namespace haikupinyin

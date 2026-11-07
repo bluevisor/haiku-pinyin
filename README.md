@@ -11,7 +11,9 @@ inline composition.
 - **简体 / 繁體** output
 - **Sentences scored with word pairs** (a bigram model from libpinyin), with the
   last word you typed as context: `wozaixuexizhongwen` → 我在学习中文
-- **联想**: after each commit, the words likely to come next (number keys pick)
+- **AI** (macOS, Apple silicon): a small language model on the Mac reads the
+  text before the cursor, moves the candidate that reads best first (✦), and
+  after a commit offers what likely comes next, taken with Tab
 - **模糊音**: z/zh c/ch s/sh, an/ang en/eng in/ing, n/l f/h r/l, each optional
 - **中英混输**: `hello` also offers *hello*; nonsense pinyin offers English first
 - Optional **cloud candidates** (Google Input Tools), off by default, marked ☁
@@ -82,6 +84,16 @@ forgets a learned word. What it learns is in
 `~/Library/Application Support/HaikuPinyin/user.dict`; `macos/install.sh
 --remove` uninstalls it.
 
+**AI** needs Apple silicon and a model: `macos/ai/fetch-models.sh` converts
+Qwen3-1.7B-Base and Qwen3.5-0.8B-Base to 4-bit MLX (about 1.4 GB) into
+`~/Library/Application Support/HaikuPinyin/models`, or links copies you have
+(`fetch-models.sh <directory>`). A helper process holds the model (about
+1 GB of memory while AI is on) and answers on the side, like the cloud: typing
+never waits for it. The settings window turns AI picks and completions on or
+off and chooses the model: 自动 uses the 1.7B and falls back to the 0.8B on a
+Mac too slow for it; any MLX model in that folder can be chosen. Nothing you
+type leaves the Mac. `NO_AI=1 macos/build.sh` builds without the helper.
+
 ## Using it
 
 Pick **海酷拼音** from the keyboard menu in Deskbar, or cycle input methods
@@ -101,13 +113,11 @@ takes Alt+Space for itself, it's **Win+Space** (⌘+Space on a Mac keyboard).
 | Shift (tap) | 中 / 英 |
 | Caps Lock | English while it's on |
 
-After a commit, 联想 shows likely next words: a number takes one, anything
-else carries on as usual. Clicks, the scroll wheel and the page arrows work
-in the candidate window.
+Clicks, the scroll wheel and the page arrows work in the candidate window.
 
 The Deskbar menu holds the settings: 全拼 or a shuangpin layout, how
 shuangpin spells a, o and e (aa oo ee, oa oo oe, or one key each), 简体 /
-繁體, 全角标点, emoji, 联想, 中英混输, 云候选, the three 模糊音 groups,
+繁體, 全角标点, emoji, 中英混输, 云候选, the three 模糊音 groups,
 and candidates per page. They're saved in `~/config/settings/HaikuPinyin`,
 next to `user.dict`, the words it has learned (plain text).
 
@@ -122,9 +132,9 @@ committed, to Google Input Tools. They're off until you turn them on.
 
 | Path | What |
 |---|---|
-| `engine/` | Portable C++17 engine: lexicon, syllable graph (full pinyin, shuangpin, 模糊音), bigram beam-search decoder, 联想, user dictionary, S→T converter |
+| `engine/` | Portable C++17 engine: lexicon, syllable graph (full pinyin, shuangpin, 模糊音), bigram beam-search decoder, user dictionary, S→T converter; the questions and answers for cloud and AI candidates |
 | `haiku/` | input_server method add-on and candidate window |
-| `macos/` | InputMethodKit method (`InputController.mm`), settings window and 中/英 bubble (`Settings.swift`), `build.sh`, `install.sh`; dev only: `test-session.sh` types through it in a test window (full pinyin, then shuangpin), `snapshot-settings.swift` renders the settings window and bubble to PNG |
+| `macos/` | InputMethodKit method (`InputController.mm`), AI helper client (`AI.mm`) and the helper itself (`ai/`, Swift + MLX), settings window and 中/英 bubble (`Settings.swift`), `build.sh`, `install.sh`; dev only: `test-session.sh` types through it in a test window (full pinyin, shuangpin, then AI when its models are installed), `snapshot-settings.swift` renders the settings window and bubble to PNG |
 | `linux/` | IBus engine (`main.cpp`), component file, installers (`enable.sh`, `install-user.sh`); dev only: `sync.sh` builds on a Linux box over ssh, `test-session.sh` types through gedit with xdotool |
 | `cli/hpcli.cpp` | Drive the engine from a terminal: `echo nihao \| build/hpcli --layout pyjj` |
 | `tests/` | Engine tests |
@@ -156,7 +166,9 @@ and mouse stop until the script runs again over ssh).
 Haiku Pinyin is GPL-3.0. Word frequencies come from
 [雾凇拼音 rime-ice](https://github.com/iDvel/rime-ice) (GPL-3.0), simplified →
 traditional tables from [OpenCC](https://github.com/BYVoid/OpenCC)
-(Apache-2.0), word pairs from [libpinyin](https://github.com/libpinyin/libpinyin)'s
+(Apache-2.0), the AI's models from [Qwen](https://huggingface.co/Qwen)
+(Apache-2.0, downloaded separately) run with
+[MLX](https://github.com/ml-explore/mlx-swift) (MIT), word pairs from [libpinyin](https://github.com/libpinyin/libpinyin)'s
 open-gram model (GPL-3.0, with Apache-2.0 parts), and shuangpin layouts from
 the speller rules of
 [rime-double-pinyin](https://github.com/rime/rime-double-pinyin) (LGPL-3.0).

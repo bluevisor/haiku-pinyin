@@ -4,7 +4,10 @@
 //
 //   hpcli [--data DIR] [--layout full|pyjj|xiaohe|ziranma|mspy|abc]
 //         [--script s|t|tw|hk] [--page N] [--user FILE]
-//         [--fuzzy MASK] [--predict 0|1] [--vowels aa|oa|a]
+//         [--fuzzy MASK] [--vowels aa|oa|a]
+//         [--lines 1]     each line typed afresh: keys, then its candidates,
+//                         tab-separated; "<text before>\t<keys>" sets the
+//                         context first
 
 #include <cstdio>
 #include <cstring>
@@ -22,13 +25,6 @@ Show(Engine& engine)
 	std::string commit = engine.TakeCommit();
 	if (!commit.empty())
 		printf("commit: %s\n", commit.c_str());
-	if (engine.Predicting()) {
-		printf("  联想:");
-		for (const std::string& word : engine.PageCandidates())
-			printf(" %s", word.c_str());
-		printf("\n");
-		return;
-	}
 	if (!engine.Composing())
 		return;
 	printf("  %s\n ", engine.Preedit().c_str());
@@ -94,6 +90,7 @@ int
 main(int argc, char** argv)
 {
 	std::string data = "build/data", user;
+	bool lines = false;
 	Options options;
 	for (int i = 1; i + 1 < argc; i += 2) {
 		std::string flag = argv[i], value = argv[i + 1];
@@ -105,15 +102,15 @@ main(int argc, char** argv)
 			options.pageSize = atoi(value.c_str());
 		else if (flag == "--user")
 			user = value;
+		else if (flag == "--lines")
+			lines = value != "0";
 		else if (flag == "--fuzzy")
 			options.fuzzy = unsigned(atoi(value.c_str()));
 		else if (flag == "--vowels") {
 			options.vowels = value == "a" ? haikupinyin::Vowels::kSingle
 				: value == "oa" ? haikupinyin::Vowels::kOLed
 				: haikupinyin::Vowels::kDoubled;
-		} else if (flag == "--predict")
-			options.prediction = value != "0";
-		else if (flag == "--script") {
+		} else if (flag == "--script") {
 			options.script = value == "t" ? Script::kTraditional
 				: value == "tw" ? Script::kTaiwan
 				: value == "hk" ? Script::kHongKong : Script::kSimplified;
@@ -134,8 +131,30 @@ main(int argc, char** argv)
 		engine.SetUserDictionary(user);
 
 	std::string line;
-	while (std::getline(std::cin, line))
-		Feed(engine, line);
+	while (std::getline(std::cin, line)) {
+		if (!lines) {
+			Feed(engine, line);
+			continue;
+		}
+		// Each line typed afresh: "<keys>\t<candidate>\t<candidate>…".
+		// "<text before>\t<keys>" gives it the text before as context.
+		engine.Reset();
+		engine.ClearContext();
+		size_t tab = line.find('\t');
+		if (tab != std::string::npos) {
+			engine.SetContextText(line.substr(0, tab));
+			line = line.substr(tab + 1);
+		}
+		for (char key : line) {
+			engine.ProcessKey(haikupinyin::Key::kCharacter,
+				static_cast<unsigned char>(key), 0);
+		}
+		printf("%s", line.c_str());
+		for (const std::string& candidate : engine.PageCandidates())
+			printf("\t%s", candidate.c_str());
+		printf("\n");
+		engine.Reset();
+	}
 	engine.SaveUserDictionary();
 	return 0;
 }
