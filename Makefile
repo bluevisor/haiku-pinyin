@@ -88,8 +88,8 @@ install-ibus: $(IBUS_ENGINE) data
 	sed -e 's|@LIBEXECDIR@|$(LIBEXECDIR)|g' -e 's|@DATADIR@|$(DATADIR)|g' \
 		-e 's|@VERSION@|$(VERSION)|g' linux/haiku-pinyin.xml.in \
 		> $(DESTDIR)$(COMPONENTDIR)/haiku-pinyin.xml
-	@echo "Installed. Run 'ibus restart', then add 海酷拼音 Haiku Pinyin under"
-	@echo "Settings > Keyboard > Input Sources > Chinese."
+	@echo "Installed. As yourself, run linux/enable.sh: it restarts IBus, adds"
+	@echo "海酷拼音 Haiku Pinyin to GNOME's input sources and switches to it."
 
 uninstall-ibus:
 	rm -f $(DESTDIR)$(LIBEXECDIR)/ibus-engine-haiku-pinyin \

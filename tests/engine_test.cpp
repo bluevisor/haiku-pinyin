@@ -219,6 +219,9 @@ main(int argc, char** argv)
 		engine.ProcessKey(Key::kCharacter, '3', 0);
 		Type(engine, ".");
 		Expect("decimal point", engine.TakeCommit(), "");
+		// A digit that picks a candidate isn't typed: 你好。 not 你好.
+		Type(engine, "nihao1.");
+		Expect("period after a pick", engine.TakeCommit(), "你好。");
 	}
 
 	// Picking in pieces commits once, and backspace reopens the last pick.
