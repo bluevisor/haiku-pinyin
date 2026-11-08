@@ -1,11 +1,19 @@
 # 海酷拼音 Haiku Pinyin
 
-A modern Chinese input method for Haiku (and Linux and macOS), in the spirit of 搜狗拼音 and the
-macOS pinyin input: whole-sentence conversion, abbreviations (`zgr` → 中国人,
-`bjdx` → 北京大学), half-typed syllables, learning from what you pick, and
-inline composition.
+A modern Chinese input method for Haiku, Linux and macOS, in the spirit of
+搜狗拼音 and the macOS pinyin input: whole-sentence conversion, abbreviations
+(`zgr` → 中国人, `bjdx` → 北京大学), half-typed syllables, learning from what
+you pick, and inline composition. One engine, three native front ends.
 
 ![海酷拼音 typing in a text view, and in Temino](docs/screenshot.png)
+
+| | Get it | Runs as | Only here |
+|---|---|---|---|
+| **macOS** 13+ | [`.dmg`](https://github.com/bluevisor/haiku-pinyin/releases/latest), signed and notarized | InputMethodKit input method | on-device AI picks and gray completion (Apple silicon), self-update, settings window |
+| **Linux** | build from source ([below](#install-on-linux)) | IBus engine (GNOME and anywhere IBus runs) | settings in the top-bar input menu |
+| **Haiku** (64-bit) | [`.hpkg`](https://github.com/bluevisor/haiku-pinyin/releases/latest) for arm64 / x86_64 | input_server add-on | Deskbar menu, inline in BTextView and Terminal |
+
+The features below work on all three, except where marked.
 
 - **Full pinyin** and **shuangpin**: 拼音加加, 小鹤, 自然码, 微软, 智能ABC
 - **简体 / 繁體** output
@@ -119,9 +127,10 @@ updater reads, all in `dist/` for a GitHub release;
 
 ## Using it
 
-Pick **海酷拼音** from the keyboard menu in Deskbar, or cycle input methods
-with **Alt+Space**. With [Kigo](https://github.com/bluevisor/kigo), which
-takes Alt+Space for itself, it's **Win+Space** (⌘+Space on a Mac keyboard).
+Switch to it like any input method: on Haiku from the keyboard menu in
+Deskbar or with **Alt+Space** (with [Kigo](https://github.com/bluevisor/kigo),
+which takes Alt+Space for itself, **Win+Space**); on Linux with Super+Space;
+on a Mac with Control+Space or 🌐.
 
 | Key | |
 |---|---|
@@ -155,11 +164,13 @@ After a number, digits are typing, so letters pick (a b c …); after a code,
 digits pick as usual. `v` alone lists one of each. Letters that are no code
 (`very`) are pinyin and English as before.
 
-The Deskbar menu holds the settings: 全拼 or a shuangpin layout, how
+The settings (Deskbar menu on Haiku, the top-bar input menu on Linux, the
+settings window on a Mac) are: 全拼 or a shuangpin layout, how
 shuangpin spells a, o and e (aa oo ee, oa oo oe, or one key each), 简体 /
 繁體, 全角标点, emoji, 中英混输, 云候选, the three 模糊音 groups,
-and candidates per page. They're saved in `~/config/settings/HaikuPinyin`,
-next to `user.dict`, the words it has learned (plain text).
+and candidates per page. On Haiku they're saved in
+`~/config/settings/HaikuPinyin`, next to `user.dict`, the words it has
+learned (plain text).
 
 Views that are input method aware (BTextView, so StyledEdit and most apps;
 Terminal; [Temino](https://github.com/bluevisor/temino) 0.2.4+) show the
