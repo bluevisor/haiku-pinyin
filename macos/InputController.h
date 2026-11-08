@@ -16,6 +16,10 @@ void HPSave();
 
 // Settings.swift
 extern "C" void HPShowSettings(void);
+// Updater.swift
+extern "C" void HPUpdaterCheck(void);
+// Whether a word is being typed: an update waits for it to end.
+extern "C" bool HPComposing(void);
 extern "C" void HPShowModeBubble(bool chinese, double x, double y);
 
 // Candidates.swift. candidates: the page, joined with newlines.

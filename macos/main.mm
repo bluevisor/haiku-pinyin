@@ -31,15 +31,6 @@ HPSaveNow(void)
 }
 
 
-// Whether a composition is open, so an update waits for it to end.
-// InputController.mm may define it; until then, idle time alone decides.
-extern "C" __attribute__((weak)) bool
-HPComposing(void)
-{
-	return false;
-}
-
-
 // The one input mode: Settings and the input menu list the mode, not the
 // method. (中/英 is a toggle inside it, not a second mode.)
 static NSString* const kMode = @"com.bluevisor.inputmethod.HaikuPinyin.Chinese";

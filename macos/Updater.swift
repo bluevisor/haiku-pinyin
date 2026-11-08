@@ -263,6 +263,12 @@ private struct UpdateError: LocalizedError {
 	init(_ message: String) { errorDescription = message }
 }
 
+// The input menu's 检查更新…: the answer shows in Settings.
+@_cdecl("HPUpdaterCheck")
+public func updaterCheck() {
+	Updater.shared.check(manual: true)
+}
+
 @_cdecl("HPUpdaterStart")
 public func updaterStart() {
 	Updater.shared.start()

@@ -216,6 +216,13 @@ HPSetUp(IMKServer* server)
 }
 
 
+bool
+HPComposing()
+{
+	return sLoaded && sEngine->Composing();
+}
+
+
 void
 HPSave()
 {
@@ -643,6 +650,8 @@ CloudAnswer(NSData* data, NSString* query)
 	NSMenu* menu = [NSMenu new];
 	[menu addItem:[[NSMenuItem alloc] initWithTitle:@"设置…"
 		action:@selector(showPreferences:) keyEquivalent:@""]];
+	[menu addItem:[[NSMenuItem alloc] initWithTitle:@"检查更新…"
+		action:@selector(checkForUpdates:) keyEquivalent:@""]];
 	[menu addItem:[[NSMenuItem alloc]
 		initWithTitle:sLoaded && !sEngine->Chinese()
 			? @"现在是英文：切换到中文 (Shift)" : @"切换到英文 (Shift)"
@@ -664,6 +673,13 @@ CloudAnswer(NSData* data, NSString* query)
 - (void)showPreferences:(id)sender
 {
 	HPShowSettings();
+}
+
+
+- (void)checkForUpdates:(id)sender
+{
+	HPShowSettings();
+	HPUpdaterCheck();
 }
 
 
