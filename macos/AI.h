@@ -10,13 +10,16 @@
 typedef void (^HPRankHandler)(NSArray<NSNumber*>* scores);
 typedef void (^HPCompleteHandler)(NSString* text);
 
-// Where the models go: ~/Library/Application Support/HaikuPinyin/models.
+// Where the models go: ~/Library/Application Support/HaikuPinyin/models, or
+// $HAIKU_PINYIN_MODELS.
 NSString* HPAIModelDirectory(void);
 // Whether the helper and a model are there to start.
 bool HPAIAvailable(void);
 // Starts, stops or restarts the helper to match the settings (aiPicks,
 // aiComplete, aiModel: a folder in the model directory, "" for the default).
 void HPAIUpdate(void);
+// Restarts the helper on the models there now (after a download).
+extern "C" void HPAIModelsChanged(void);
 // Loaded and answering.
 bool HPAIReady(void);
 

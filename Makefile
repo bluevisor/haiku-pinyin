@@ -10,6 +10,7 @@
 #   linux/install-user.sh       (Linux) into ~/.local, no root needed
 #   make mac        (macOS) build/HaikuPinyin.app, universal
 #   make install-mac            (macOS) into ~/Library/Input Methods
+#   make mac-release            (macOS) the signed, notarized download in dist/
 
 CXX ?= c++
 CXXFLAGS ?= -O2 -g
@@ -106,9 +107,13 @@ mac: data
 install-mac: mac
 	macos/install.sh
 
+# The download: signed, notarized, in dist/ with the updater's latest.json.
+mac-release: data
+	macos/release.sh
+
 clean:
 	rm -rf $(OBJ) $(ENGINE) $(BUILD)/hpcli $(BUILD)/engine_test $(ADDON) \
 		$(IBUS_ENGINE)
 
-.PHONY: all data test install ibus install-ibus uninstall-ibus mac install-mac \
+.PHONY: all data test install ibus install-ibus uninstall-ibus mac install-mac mac-release \
 	clean

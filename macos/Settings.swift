@@ -90,11 +90,12 @@ struct SettingsView: View {
 	@AppStorage("aiPicks") private var aiPicks = true
 	@AppStorage("aiComplete") private var aiComplete = true
 	@AppStorage("aiModel") private var aiModel = ""		// "": 自动
+	@AppStorage("autoUpdate") private var autoUpdate = true
 	@State private var models = installedModels()
+	@ObservedObject private var downloader = ModelDownloader.shared
+	@ObservedObject private var updater = Updater.shared
 
-	private var aiInstalled: Bool {
-		!models.isEmpty && Bundle.main.path(forAuxiliaryExecutable: "HaikuPinyinAI") != nil
-	}
+	private var aiInstalled: Bool { !models.isEmpty && aiSupported }
 
 	private var version: String {
 		Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString")
@@ -171,23 +172,29 @@ struct SettingsView: View {
 			}
 
 			Section {
-				Toggle(isOn: $aiPicks) {
-					Row(title: "AI 选词", symbol: "sparkles", color: .purple)
-				}
-				Toggle(isOn: $aiComplete) {
-					Row(title: "AI 补全 (Tab)", symbol: "text.append", color: .green)
-				}
-				Picker(selection: $aiModel) {
-					Text("自动").tag("")
-					ForEach(models, id: \.name) { model in
-						Text("\(model.name)  \(model.size)").tag(model.name)
+				Group {
+					Toggle(isOn: $aiPicks) {
+						Row(title: "AI 选词", symbol: "sparkles", color: .purple)
 					}
-					// A chosen model that's gone: shown, so the choice is clear.
-					if !aiModel.isEmpty && !models.contains(where: { $0.name == aiModel }) {
-						Text("\(aiModel)（未找到）").tag(aiModel)
+					Toggle(isOn: $aiComplete) {
+						Row(title: "AI 补全 (Tab)", symbol: "text.append", color: .green)
 					}
-				} label: {
-					Row(title: "模型", symbol: "cpu", color: .gray)
+					Picker(selection: $aiModel) {
+						Text("自动").tag("")
+						ForEach(models, id: \.name) { model in
+							Text("\(model.name)  \(model.size)").tag(model.name)
+						}
+						// A chosen model that's gone: shown, so the choice is clear.
+						if !aiModel.isEmpty && !models.contains(where: { $0.name == aiModel }) {
+							Text("\(aiModel)（未找到）").tag(aiModel)
+						}
+					} label: {
+						Row(title: "模型", symbol: "cpu", color: .gray)
+					}
+				}
+				.disabled(!aiInstalled)
+				if aiSupported && (downloader.running || !downloader.missing.isEmpty) {
+					modelDownload
 				}
 				LabeledContent {
 					Button("在访达中显示") { revealModels() }
@@ -198,13 +205,15 @@ struct SettingsView: View {
 			} header: {
 				Text("AI")
 			} footer: {
-				Text(aiInstalled
+				Text(!aiSupported
+					? "AI 需要 Apple 芯片的 Mac。"
+					: aiInstalled
 					? "在本机运行的语言模型读光标前的文字：把更通顺的候选排到第一（标 ✦），上屏后给出接下来的字，按 Tab 输入。文字不离开这台 Mac。自动：用 Qwen3-1.7B，这台 Mac 跑得慢时换小的。模型文件夹里的 MLX 模型都可以选。"
-					: "未安装模型：运行 macos/ai/fetch-models.sh，或把 MLX 模型放进模型文件夹。需要 Apple 芯片。")
+					: "先下载模型：Qwen3 的 1.7B 和 0.8B 两个基础模型，从 Hugging Face 下载，共约 1.4 GB；用的时候约占 1 GB 内存。文字不离开这台 Mac。")
 					.foregroundStyle(.secondary)
 			}
-			.disabled(!aiInstalled && models.isEmpty)
 			.onAppear { models = installedModels() }
+			.onChange(of: downloader.running) { _ in models = installedModels() }
 
 			Section("模糊音") {
 				ForEach(fuzzyGroups, id: \.mask) {
@@ -232,11 +241,83 @@ struct SettingsView: View {
 				Text("轻按 Shift 切换中 / 英；在候选上按 Control-Delete 忘掉学到的词。")
 					.foregroundStyle(.secondary)
 			}
+
+			Section {
+				Toggle(isOn: $autoUpdate) {
+					Row(title: "自动更新", symbol: "arrow.triangle.2.circlepath",
+						color: .green)
+				}
+				LabeledContent {
+					if updater.staged != nil {
+						Button("现在安装") { updater.installNow() }
+							.glassButton()
+					} else {
+						Button("检查更新…") { updater.check(manual: true) }
+							.glassButton()
+							.disabled(updater.busy)
+					}
+				} label: {
+					Row(title: "版本 \(version)", symbol: "info.circle.fill", color: .gray)
+				}
+			} header: {
+				Text("更新")
+			} footer: {
+				Text(updateFooter)
+					.foregroundStyle(.secondary)
+			}
 		}
 		.formStyle(.grouped)
 		// Scrolls under the clear title bar when the screen is short.
 		.frame(width: 480)
 		.frame(minHeight: 360, idealHeight: 720)
+	}
+
+	// The models missing, a button to fetch them, and how far it's got.
+	@ViewBuilder private var modelDownload: some View {
+		let size = ByteCountFormatter.string(fromByteCount:
+			downloader.missing.reduce(0) { $0 + $1.size }, countStyle: .file)
+		if downloader.running {
+			VStack(alignment: .leading, spacing: 6) {
+				HStack {
+					Row(title: "正在下载模型", symbol: "arrow.down.circle.fill",
+						color: .blue)
+					Spacer()
+					Button("取消") { downloader.cancel() }
+						.glassButton()
+				}
+				ProgressView(value: Double(downloader.done),
+					total: Double(max(downloader.total, 1)))
+				Text("\(ByteCountFormatter.string(fromByteCount: downloader.done, countStyle: .file)) / \(ByteCountFormatter.string(fromByteCount: downloader.total, countStyle: .file))")
+					.font(.caption.monospacedDigit())
+					.foregroundStyle(.secondary)
+			}
+		} else {
+			LabeledContent {
+				Button("下载模型") { downloader.start() }
+					.glassButton()
+			} label: {
+				VStack(alignment: .leading, spacing: 2) {
+					Row(title: models.isEmpty ? "下载 AI 模型" : "下载其余的模型",
+						symbol: "arrow.down.circle.fill", color: .blue)
+					Text(downloader.message.isEmpty ? size
+						: "\(downloader.message) · 还差 \(size)")
+						.font(.caption)
+						.foregroundStyle(.secondary)
+				}
+			}
+		}
+	}
+
+	private var updateFooter: String {
+		var parts: [String] = []
+		if !updater.status.isEmpty {
+			parts.append(updater.status)
+		}
+		if let last = updater.lastCheck {
+			parts.append("上次检查：" + last.formatted(date: .abbreviated, time: .shortened))
+		}
+		parts.append("从 GitHub 上的发布下载，签名核对后在空闲时换上。")
+		return parts.joined(separator: "。")
 	}
 
 	private func revealModels() {
@@ -256,12 +337,6 @@ struct SettingsView: View {
 			NSWorkspace.shared.open(support)
 		}
 	}
-}
-
-// ~/Library/Application Support/HaikuPinyin/models, as AI.mm has it.
-private func modelsFolder() -> URL {
-	FileManager.default.urls(for: .applicationSupportDirectory,
-		in: .userDomainMask)[0].appendingPathComponent("HaikuPinyin/models")
 }
 
 struct InstalledModel {

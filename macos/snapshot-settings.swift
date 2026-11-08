@@ -1,11 +1,17 @@
 // Dev only: renders the settings window's view to a PNG, to look at it
 // without screen recording permission:
 //   swiftc -parse-as-library macos/Settings.swift macos/Candidates.swift \
-//       macos/snapshot-settings.swift -o build/snapshot-settings
+//       macos/Models.swift macos/Updater.swift macos/snapshot-settings.swift \
+//       -o build/snapshot-settings
 //   build/snapshot-settings out.png [light|dark|bubble|candidates[-dark]]
 // It flashes the window on screen for a second.
 import AppKit
 import SwiftUI
+
+// What the input method's own code provides the settings window.
+@_cdecl("HPAIModelsChanged") func aiModelsChangedStub() {}
+@_cdecl("HPSaveNow") func saveNowStub() {}
+@_cdecl("HPComposing") func composingStub() -> Bool { false }
 
 @main
 struct SnapshotSettings {
@@ -54,7 +60,9 @@ struct SnapshotSettings {
 		window.titlebarAppearsTransparent = true
 		window.title = "海酷拼音"
 		window.contentView = host
-		window.setContentSize(NSSize(width: 480, height: 720))
+		// SNAPSHOT_HEIGHT=1800 shows the whole form.
+		let height = Double(ProcessInfo.processInfo.environment["SNAPSHOT_HEIGHT"] ?? "") ?? 720
+		window.setContentSize(NSSize(width: 480, height: height))
 		window.center()
 		window.orderFrontRegardless()
 		RunLoop.main.run(until: Date().addingTimeInterval(1))

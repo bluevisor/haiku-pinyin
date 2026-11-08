@@ -74,30 +74,48 @@ top bar, and are saved in `~/.config/haiku-pinyin/` with `user.dict`.
 ## Install on macOS
 
 On a Mac it's an InputMethodKit input method (macOS 13 or later, Apple
-silicon or Intel). Build it with Xcode's command line tools:
+silicon or Intel). Download `HaikuPinyin-<version>.dmg` from the
+[releases](https://github.com/bluevisor/haiku-pinyin/releases), open it and
+open **HaikuPinyin**: it offers to install itself into
+`~/Library/Input Methods`, adds itself to the input menu and switches to it.
+When macOS wants that done by hand, it says so and opens the place: System
+Settings → Keyboard → Input Sources → Edit… → **+** → Chinese, Simplified →
+**Haiku Pinyin**. Switch to it with Control+Space or 🌐. It's signed and
+notarized, and keeps itself up to date: once a day it looks for a newer
+release, checks the download's signature, and puts it in place while the
+Mac sits idle (**自动更新** in the settings turns that off; **检查更新…**
+looks now).
+
+A Shift tap switches 中/英, with a 中 or 英 by the text to say which;
+**设置…** in the input menu opens the settings window. Control-Delete forgets
+a learned word. What it learns is in
+`~/Library/Application Support/HaikuPinyin/user.dict`.
+
+**AI** needs Apple silicon and a model: **下载模型** in the settings window
+fetches Qwen3-1.7B-Base and Qwen3.5-0.8B-Base, converted to 4-bit MLX (about
+1.4 GB), from Hugging Face (or its mirror) into
+`~/Library/Application Support/HaikuPinyin/models`, and checks every file. A
+stopped download carries on where it left off. A helper process holds the
+model (about 1 GB of memory while AI is on) and answers on the side, like the
+cloud: typing never waits for it. The settings window turns AI picks and
+completions on or off and chooses the model: 自动 uses the 1.7B and falls
+back to the 0.8B on a Mac too slow for it; any MLX model in that folder can be
+chosen. Nothing you type leaves the Mac.
+
+To build it yourself, with Xcode's command line tools:
 
 ```sh
 tools/fetch_sources.sh && make data install-mac   # into ~/Library/Input Methods
 ```
 
-Then add it yourself, as macOS asks: System Settings → Keyboard → Input
-Sources → Edit… → **+** → Chinese, Simplified → **Haiku Pinyin**, and switch
-to it with Control+Space or 🌐. The candidates show in the system's own
-candidate window. A Shift tap switches 中/英, with a 中 or 英 by the text to
-say which; **设置…** in the input menu opens the settings window. Control-Delete
-forgets a learned word. What it learns is in
-`~/Library/Application Support/HaikuPinyin/user.dict`; `macos/install.sh
---remove` uninstalls it.
-
-**AI** needs Apple silicon and a model: `macos/ai/fetch-models.sh` converts
-Qwen3-1.7B-Base and Qwen3.5-0.8B-Base to 4-bit MLX (about 1.4 GB) into
-`~/Library/Application Support/HaikuPinyin/models`, or links copies you have
-(`fetch-models.sh <directory>`). A helper process holds the model (about
-1 GB of memory while AI is on) and answers on the side, like the cloud: typing
-never waits for it. The settings window turns AI picks and completions on or
-off and chooses the model: 自动 uses the 1.7B and falls back to the 0.8B on a
-Mac too slow for it; any MLX model in that folder can be chosen. Nothing you
-type leaves the Mac. `NO_AI=1 macos/build.sh` builds without the helper.
+`macos/install.sh --remove` uninstalls it. A build of your own is signed ad
+hoc and never updates itself. `macos/ai/fetch-models.sh` converts the models
+itself (or links copies you have: `fetch-models.sh <directory>`);
+`NO_AI=1 macos/build.sh` builds without the helper. `make mac-release`
+(`macos/release.sh`) makes the download: signed with a Developer ID,
+notarized and stapled, as a disk image and the zip and `latest.json` the
+updater reads, all in `dist/` for a GitHub release;
+`macos/ai/upload-models.sh` publishes the models.
 
 ## Using it
 
