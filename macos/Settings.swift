@@ -267,7 +267,7 @@ struct SettingsView: View {
 			}
 		}
 		.formStyle(.grouped)
-		// Scrolls under the clear title bar when the screen is short.
+		// Scrolls when the screen is short.
 		.frame(width: 480)
 		.frame(minHeight: 360, idealHeight: 720)
 	}
@@ -366,16 +366,20 @@ private func installedModels() -> [InstalledModel] {
 
 private var settingsWindow: NSWindow?
 
+// A solid title bar: the form scrolls under it, and a clear one let the
+// rows show through behind the title and the window buttons.
+func styleSettingsWindow(_ window: NSWindow) {
+	window.title = "海酷拼音"
+	window.styleMask = [.titled, .closable, .resizable]
+	window.titlebarAppearsTransparent = false
+}
+
 @_cdecl("HPShowSettings")
 public func showSettings() {
 	if settingsWindow == nil {
 		let window = NSWindow(contentViewController:
 			NSHostingController(rootView: SettingsView()))
-		window.title = "海酷拼音"
-		// The form runs under a clear title bar, as System Settings does.
-		window.styleMask = [.titled, .closable, .resizable,
-			.fullSizeContentView]
-		window.titlebarAppearsTransparent = true
+		styleSettingsWindow(window)
 		window.setContentSize(NSSize(width: 480, height: min(720,
 			(NSScreen.main?.visibleFrame.height ?? 800) - 80)))
 		window.isReleasedWhenClosed = false
