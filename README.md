@@ -10,7 +10,7 @@ you pick, and inline composition. One engine, three native front ends.
 | | Get it | Runs as | Only here |
 |---|---|---|---|
 | **macOS** 13+ | [`.dmg`](https://github.com/bluevisor/haiku-pinyin/releases/latest), signed and notarized | InputMethodKit input method | on-device AI picks and gray completion (Apple silicon), self-update, settings window |
-| **Linux** | build from source ([below](#install-on-linux)) | IBus engine (GNOME and anywhere IBus runs) | settings in the top-bar input menu |
+| **Linux** | [`.deb`](https://github.com/bluevisor/haiku-pinyin/releases/latest) for arm64 / amd64 (Ubuntu 22.04+, Debian 12+), or from source | IBus engine (GNOME and anywhere IBus runs) | settings in the top-bar input menu |
 | **Haiku** (64-bit) | [`.hpkg`](https://github.com/bluevisor/haiku-pinyin/releases/latest) for arm64 / x86_64 | input_server add-on | Deskbar menu, inline in BTextView and Terminal |
 
 The features below work on all three, except where marked.
@@ -60,7 +60,16 @@ To build it yourself instead, see Build below.
 ## Install on Linux
 
 On Linux it's an [IBus](https://github.com/ibus/ibus) engine (GNOME,
-and anywhere else IBus runs). Build it with the IBus headers:
+and anywhere else IBus runs). On Ubuntu 22.04+ or Debian 12+, download
+`haiku-pinyin_<version>_<arch>.deb` (`arm64` or `amd64`) from the
+[releases](https://github.com/bluevisor/haiku-pinyin/releases), then:
+
+```sh
+sudo apt install ./haiku-pinyin_*.deb
+haiku-pinyin-enable        # as yourself: restarts IBus, adds it to GNOME
+```
+
+Or build it with the IBus headers:
 
 ```sh
 sudo apt install build-essential libibus-1.0-dev curl python3   # Debian/Ubuntu
@@ -70,7 +79,7 @@ sudo make install-ibus && linux/enable.sh  # into /usr, where IBus looks
 linux/install-user.sh                      # into ~/.local; --remove undoes it
 ```
 
-`linux/enable.sh` restarts IBus and adds **海酷拼音 Haiku Pinyin** to
+`haiku-pinyin-enable` (`linux/enable.sh` in a build) restarts IBus and adds **海酷拼音 Haiku Pinyin** to
 GNOME's input sources (or add it under Settings → Keyboard → Input Sources →
 Chinese); switch with Super+Space. On GNOME, don't use `ibus restart`: the
 daemon runs as a systemd user unit and stays stopped. Restart it with
@@ -186,7 +195,7 @@ committed, to Google Input Tools. They're off until you turn them on.
 | `engine/` | Portable C++17 engine: lexicon, syllable graph (full pinyin, shuangpin, 模糊音), bigram beam-search decoder, user dictionary, S→T converter; the questions and answers for cloud and AI candidates |
 | `haiku/` | input_server method add-on and candidate window |
 | `macos/` | InputMethodKit method (`InputController.mm`), AI helper client (`AI.mm`) and the helper itself (`ai/`, Swift + MLX), settings window and 中/英 bubble (`Settings.swift`), candidate window and gray AI completion (`Candidates.swift`), self-update (`Updater.swift`), model download (`Models.swift`), `build.sh`, `install.sh`, `release.sh` (signed, notarized zip + DMG and `latest.json`; `ai/upload-models.sh` puts the models on Hugging Face); dev only: `test-session.sh` types through it in a test window (full pinyin, shuangpin, then AI when its models are installed), `snapshot-settings.swift` renders the settings window and bubble to PNG |
-| `linux/` | IBus engine (`main.cpp`; its settings and top-bar menu in `Settings.cpp`, cloud candidates in `Cloud.cpp`), component file, installers (`enable.sh`, `install-user.sh`); dev only: `sync.sh` builds on a Linux box over ssh, `test-session.sh` types through gedit with xdotool |
+| `linux/` | IBus engine (`main.cpp`; its settings and top-bar menu in `Settings.cpp`, cloud candidates in `Cloud.cpp`), component file, installers (`enable.sh`, `install-user.sh`), `deb.sh` (arm64 and amd64 .deb in Docker, `make linux-deb`); dev only: `sync.sh` builds on a Linux box over ssh, `test-session.sh` types through gedit with xdotool |
 | `cli/hpcli.cpp` | Drive the engine from a terminal: `echo nihao \| build/hpcli --layout pyjj` |
 | `tests/` | Engine tests |
 | `tools/build_data.py` | Builds `build/data/` from `sources/` |

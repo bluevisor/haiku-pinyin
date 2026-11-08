@@ -111,6 +111,10 @@ install-mac: mac
 mac-release: data
 	macos/release.sh
 
+# Linux packages for a release: arm64 and amd64 .deb, built in Docker.
+linux-deb: data
+	linux/deb.sh
+
 clean:
 	rm -rf $(OBJ) $(ENGINE) $(BUILD)/hpcli $(BUILD)/engine_test $(ADDON) \
 		$(IBUS_ENGINE)
