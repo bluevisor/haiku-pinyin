@@ -25,6 +25,9 @@ static NSMutableData* sOutput;
 NSString*
 HPAIModelDirectory()
 {
+	NSString* path = NSProcessInfo.processInfo.environment[@"HAIKU_PINYIN_MODELS"];
+	if (path != nil)
+		return path;
 	NSURL* base = [NSFileManager.defaultManager
 		URLForDirectory:NSApplicationSupportDirectory inDomain:NSUserDomainMask
 		appropriateForURL:nil create:YES error:nil];
@@ -243,6 +246,18 @@ HPAIUpdate()
 		Stop();
 		Start(true);
 	}
+}
+
+
+// Models were added (the settings window downloaded them): start over with
+// them now, not after kRestartDelay.
+extern "C" void
+HPAIModelsChanged(void)
+{
+	Stop();
+	NSUserDefaults* defaults = NSUserDefaults.standardUserDefaults;
+	if ([defaults boolForKey:@"aiPicks"] || [defaults boolForKey:@"aiComplete"])
+		Start(true);
 }
 
 
