@@ -7,7 +7,7 @@
 set -e
 cd "$(dirname "$0")/.."
 [ -f build/data/pinyin.dict ] || { echo "no build/data: run make data" >&2; exit 1; }
-version=$(cat VERSION)
+version=${HP_VERSION:-$(cat VERSION)}	# HP_VERSION: another, for testing updates
 app=build/HaikuPinyin.app
 contents=$app/Contents
 
@@ -26,9 +26,11 @@ for arch in arm64 x86_64; do
 			-Wall -Wextra -Wno-unused-parameter -c "$source" -o "$object"
 	done
 	swiftc -target $target -O -g -parse-as-library \
-		macos/Settings.swift macos/Candidates.swift \
+		macos/Settings.swift macos/Candidates.swift macos/Models.swift \
+		macos/Updater.swift \
 		"$objects"/*.o -lc++ \
 		-framework Cocoa -framework InputMethodKit -framework Carbon \
+		-framework Security \
 		-o "$objects/HaikuPinyin"
 	binaries="$binaries $objects/HaikuPinyin"
 done

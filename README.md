@@ -13,7 +13,12 @@ inline composition.
   last word you typed as context: `wozaixuexizhongwen` → 我在学习中文
 - **AI** (macOS, Apple silicon): a small language model on the Mac reads the
   text before the cursor, moves the candidate that reads best first (✦), and
-  after a commit offers what likely comes next, taken with Tab
+  after a commit shows what likely comes next in gray after the cursor
+  (中华人民 → 共和国), taken with Tab; any other key types on past it
+- **v-mode**: `v123` → 一百二十三 / 壹佰贰拾叁 / 壹佰贰拾叁元整, `v1+2*3` → 7,
+  `v2026.11.7` → 2026年11月7日 / 二〇二六年十一月七日, `vrq` `vsj` `vxq` → today's
+  date, the time, the weekday, and symbols by code (`vjt` arrows, `vsx` maths,
+  …); Shift+V in shuangpin
 - **模糊音**: z/zh c/ch s/sh, an/ang en/eng in/ing, n/l f/h r/l, each optional
 - **中英混输**: `hello` also offers *hello*; nonsense pinyin offers English first
 - Optional **cloud candidates** (Google Input Tools), off by default, marked ☁
@@ -69,30 +74,48 @@ top bar, and are saved in `~/.config/haiku-pinyin/` with `user.dict`.
 ## Install on macOS
 
 On a Mac it's an InputMethodKit input method (macOS 13 or later, Apple
-silicon or Intel). Build it with Xcode's command line tools:
+silicon or Intel). Download `HaikuPinyin-<version>.dmg` from the
+[releases](https://github.com/bluevisor/haiku-pinyin/releases), open it and
+open **HaikuPinyin**: it offers to install itself into
+`~/Library/Input Methods`, adds itself to the input menu and switches to it.
+When macOS wants that done by hand, it says so and opens the place: System
+Settings → Keyboard → Input Sources → Edit… → **+** → Chinese, Simplified →
+**Haiku Pinyin**. Switch to it with Control+Space or 🌐. It's signed and
+notarized, and keeps itself up to date: once a day it looks for a newer
+release, checks the download's signature, and puts it in place while the
+Mac sits idle (**自动更新** in the settings turns that off; **检查更新…**
+looks now).
+
+A Shift tap switches 中/英, with a 中 or 英 by the text to say which;
+**设置…** in the input menu opens the settings window. Control-Delete forgets
+a learned word. What it learns is in
+`~/Library/Application Support/HaikuPinyin/user.dict`.
+
+**AI** needs Apple silicon and a model: **下载模型** in the settings window
+fetches Qwen3-1.7B-Base and Qwen3.5-0.8B-Base, converted to 4-bit MLX (about
+1.4 GB), from Hugging Face (or its mirror) into
+`~/Library/Application Support/HaikuPinyin/models`, and checks every file. A
+stopped download carries on where it left off. A helper process holds the
+model (about 1 GB of memory while AI is on) and answers on the side, like the
+cloud: typing never waits for it. The settings window turns AI picks and
+completions on or off and chooses the model: 自动 uses the 1.7B and falls
+back to the 0.8B on a Mac too slow for it; any MLX model in that folder can be
+chosen. Nothing you type leaves the Mac.
+
+To build it yourself, with Xcode's command line tools:
 
 ```sh
 tools/fetch_sources.sh && make data install-mac   # into ~/Library/Input Methods
 ```
 
-Then add it yourself, as macOS asks: System Settings → Keyboard → Input
-Sources → Edit… → **+** → Chinese, Simplified → **Haiku Pinyin**, and switch
-to it with Control+Space or 🌐. The candidates show in the system's own
-candidate window. A Shift tap switches 中/英, with a 中 or 英 by the text to
-say which; **设置…** in the input menu opens the settings window. Control-Delete
-forgets a learned word. What it learns is in
-`~/Library/Application Support/HaikuPinyin/user.dict`; `macos/install.sh
---remove` uninstalls it.
-
-**AI** needs Apple silicon and a model: `macos/ai/fetch-models.sh` converts
-Qwen3-1.7B-Base and Qwen3.5-0.8B-Base to 4-bit MLX (about 1.4 GB) into
-`~/Library/Application Support/HaikuPinyin/models`, or links copies you have
-(`fetch-models.sh <directory>`). A helper process holds the model (about
-1 GB of memory while AI is on) and answers on the side, like the cloud: typing
-never waits for it. The settings window turns AI picks and completions on or
-off and chooses the model: 自动 uses the 1.7B and falls back to the 0.8B on a
-Mac too slow for it; any MLX model in that folder can be chosen. Nothing you
-type leaves the Mac. `NO_AI=1 macos/build.sh` builds without the helper.
+`macos/install.sh --remove` uninstalls it. A build of your own is signed ad
+hoc and never updates itself. `macos/ai/fetch-models.sh` converts the models
+itself (or links copies you have: `fetch-models.sh <directory>`);
+`NO_AI=1 macos/build.sh` builds without the helper. `make mac-release`
+(`macos/release.sh`) makes the download: signed with a Developer ID,
+notarized and stapled, as a disk image and the zip and `latest.json` the
+updater reads, all in `dist/` for a GitHub release;
+`macos/ai/upload-models.sh` publishes the models.
 
 ## Using it
 
@@ -110,10 +133,27 @@ takes Alt+Space for itself, it's **Win+Space** (⌘+Space on a Mac keyboard).
 | Backspace | delete a letter; past a pick, reopen it |
 | Escape | cancel |
 | Ctrl+Delete | forget the highlighted word it learned from you |
+| Tab | (Mac, AI) take the gray completion; Escape or any other key drops it |
+| `v` | v-mode (Shift+V in shuangpin): see below |
 | Shift (tap) | 中 / 英 |
 | Caps Lock | English while it's on |
 
 Clicks, the scroll wheel and the page arrows work in the candidate window.
+
+**v-mode.** `v` (Shift+V in shuangpin, where v is a key) then:
+
+| Typed | Offers |
+|---|---|
+| a number: `v123`, `v12.05` | 一百二十三, 壹佰贰拾叁, 壹佰贰拾叁元整, 一二三, ⑫, XII; 十二点零五, 壹拾贰元零伍分 |
+| a sum: `v1+2*3`, `v(1+2)/4`, `v20%` | 7 and 1+2*3=7 |
+| a date: `v2026.11.7` (or `-` `/`) | 2026年11月7日, 二〇二六年十一月七日, 2026-11-07, with the weekday |
+| `rq` `sj` `xq` | today's date, the time, the day of the week |
+| `bd` `kh` `jt` `sx` `dw` `hb` | punctuation, brackets, arrows, maths, units, currency |
+| `xl` `xh` `ts` `py` `zy` | Greek, numbering (①⑴⒈㈠Ⅰ), shapes and marks, pinyin tones, 注音 |
+
+After a number, digits are typing, so letters pick (a b c …); after a code,
+digits pick as usual. `v` alone lists one of each. Letters that are no code
+(`very`) are pinyin and English as before.
 
 The Deskbar menu holds the settings: 全拼 or a shuangpin layout, how
 shuangpin spells a, o and e (aa oo ee, oa oo oe, or one key each), 简体 /
@@ -134,8 +174,8 @@ committed, to Google Input Tools. They're off until you turn them on.
 |---|---|
 | `engine/` | Portable C++17 engine: lexicon, syllable graph (full pinyin, shuangpin, 模糊音), bigram beam-search decoder, user dictionary, S→T converter; the questions and answers for cloud and AI candidates |
 | `haiku/` | input_server method add-on and candidate window |
-| `macos/` | InputMethodKit method (`InputController.mm`), AI helper client (`AI.mm`) and the helper itself (`ai/`, Swift + MLX), settings window and 中/英 bubble (`Settings.swift`), `build.sh`, `install.sh`; dev only: `test-session.sh` types through it in a test window (full pinyin, shuangpin, then AI when its models are installed), `snapshot-settings.swift` renders the settings window and bubble to PNG |
-| `linux/` | IBus engine (`main.cpp`), component file, installers (`enable.sh`, `install-user.sh`); dev only: `sync.sh` builds on a Linux box over ssh, `test-session.sh` types through gedit with xdotool |
+| `macos/` | InputMethodKit method (`InputController.mm`), AI helper client (`AI.mm`) and the helper itself (`ai/`, Swift + MLX), settings window and 中/英 bubble (`Settings.swift`), candidate window and gray AI completion (`Candidates.swift`), self-update (`Updater.swift`), model download (`Models.swift`), `build.sh`, `install.sh`, `release.sh` (signed, notarized zip + DMG and `latest.json`; `ai/upload-models.sh` puts the models on Hugging Face); dev only: `test-session.sh` types through it in a test window (full pinyin, shuangpin, then AI when its models are installed), `snapshot-settings.swift` renders the settings window and bubble to PNG |
+| `linux/` | IBus engine (`main.cpp`; its settings and top-bar menu in `Settings.cpp`, cloud candidates in `Cloud.cpp`), component file, installers (`enable.sh`, `install-user.sh`); dev only: `sync.sh` builds on a Linux box over ssh, `test-session.sh` types through gedit with xdotool |
 | `cli/hpcli.cpp` | Drive the engine from a terminal: `echo nihao \| build/hpcli --layout pyjj` |
 | `tests/` | Engine tests |
 | `tools/build_data.py` | Builds `build/data/` from `sources/` |

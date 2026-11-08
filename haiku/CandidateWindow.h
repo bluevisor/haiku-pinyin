@@ -11,7 +11,8 @@
 
 enum {
 	kMsgShowCandidates	= 'hpSh',
-		// "spelled" string, "candidate" strings, "highlight" int32,
+		// "spelled" string, "candidate" strings, "keys" string (what picks
+		// each: digits, or letters in v-mode), "highlight" int32,
 		// "previous"/"next" bool
 	kMsgHideCandidates	= 'hpHd',
 	kMsgPlaceCandidates	= 'hpPl',
@@ -38,10 +39,12 @@ public:
 
 private:
 			void				_Layout();
+			char				_Key(size_t index) const;
 
 			BMessenger			fTarget;
 			BString				fSpelled;
 			std::vector<BString> fCandidates;
+			BString				fKeys;		// the pick key of each
 			std::vector<BRect>	fFrames;
 			int32				fHighlight;
 			int32				fHover;

@@ -83,6 +83,7 @@ CandidateView::SetContents(const BMessage& message)
 			i++) {
 		fCandidates.push_back(candidate);
 	}
+	fKeys = message.GetString("keys", "1234567890");
 	fHighlight = message.GetInt32("highlight", 0);
 	fCloud = message.GetInt32("cloud", -1);
 	fHover = -1;
@@ -90,6 +91,13 @@ CandidateView::SetContents(const BMessage& message)
 	fNext = message.GetBool("next", false);
 	_Layout();
 	Invalidate();
+}
+
+
+char
+CandidateView::_Key(size_t index) const
+{
+	return index < size_t(fKeys.Length()) ? fKeys[index] : ' ';
 }
 
 
@@ -108,7 +116,7 @@ CandidateView::_Layout()
 	float x = kPadding;
 	for (size_t i = 0; i < fCandidates.size(); i++) {
 		BString label;
-		label << (i + 1) << ". " << fCandidates[i];
+		label << _Key(i) << ". " << fCandidates[i];
 		if (int32(i) == fCloud)
 			label << kCloudMark;
 		float width = TextWidth(fCandidateFont, label.String()) + 8;
@@ -174,7 +182,7 @@ CandidateView::Draw(BRect updateRect)
 		}
 		float baseline = frame.top + 2 + ceilf(candidateHeight.ascent);
 		BString number;
-		number << (i + 1) << ". ";
+		number << _Key(i) << ". ";
 		SetHighColor(highlighted ? selectedText : dim);
 		DrawString(number.String(), BPoint(frame.left + 4, baseline));
 		SetHighColor(highlighted ? selectedText : text);

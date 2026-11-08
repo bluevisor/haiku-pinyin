@@ -1,4 +1,5 @@
 #include "Engine.h"
+#include "VMode.h"
 
 #include <algorithm>
 #include <cstring>
@@ -194,6 +195,16 @@ Engine::_ProcessKey(Key key, char32_t character, uint32_t modifiers)
 		fLastCharacter = 0;
 		return false;
 	}
+	// v-mode: v starts no pinyin syllable, but it's a key in shuangpin, so
+	// there it's Shift+V.
+	bool full = fOptions.layout == "full";
+	if ((character == 'v' && full) || (character == 'V' && !full)) {
+		fKeys = "v";
+		fUsed = 0;
+		fVMode = true;
+		_Update();
+		return true;
+	}
 	if (character >= 'a' && character <= 'z') {
 		fKeys = std::string(1, char(character));
 		fUsed = 0;
@@ -218,6 +229,8 @@ Engine::_Compose(Key key, char32_t character)
 		case Key::kSpace:
 			if (!fCandidates.empty())
 				_Select(fCandidates[fHighlight]);
+			else if (fVMode)
+				_Finish(fKeys);
 			return true;
 		case Key::kReturn:
 		{
@@ -265,6 +278,9 @@ Engine::_Compose(Key key, char32_t character)
 			return true;
 	}
 
+	bool used;
+	if (fVMode && _ComposeV(character, &used))
+		return used;
 	if (character >= 'A' && character <= 'Z')
 		character += 'a' - 'A';
 	if (_IsLayoutKey(character)) {
@@ -330,10 +346,71 @@ Engine::_IsLayoutKey(char32_t character) const
 }
 
 
+// v-mode, once there's a number: digits, + - * / ( ) . % are typing, and
+// letters pick. True when it took the key.
+bool
+Engine::_ComposeV(char32_t character, bool* used)
+{
+	std::string body = fKeys.substr(1);
+	bool digit = character >= '0' && character <= '9';
+	if (!VNumeric(body) && !(body.empty() && (digit || character == '(')))
+		return false;
+	*used = true;
+	if (digit || (character != 0 && strchr("+-*/().%", int(character))
+			!= nullptr)) {
+		if (fKeys.size() < kLongestInput) {
+			fKeys += char(character);
+			_Update();
+		}
+		return true;
+	}
+	std::string keys = PickKeys();
+	size_t index = keys.find(char(character));
+	if (character < 0x80 && index != std::string::npos) {
+		SelectOnPage(int(index));
+		return true;
+	}
+	if (character >= 'a' && character <= 'z')
+		return true;	// not a pick on this page
+	return false;
+}
+
+
+std::string
+Engine::PickKeys() const
+{
+	std::string keys = fVMode && VNumeric(fKeys.substr(1))
+		? "abcdefghij" : "1234567890";
+	return keys.substr(0, size_t(fOptions.pageSize));
+}
+
+
+// The candidates v-mode has for the keys; false when it has none and they
+// read as pinyin after all (very, video).
+bool
+Engine::_UpdateV()
+{
+	std::string body = fKeys.substr(1);
+	std::vector<std::string> texts = VCandidates(body,
+		fNow != 0 ? fNow : time(nullptr));
+	if (texts.empty() && !VNumeric(body) && fOptions.layout == "full")
+		return false;
+	fCandidates.clear();
+	int consumed = int(fKeys.size());
+	for (const std::string& text : texts)
+		fCandidates.push_back(Candidate{text, consumed, 0, {}, false, ""});
+	fSpelled = fKeys;
+	fHighlight = 0;
+	return true;
+}
+
+
 void
 Engine::_Update()
 {
 	fRevision++;
+	if (fVMode && _UpdateV())
+		return;
 	std::string remaining = _Remaining();
 	if (fOptions.layout == "full") {
 		FullPinyin::Parse(remaining, fLexicon.GetSyllables(), fGraph);
@@ -551,7 +628,7 @@ Engine::_AddEnglish()
 std::string
 Engine::CloudQuery() const
 {
-	if (!Composing() || fCandidates.empty() || fCandidates[0].raw
+	if (!Composing() || fVMode || fCandidates.empty() || fCandidates[0].raw
 		|| fSpelled.find('/') != std::string::npos
 		|| std::count(fSpelled.begin(), fSpelled.end(), '\'') < 1) {
 		return std::string();
@@ -613,7 +690,7 @@ Engine::AIQuery
 Engine::AIPickQuery() const
 {
 	AIQuery query;
-	if (!Composing() || fHighlight != 0 || fCandidates.empty()
+	if (!Composing() || fVMode || fHighlight != 0 || fCandidates.empty()
 		|| fCandidates[0].ai) {
 		return query;
 	}
@@ -859,6 +936,7 @@ Engine::Reset()
 	fCandidates.clear();
 	fSpelled.clear();
 	fHighlight = 0;
+	fVMode = false;
 }
 
 }	// namespace haikupinyin

@@ -6,7 +6,8 @@
 // settings window (Settings.swift) writes the user defaults; they're applied
 // as they change. With the AI helper (AI.mm) running, a language model that
 // reads the text before the cursor moves the candidate it likes first, and
-// offers what likely comes after a commit, taken with Tab.
+// offers what likely comes after a commit: gray text after the cursor, taken
+// with Tab, gone with any other key.
 
 #import "InputController.h"
 #import "AI.h"
@@ -22,8 +23,9 @@ using haikupinyin::Key;
 
 static const NSTimeInterval kShiftTapLimit = 0.4;
 static const double kCloudDelay = 0.12;		// seconds, let typing settle
-// How sure the AI must be of a completion, all of it, to offer it.
-static const double kAIThreshold = 0.7;
+// How sure the AI must be of a completion, all of it, to offer it. Gray text
+// is easy to type past, so a fair guess is worth showing.
+static const double kAIThreshold = 0.3;
 static const NSUInteger kContextLength = 64;	// characters before the cursor
 
 // #pragma mark - shared state
@@ -153,11 +155,7 @@ PickCandidate(int32_t index)
 	HPInputController* last = sLast;
 	if (!sLoaded || last == nil)
 		return;
-	// The AI's completion, alone in the window: as with Tab.
-	if (!sEngine->Composing() && !sEngine->Suggestion().empty())
-		sEngine->ProcessKey(Key::kTab, 0, 0);
-	else
-		sEngine->SelectOnPage(index);
+	sEngine->SelectOnPage(index);
 	[last sync];
 }
 
@@ -215,6 +213,13 @@ HPSetUp(IMKServer* server)
 			sEngine->SetOptions(options);
 			HPHideCandidates();
 		}];
+}
+
+
+bool
+HPComposing()
+{
+	return sLoaded && sEngine->Composing();
 }
 
 
@@ -327,7 +332,8 @@ CloudAnswer(NSData* data, NSString* query)
 
 - (NSUInteger)recognizedEvents:(id)sender
 {
-	return NSEventMaskKeyDown | NSEventMaskFlagsChanged;
+	return NSEventMaskKeyDown | NSEventMaskFlagsChanged
+		| NSEventMaskLeftMouseDown | NSEventMaskRightMouseDown;
 }
 
 
@@ -355,6 +361,7 @@ CloudAnswer(NSData* data, NSString* query)
 		sEngine->ClearContext();
 	}
 	HPHideCandidates();
+	HPHideGhost();
 	sLast = self;
 }
 
@@ -383,6 +390,9 @@ CloudAnswer(NSData* data, NSString* query)
 		_markedShown = NO;
 	}
 
+	std::string suggestion = sEngine->Suggestion();
+	if (suggestion.empty() || sEngine->Composing())
+		HPHideGhost();
 	if (sEngine->Composing()) {
 		std::string preedit = sEngine->Preedit();
 		NSString* text = NS(preedit);
@@ -407,10 +417,48 @@ CloudAnswer(NSData* data, NSString* query)
 			replacementRange:NSMakeRange(NSNotFound, NSNotFound)];
 		HPDebug(@"setMarkedText %@ to %p", text, client);
 		_markedShown = YES;
-	} else
+	} else {
 		[self hideComposition];
+		if (!suggestion.empty())
+			[self showSuggestion:suggestion];
+	}
 
 	[self showCandidates];
+}
+
+
+// The AI's completion, in gray just after the cursor (Candidates.swift). It
+// isn't in the text until Tab: any other key or a click takes it away.
+- (void)showSuggestion:(const std::string&)suggestion
+{
+	NSRect line = NSZeroRect;
+	NSDictionary* attributes = [self.textClient attributesForCharacterIndex:0
+		lineHeightRectangle:&line];
+	NSFont* font = attributes[NSFontAttributeName];
+	if (![font isKindOfClass:NSFont.class])
+		font = nil;
+	HPShowGhost(suggestion.c_str(), line.origin.x, line.origin.y,
+		line.size.height, font != nil ? font.fontName.UTF8String : "",
+		font != nil ? font.pointSize : 0);
+	HPDebug(@"suggestion %@ at %@, font %@", NS(suggestion),
+		NSStringFromRect(line), font);
+}
+
+
+// Whether there's text after the cursor on its line, which gray text would
+// cover. Clients that can't say (many terminals) have the cursor at the end.
+- (BOOL)textAfterCursor
+{
+	id<IMKTextInput> client = self.textClient;
+	NSRange selection = [client selectedRange];
+	if (selection.location == NSNotFound)
+		return NO;
+	NSAttributedString* after = [client attributedSubstringFromRange:
+		NSMakeRange(selection.location + selection.length, 1)];
+	if (after.length == 0)
+		return NO;
+	unichar c = [after.string characterAtIndex:0];
+	return c != '\n' && c != '\r' && c != 0x2028 && c != 0x2029;
 }
 
 
@@ -420,14 +468,9 @@ CloudAnswer(NSData* data, NSString* query)
 	NSRect line = NSZeroRect;
 	[self.textClient attributesForCharacterIndex:0 lineHeightRectangle:&line];
 	if (!sEngine->Composing()) {
-		std::string suggestion = sEngine->Suggestion();
-		if (suggestion.empty()) {
-			HPHideCandidates();
+		HPHideCandidates();
+		if (sEngine->Suggestion().empty())
 			[self askAICompletion];
-		} else {
-			HPShowSuggestion(suggestion.c_str(), line.origin.x, line.origin.y,
-				line.size.height);
-		}
 		return;
 	}
 	[self askCloud];
@@ -443,7 +486,7 @@ CloudAnswer(NSData* data, NSString* query)
 		sEngine->CloudIndexOnPage(), sEngine->AIIndexOnPage(),
 		sEngine->HasPreviousPage(),
 		sEngine->HasNextPage(), line.origin.x, line.origin.y,
-		line.size.height);
+		line.size.height, sEngine->PickKeys().c_str());
 }
 
 
@@ -465,13 +508,28 @@ CloudAnswer(NSData* data, NSString* query)
 		[self flagsChanged:event];
 		return NO;
 	}
+	// A click moves the cursor: a completion on offer goes first, so the
+	// client never keeps it as text.
+	if (event.type == NSEventTypeLeftMouseDown
+		|| event.type == NSEventTypeRightMouseDown) {
+		if (!sEngine->Composing() && !sEngine->Suggestion().empty()) {
+			sEngine->ClearContext();
+			[self sync];
+		}
+		return NO;
+	}
 	if (event.type != NSEventTypeKeyDown)
 		return NO;
 	_shiftAlone = NO;
 
+	bool offered = !sEngine->Composing() && !sEngine->Suggestion().empty();
 	// Caps Lock types English, as the Mac's own methods do.
 	if ((event.modifierFlags & NSEventModifierFlagCapsLock) != 0
 		&& !sEngine->Composing()) {
+		if (offered) {
+			sEngine->ClearContext();
+			[self sync];
+		}
 		return NO;
 	}
 
@@ -486,6 +544,9 @@ CloudAnswer(NSData* data, NSString* query)
 	if (!sEngine->Composing() && key == Key::kCharacter && sEngine->Chinese())
 		[self readContext];
 	bool used = sEngine->ProcessKey(key, character, modifiers);
+	// Escape just takes a completion away.
+	if (offered && key == Key::kEscape)
+		used = true;
 	HPDebug(@"key %hu %@ flags %lx from %@ (%p, self.client %p): %s, composing %d, chinese %d",
 		event.keyCode, event.characters, (unsigned long)event.modifierFlags,
 		[sender respondsToSelector:@selector(bundleIdentifier)]
@@ -559,8 +620,10 @@ CloudAnswer(NSData* data, NSString* query)
 - (void)deactivateServer:(id)sender
 {
 	[self commitComposition:sender];
-	if (sLast == self)
+	if (sLast == self) {
 		HPHideCandidates();
+		HPHideGhost();
+	}
 	HPSave();
 }
 
@@ -587,6 +650,8 @@ CloudAnswer(NSData* data, NSString* query)
 	NSMenu* menu = [NSMenu new];
 	[menu addItem:[[NSMenuItem alloc] initWithTitle:@"设置…"
 		action:@selector(showPreferences:) keyEquivalent:@""]];
+	[menu addItem:[[NSMenuItem alloc] initWithTitle:@"检查更新…"
+		action:@selector(checkForUpdates:) keyEquivalent:@""]];
 	[menu addItem:[[NSMenuItem alloc]
 		initWithTitle:sLoaded && !sEngine->Chinese()
 			? @"现在是英文：切换到中文 (Shift)" : @"切换到英文 (Shift)"
@@ -608,6 +673,13 @@ CloudAnswer(NSData* data, NSString* query)
 - (void)showPreferences:(id)sender
 {
 	HPShowSettings();
+}
+
+
+- (void)checkForUpdates:(id)sender
+{
+	HPShowSettings();
+	HPUpdaterCheck();
 }
 
 
@@ -663,7 +735,8 @@ CloudAnswer(NSData* data, NSString* query)
 - (void)askAICompletion
 {
 	if (!HPAIReady()
-		|| ![NSUserDefaults.standardUserDefaults boolForKey:@"aiComplete"]) {
+		|| ![NSUserDefaults.standardUserDefaults boolForKey:@"aiComplete"]
+		|| [self textAfterCursor]) {
 		return;
 	}
 	std::string prompt = sEngine->AICompletionQuery();
@@ -675,7 +748,7 @@ CloudAnswer(NSData* data, NSString* query)
 		if (sLoaded && sEngine->SetAICompletion(prompt, text.UTF8String)
 			&& last != nil) {
 			HPDebug(@"AI completion after %s: %@", prompt.c_str(), text);
-			[last showCandidates];
+			[last sync];
 		}
 	});
 }

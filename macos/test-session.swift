@@ -96,6 +96,56 @@ final class Pad: NSObject, NSApplicationDelegate {
 		usleep(250_000)
 	}
 
+	// A capital: the key with Shift.
+	func shifted(_ character: Character) {
+		focused()
+		guard let code = keyCodes[character] else { finish("no key for \(character)") }
+		post(kShift, true, .shift)
+		post(code, true, .shift)
+		post(code, false, .shift)
+		post(kShift, false)
+		usleep(120_000)
+	}
+
+	// The AI's gray completion: the input method's window just after the
+	// cursor, on its line. "" when it's there.
+	func ghostPlacement() -> String {
+		var placed = ""
+		for _ in 0..<15 {	// the model's answer comes on the side
+			placed = ghostAt()
+			if placed.isEmpty { break }
+			usleep(200_000)
+		}
+		return placed
+	}
+
+	func ghostAt() -> String {
+		let caret = onMain { () -> NSRect in
+			let range = text.selectedRange()
+			return text.firstRect(forCharacterRange: NSRange(location: range.location,
+				length: 0), actualRange: nil)
+		}
+		let screenHeight = onMain { NSScreen.screens[0].frame.height }
+		let windows = CGWindowListCopyWindowInfo([.optionOnScreenOnly], kCGNullWindowID)
+			as? [[String: Any]] ?? []
+		// By process: the owner's name is localized (海酷拼音).
+		let pids = Set(NSWorkspace.shared.runningApplications
+			.filter { $0.bundleIdentifier == "com.bluevisor.inputmethod.HaikuPinyin" }
+			.map { $0.processIdentifier })
+		for window in windows where pids.contains(
+			window[kCGWindowOwnerPID as String] as? pid_t ?? 0) {
+			guard let bounds = window[kCGWindowBounds as String] as? [String: CGFloat],
+				let x = bounds["X"], let y = bounds["Y"], let height = bounds["Height"]
+			else { continue }
+			// Window list coordinates run down from the top of the main screen.
+			let bottom = screenHeight - y - height
+			if abs(x - caret.minX) <= 6 && bottom < caret.maxY && bottom + height > caret.minY {
+				return ""
+			}
+		}
+		return "no gray completion at the cursor \(caret)"
+	}
+
 	func shiftTap() {
 		focused()
 		post(kShift, true, .shift)
@@ -172,6 +222,9 @@ extension Pad {
 		t("nihaoma"); k(kDelete, kDelete, kSpace)	// 你好
 		k(kReturn)
 		t("nihao1.")						// 你好。 (period after a digit pick)
+		t("v12b")							// 壹拾贰: v-mode, letters pick
+		t("vjt2")							// ←: a code, digits pick
+		t("v1"); shifted("="); t("2"); shifted("8"); t("3"); k(kSpace)	// 7
 	}
 
 	// The AI on: it reads what's before the cursor. Its answers come on the
@@ -183,6 +236,14 @@ extension Pad {
 		k(kReturn)
 		t("zhunishengri"); k(kSpace)		// 祝你生日
 		usleep(800_000); k(kTab)			// 快乐, the AI's completion
+		usleep(800_000); k(kReturn)			// a newline, past any other
+		t("zhonghuarenmin"); k(kSpace)		// 中华人民
+		usleep(1_000_000)
+		let placed = ghostPlacement()		// 共和国 in gray after the cursor
+		if !placed.isEmpty { finish(placed) }
+		k(kEscape)							// gone, never typed
+		t("beijingda"); k(kSpace)			// 北京大
+		usleep(800_000); t(",")				// typing on: the gray 学 goes
 	}
 
 	// 拼音加加, a o e one key each.
@@ -196,6 +257,7 @@ extension Pad {
 		t("vyg"); k(kSpace)					// 中国: the last key alone
 		k(kReturn)
 		t("ewo"); k(kSpace)					// 饿我: a lone e
+		shifted("v"); t("12b")				// 壹拾贰: Shift+V is v-mode here
 	}
 }
 

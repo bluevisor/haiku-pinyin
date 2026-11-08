@@ -52,6 +52,9 @@ final class Model {
 		name = directory.lastPathComponent
 		// The first run compiles the GPU kernels: do it now, not on a key.
 		_ = rank(prompt: "你好", options: ["世界", "中国"])
+		if let logits = lastLogits {
+			indexTokens(logits.dim(-1))
+		}
 		_ = complete(prompt: "你好", threshold: 0.5, maxCharacters: 2)
 	}
 
@@ -83,11 +86,10 @@ final class Model {
 
 	// The cache holds the prompt and lastLogits what comes after it. Only what
 	// differs from the last prompt is run: as the text grows, little is.
+	// It starts on a new line: a base model given a first token with nothing
+	// before it is lost (中华人民 alone goes on as "icon").
 	private func prefill(_ text: String) {
-		var tokens = encode(text.isEmpty ? "\n" : text)
-		if tokens.isEmpty {
-			tokens = encode("\n")
-		}
+		let tokens = encode("\n" + text)
 		var same = 0
 		while same < tokens.count && same < cached.count && tokens[same] == cached[same] {
 			same += 1
@@ -151,6 +153,29 @@ final class Model {
 		return text
 	}
 
+	// Every token with text, by its first character: what a token the prompt
+	// ends inside of could be.
+	private var byFirst: [Character: [Int32]] = [:]
+
+	private func indexTokens(_ count: Int) {
+		for id in 0 ..< count {
+			if let text = text(id), let first = text.first {
+				byFirst[first, default: []].append(Int32(id))
+			}
+		}
+	}
+
+	// The tokens after before whose text starts with part, all of them.
+	private func healingTokens(startingWith part: String, after before: String) -> [(String, Double)] {
+		guard let first = part.first, let ids = byFirst[first] else { return [] }
+		let matching = ids.filter { text(Int($0))!.hasPrefix(part) }
+		guard !matching.isEmpty else { return [] }
+		prefill(before)
+		guard let after = lastLogits else { return [] }
+		let values = softmax(after, axis: -1)[MLXArray(matching)].asArray(Float.self)
+		return zip(matching, values).map { (text(Int($0))!, Double($1)) }
+	}
+
 	// The likeliest next tokens after the prompt, as text.
 	private func nextTokens(_ prompt: String) -> [(String, Double)] {
 		prefill(prompt)
@@ -167,8 +192,8 @@ final class Model {
 	// token: the tokens that go on past it (共和 -> 国民, 国内, 国家… all say
 	// 国), and, when tokens end right at it, what follows those.
 	private func characters(after part: String, of tokens: [(String, Double)],
-		boundary: String) -> (inside: [Character: Double], ending: Double,
-			next: [(String, Double)]) {
+		mass: Double, boundary: String) -> (inside: [Character: Double],
+			ending: Double, next: [(String, Double)]) {
 		var inside: [Character: Double] = [:]
 		var ending = 0.0
 		for (text, probability) in tokens where text.hasPrefix(part) {
@@ -178,7 +203,7 @@ final class Model {
 				inside[text.dropFirst(part.count).first!, default: 0] += probability
 			}
 		}
-		let next = !part.isEmpty && ending > 0.02 ? nextTokens(boundary + part) : []
+		let next = !part.isEmpty && ending > 0.02 * mass ? nextTokens(boundary + part) : []
 		return (inside, ending, next)
 	}
 
@@ -194,12 +219,36 @@ final class Model {
 		steps = []
 		var boundary = prompt		// where the next token starts
 		var part = ""				// that token so far
-		var tokens = nextTokens(boundary)
+		var tokens: [(String, Double)] = []
 		var mass = 1.0				// of the tokens that start with part
+		// The prompt may end inside a token: the model writes 中华人民共和国,
+		// 北京大学 and 一带一路 as one token each, so after 中华人民 or 北京大
+		// it is lost. Back up over the last tokens (the most that some token
+		// goes on past) and follow the tokens that start with them.
+		let ids = encode(prompt)
+		for count in stride(from: min(3, ids.count), through: 1, by: -1) {
+			let tail = context.tokenizer.decode(tokenIds: Array(ids.suffix(count)),
+				skipSpecialTokens: true)
+			guard !tail.isEmpty, tail.count <= 4, prompt.hasSuffix(tail) else { continue }
+			let before = String(prompt.dropLast(tail.count))
+			let healed = healingTokens(startingWith: tail, after: before)
+			guard healed.contains(where: { $0.0.count > tail.count }) else { continue }
+			boundary = before
+			part = tail
+			tokens = healed
+			mass = healed.reduce(0) { $0 + $1.1 }
+			break
+		}
+		if part.isEmpty || mass <= 0 {
+			boundary = prompt
+			part = ""
+			tokens = nextTokens(boundary)
+			mass = 1
+		}
 		var chance = 1.0
 		while (boundary.count - prompt.count) + part.count < maxCharacters {
 			let (inside, ending, next) = characters(after: part, of: tokens,
-				boundary: boundary)
+				mass: mass, boundary: boundary)
 			var after: [Character: Double] = [:]	// a new token's first one
 			var nextMass: [Character: Double] = [:]
 			for (text, probability) in next {
