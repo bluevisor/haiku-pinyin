@@ -54,11 +54,9 @@ struct SnapshotSettings {
 
 		let host = NSHostingView(rootView: SettingsView())
 		let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 480, height: 400),
-			styleMask: [.titled, .closable, .fullSizeContentView],
-			backing: .buffered, defer: false)
+			styleMask: [.titled], backing: .buffered, defer: false)
+		styleSettingsWindow(window)
 		window.appearance = NSAppearance(named: dark ? .darkAqua : .aqua)
-		window.titlebarAppearsTransparent = true
-		window.title = "海酷拼音"
 		window.contentView = host
 		// SNAPSHOT_HEIGHT=1800 shows the whole form.
 		let height = Double(ProcessInfo.processInfo.environment["SNAPSHOT_HEIGHT"] ?? "") ?? 720
@@ -66,9 +64,24 @@ struct SnapshotSettings {
 		window.center()
 		window.orderFrontRegardless()
 		RunLoop.main.run(until: Date().addingTimeInterval(1))
+		// SNAPSHOT_SCROLL=300 scrolls the form first (what's under the title bar).
+		if let by = Double(ProcessInfo.processInfo.environment["SNAPSHOT_SCROLL"] ?? ""),
+			let scroll = scrollView(in: host) {
+			scroll.contentView.scroll(to: NSPoint(x: 0, y: by))
+			scroll.reflectScrolledClipView(scroll.contentView)
+			RunLoop.main.run(until: Date().addingTimeInterval(0.5))
+		}
 
 		capture(window, to: arguments[1])
 		print(arguments[1], window.frame.size)
+	}
+
+	static func scrollView(in view: NSView) -> NSScrollView? {
+		if let scroll = view as? NSScrollView { return scroll }
+		for sub in view.subviews {
+			if let found = scrollView(in: sub) { return found }
+		}
+		return nil
 	}
 
 	// An app may capture its own windows without screen recording
