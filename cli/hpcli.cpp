@@ -29,9 +29,11 @@ Show(Engine& engine)
 		return;
 	printf("  %s\n ", engine.Preedit().c_str());
 	std::vector<std::string> page = engine.PageCandidates();
+	std::string keys = engine.PickKeys();
 	for (size_t i = 0; i < page.size(); i++) {
 		bool highlighted = int(i) == engine.Highlighted();
-		printf(" %s%zu.%s%s", highlighted ? "[" : "", i + 1, page[i].c_str(),
+		printf(" %s%c.%s%s", highlighted ? "[" : "",
+			i < keys.size() ? keys[i] : ' ', page[i].c_str(),
 			highlighted ? "]" : "");
 	}
 	printf("%s%s\n", engine.HasPreviousPage() ? "  <" : "",

@@ -70,13 +70,14 @@ pass() {
 pass full "中国人，hello 你好。bjdx入
 我在学习中文生日快乐
 谢谢你好
-你好。"
+你好。壹拾贰←7"
 pass shuangpin "中国，啥玩意儿啊为什么
 nihd输入法中国
-饿我" layout -string pyjj vowels -int 2
+饿我壹拾贰" layout -string pyjj vowels -int 2
 # Needs the models (macos/ai/fetch-models.sh); skipped without them.
 if [ -f "$HOME/Library/Application Support/HaikuPinyin/models/Qwen3-1.7B-Base-4bit/config.json" ]; then
 	pass ai "我妹妹说她
-祝你生日快乐" aiPicks -bool YES aiComplete -bool YES
+祝你生日快乐
+中华人民北京大，" aiPicks -bool YES aiComplete -bool YES
 fi
 exit $failed

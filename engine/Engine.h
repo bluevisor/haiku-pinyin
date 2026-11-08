@@ -2,6 +2,7 @@
 // Feed it keys; it tells you what to show and what to commit.
 #pragma once
 
+#include <ctime>
 #include <memory>
 #include <unordered_map>
 #include <string>
@@ -90,6 +91,14 @@ public:
 	std::string TakeCommit();
 
 	bool Composing() const { return !fKeys.empty(); }
+	// In v-mode (VMode.h): v, or Shift+V in shuangpin, then a number or a
+	// code.
+	bool InVMode() const { return fVMode; }
+	// The keys that pick the candidates on the page, in order: digits, or
+	// letters while v-mode takes digits as typing.
+	std::string PickKeys() const;
+	// What v-mode takes as now (0, the default: the clock). For tests.
+	void SetTime(time_t now) { fNow = now; }
 	// Forgets the last word and the text before the cursor: the cursor
 	// moved elsewhere.
 	void ClearContext();
@@ -164,7 +173,9 @@ private:
 	void _Commit(const std::string& shown, const std::string& context);
 	void _AddContext(const std::string& text);
 	bool _IsLayoutKey(char32_t character) const;
+	bool _ComposeV(char32_t character, bool* used);
 	void _Update();
+	bool _UpdateV();
 	void _AddEmoji();
 	void _AddEnglish();
 	void _Select(const Candidate& candidate);
@@ -198,6 +209,8 @@ private:
 	std::vector<Candidate> fCandidates;
 	std::string fSpelled;
 	int fHighlight = 0;			// over all candidates
+	bool fVMode = false;
+	time_t fNow = 0;
 
 	std::string fCommit;
 	uint32_t fContext = 0;		// Bigram::Hash of the last committed word

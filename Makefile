@@ -75,10 +75,10 @@ install: all data
 
 ibus: $(IBUS_ENGINE)
 
-$(IBUS_ENGINE): linux/main.cpp engine/*.h $(ENGINE)
+$(IBUS_ENGINE): linux/*.cpp linux/*.h engine/*.h $(ENGINE)
 	$(CXX) $(CXXFLAGS) $$($(PKG_CONFIG) --cflags ibus-1.0) \
 		-DHP_DATADIR='"$(DATADIR)"' -DHP_VERSION='"$(VERSION)"' \
-		$< $(ENGINE) $$($(PKG_CONFIG) --libs ibus-1.0) -pthread -o $@
+		$(filter %.cpp,$^) $(ENGINE) $$($(PKG_CONFIG) --libs ibus-1.0) -pthread -o $@
 
 # IBus only reads components from /usr/share/ibus/component (or
 # $$IBUS_COMPONENT_PATH), so PREFIX defaults to /usr.

@@ -5,6 +5,7 @@
 #include <unistd.h>
 
 #include "../engine/Engine.h"
+#include "../engine/VMode.h"
 
 using namespace haikupinyin;
 
@@ -405,6 +406,72 @@ main(int argc, char** argv)
 		Expect("learning persisted", first == First(fresh) ? "same" : "moved",
 			"moved");
 		unlink(path);
+	}
+
+	// v-mode: numbers, sums, dates, codes.
+	{
+		Expect("v 0", ChineseNumber("0", false), "零");
+		Expect("v 10", ChineseNumber("10", false), "十");
+		Expect("v 15", ChineseNumber("15", true), "壹拾伍");
+		Expect("v 1001", ChineseNumber("1001", false), "一千零一");
+		Expect("v 1010", ChineseNumber("1010", false), "一千零一十");
+		Expect("v 10100", ChineseNumber("10100", false), "一万零一百");
+		Expect("v 100000", ChineseNumber("100000", false), "十万");
+		Expect("v 100000001", ChineseNumber("100000001", false), "一亿零一");
+		Expect("v 120034005", ChineseNumber("120034005", true),
+			"壹亿贰仟零叁万肆仟零伍");
+		Expect("v too long", ChineseNumber("12345678901234567", false), "");
+
+		auto first = [](const char* layout, const std::string& keys) {
+			Engine engine;
+			engine.Load(sData);
+			Options options;
+			options.layout = layout;
+			engine.SetOptions(options);
+			// 2026-11-07 (a Saturday), noon UTC: the same day everywhere
+			// a test is likely to run.
+			engine.SetTime(1794052800);
+			for (char key : keys) {
+				engine.ProcessKey(Key::kCharacter,
+					static_cast<unsigned char>(key), 0);
+			}
+			std::vector<std::string> page = engine.PageCandidates();
+			std::string all;
+			for (const std::string& candidate : page)
+				all += (all.empty() ? "" : " ") + candidate;
+			return all;
+		};
+		Expect("v123", first("full", "v123"),
+			"一百二十三 壹佰贰拾叁 壹佰贰拾叁元整 一二三 CXXIII");
+		Expect("v12.05", first("full", "v12.05"),
+			"十二点零五 壹拾贰点零伍 壹拾贰元零伍分");
+		Expect("v0.5", first("full", "v0.5"), "零点五 零点伍 伍角");
+		Expect("v sum", first("full", "v(1+2)*3/4"), "2.25 (1+2)*3/4=2.25");
+		Expect("v percent", first("full", "v20%"), "0.2 20%=0.2");
+		Expect("v date", first("full", "v2026.11.7"),
+			"2026年11月7日 二〇二六年十一月七日 2026-11-07 2026年11月7日 星期六");
+		Expect("v xq", first("full", "vxq"), "星期六 周六 礼拜六");
+		Expect("v jt", first("full", "vjt").substr(0, 11), "→ ← ↑");
+		// Not a code: pinyin and English after all.
+		Expect("v english", first("full", "very").substr(0, 4), "very");
+		// In shuangpin, v is zh and Shift+V is v-mode.
+		Expect("V shuangpin", first("pyjj", "V12"), "十二 壹拾贰 壹拾贰元整 一二 ⑫ XII");
+
+		Engine engine;
+		engine.Load(sData);
+		Type(engine, "v12");
+		Expect("v letters pick", engine.PickKeys().substr(0, 3), "abc");
+		engine.ProcessKey(Key::kCharacter, 'b', 0);
+		Expect("v pick b", engine.TakeCommit(), "壹拾贰");
+		Type(engine, "vjt");
+		Expect("v digits pick", engine.PickKeys().substr(0, 3), "123");
+		engine.ProcessKey(Key::kCharacter, '2', 0);
+		Expect("v pick 2", engine.TakeCommit(), "←");
+		Type(engine, "v1");
+		engine.ProcessKey(Key::kBackspace, 0, 0);
+		engine.ProcessKey(Key::kBackspace, 0, 0);
+		Expect("v backspace ends it", engine.Composing() ? "composing" : "done",
+			"done");
 	}
 
 	// English mode passes letters through; switching mid-word keeps them.

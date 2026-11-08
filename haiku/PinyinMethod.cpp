@@ -509,6 +509,7 @@ PinyinMethod::_ShowCandidates()
 	show.AddInt32("cloud", fEngine.CloudIndexOnPage());
 	for (const std::string& candidate : fEngine.PageCandidates())
 		show.AddString("candidate", candidate.c_str());
+	show.AddString("keys", fEngine.PickKeys().c_str());
 	show.AddInt32("highlight", fEngine.Highlighted());
 	show.AddBool("previous", fEngine.HasPreviousPage());
 	show.AddBool("next", fEngine.HasNextPage());

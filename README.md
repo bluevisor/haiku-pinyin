@@ -13,7 +13,12 @@ inline composition.
   last word you typed as context: `wozaixuexizhongwen` → 我在学习中文
 - **AI** (macOS, Apple silicon): a small language model on the Mac reads the
   text before the cursor, moves the candidate that reads best first (✦), and
-  after a commit offers what likely comes next, taken with Tab
+  after a commit shows what likely comes next in gray after the cursor
+  (中华人民 → 共和国), taken with Tab; any other key types on past it
+- **v-mode**: `v123` → 一百二十三 / 壹佰贰拾叁 / 壹佰贰拾叁元整, `v1+2*3` → 7,
+  `v2026.11.7` → 2026年11月7日 / 二〇二六年十一月七日, `vrq` `vsj` `vxq` → today's
+  date, the time, the weekday, and symbols by code (`vjt` arrows, `vsx` maths,
+  …); Shift+V in shuangpin
 - **模糊音**: z/zh c/ch s/sh, an/ang en/eng in/ing, n/l f/h r/l, each optional
 - **中英混输**: `hello` also offers *hello*; nonsense pinyin offers English first
 - Optional **cloud candidates** (Google Input Tools), off by default, marked ☁
@@ -110,10 +115,27 @@ takes Alt+Space for itself, it's **Win+Space** (⌘+Space on a Mac keyboard).
 | Backspace | delete a letter; past a pick, reopen it |
 | Escape | cancel |
 | Ctrl+Delete | forget the highlighted word it learned from you |
+| Tab | (Mac, AI) take the gray completion; Escape or any other key drops it |
+| `v` | v-mode (Shift+V in shuangpin): see below |
 | Shift (tap) | 中 / 英 |
 | Caps Lock | English while it's on |
 
 Clicks, the scroll wheel and the page arrows work in the candidate window.
+
+**v-mode.** `v` (Shift+V in shuangpin, where v is a key) then:
+
+| Typed | Offers |
+|---|---|
+| a number: `v123`, `v12.05` | 一百二十三, 壹佰贰拾叁, 壹佰贰拾叁元整, 一二三, ⑫, XII; 十二点零五, 壹拾贰元零伍分 |
+| a sum: `v1+2*3`, `v(1+2)/4`, `v20%` | 7 and 1+2*3=7 |
+| a date: `v2026.11.7` (or `-` `/`) | 2026年11月7日, 二〇二六年十一月七日, 2026-11-07, with the weekday |
+| `rq` `sj` `xq` | today's date, the time, the day of the week |
+| `bd` `kh` `jt` `sx` `dw` `hb` | punctuation, brackets, arrows, maths, units, currency |
+| `xl` `xh` `ts` `py` `zy` | Greek, numbering (①⑴⒈㈠Ⅰ), shapes and marks, pinyin tones, 注音 |
+
+After a number, digits are typing, so letters pick (a b c …); after a code,
+digits pick as usual. `v` alone lists one of each. Letters that are no code
+(`very`) are pinyin and English as before.
 
 The Deskbar menu holds the settings: 全拼 or a shuangpin layout, how
 shuangpin spells a, o and e (aa oo ee, oa oo oe, or one key each), 简体 /
@@ -135,7 +157,7 @@ committed, to Google Input Tools. They're off until you turn them on.
 | `engine/` | Portable C++17 engine: lexicon, syllable graph (full pinyin, shuangpin, 模糊音), bigram beam-search decoder, user dictionary, S→T converter; the questions and answers for cloud and AI candidates |
 | `haiku/` | input_server method add-on and candidate window |
 | `macos/` | InputMethodKit method (`InputController.mm`), AI helper client (`AI.mm`) and the helper itself (`ai/`, Swift + MLX), settings window and 中/英 bubble (`Settings.swift`), `build.sh`, `install.sh`; dev only: `test-session.sh` types through it in a test window (full pinyin, shuangpin, then AI when its models are installed), `snapshot-settings.swift` renders the settings window and bubble to PNG |
-| `linux/` | IBus engine (`main.cpp`), component file, installers (`enable.sh`, `install-user.sh`); dev only: `sync.sh` builds on a Linux box over ssh, `test-session.sh` types through gedit with xdotool |
+| `linux/` | IBus engine (`main.cpp`; its settings and top-bar menu in `Settings.cpp`, cloud candidates in `Cloud.cpp`), component file, installers (`enable.sh`, `install-user.sh`); dev only: `sync.sh` builds on a Linux box over ssh, `test-session.sh` types through gedit with xdotool |
 | `cli/hpcli.cpp` | Drive the engine from a terminal: `echo nihao \| build/hpcli --layout pyjj` |
 | `tests/` | Engine tests |
 | `tools/build_data.py` | Builds `build/data/` from `sources/` |

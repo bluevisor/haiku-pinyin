@@ -22,7 +22,7 @@ struct CandidateBar: View {
 	var highlight: Int
 	var cloud: Int
 	var ai: Int = -1			// the one the AI moved first
-	var suggestion = false		// one AI completion, taken with Tab
+	var keys: [Character] = Array("1234567890")	// what picks each
 	var hasPrevious: Bool
 	var hasNext: Bool
 	@State private var hover: Int?
@@ -51,15 +51,9 @@ struct CandidateBar: View {
 		let mark = selected ? AnyShapeStyle(.white.opacity(0.75))
 			: AnyShapeStyle(.secondary)
 		return HStack(alignment: .firstTextBaseline, spacing: 5) {
-			if suggestion {
-				Image(systemName: "sparkles")
-					.font(.system(size: 11, weight: .medium))
-					.foregroundStyle(mark)
-			} else {
-				Text("\(index + 1)")
-					.font(.system(size: 12, weight: .medium).monospacedDigit())
-					.foregroundStyle(mark)
-			}
+			Text(index < keys.count ? String(keys[index]) : "")
+				.font(.system(size: 12, weight: .medium).monospacedDigit())
+				.foregroundStyle(mark)
 			Text(text)
 				.font(.system(size: 16))
 				.foregroundStyle(selected ? AnyShapeStyle(.white)
@@ -72,11 +66,6 @@ struct CandidateBar: View {
 			if index == ai {
 				Image(systemName: "sparkles")
 					.font(.system(size: 10, weight: .medium))
-					.foregroundStyle(mark)
-			}
-			if suggestion {
-				Text("⇥ Tab")
-					.font(.system(size: 11, weight: .medium))
 					.foregroundStyle(mark)
 			}
 		}
@@ -157,25 +146,21 @@ public func setCandidateHandlers(_ pick: HPIndexHandler?, _ page: HPIndexHandler
 
 // Shows the page under the text line whose bottom left is (x, y) in screen
 // coordinates; above it when there's no room below. candidates are joined
-// with newlines.
+// with newlines; keys, the key that picks each (digits, or letters in
+// v-mode).
 @_cdecl("HPShowCandidates")
 public func showCandidates(_ joined: UnsafePointer<CChar>, _ highlight: Int32,
 	_ cloud: Int32, _ ai: Int32, _ hasPrevious: Bool, _ hasNext: Bool,
-	_ x: Double, _ y: Double, _ lineHeight: Double) {
+	_ x: Double, _ y: Double, _ lineHeight: Double,
+	_ keys: UnsafePointer<CChar>? = nil) {
 	let candidates = String(cString: joined).split(separator: "\n",
 		omittingEmptySubsequences: false).map(String.init)
-	show(CandidateBar(candidates: candidates, highlight: Int(highlight),
-		cloud: Int(cloud), ai: Int(ai), hasPrevious: hasPrevious, hasNext: hasNext),
-		x, y, lineHeight)
-}
-
-// An AI completion of what was just typed, alone in the window.
-@_cdecl("HPShowSuggestion")
-public func showSuggestion(_ text: UnsafePointer<CChar>, _ x: Double, _ y: Double,
-	_ lineHeight: Double) {
-	show(CandidateBar(candidates: [String(cString: text)], highlight: -1,
-		cloud: -1, suggestion: true, hasPrevious: false, hasNext: false),
-		x, y, lineHeight)
+	var bar = CandidateBar(candidates: candidates, highlight: Int(highlight),
+		cloud: Int(cloud), ai: Int(ai), hasPrevious: hasPrevious, hasNext: hasNext)
+	if let keys {
+		bar.keys = Array(String(cString: keys))
+	}
+	show(bar, x, y, lineHeight)
 }
 
 private func show(_ bar: CandidateBar, _ x: Double, _ y: Double,
@@ -208,4 +193,56 @@ private func show(_ bar: CandidateBar, _ x: Double, _ y: Double,
 @_cdecl("HPHideCandidates")
 public func hideCandidates() {
 	panel?.orderOut(nil)
+}
+
+// #pragma mark - the AI's completion
+
+// Gray text drawn just after the cursor, in the client's font size: marked
+// text can't be gray (clients draw it their own way, underlined in blue), so
+// the completion floats over the text instead, and is never in it until Tab.
+private var ghostPanel: NSPanel?
+private var ghostLabel: NSTextField?
+
+private func makeGhost() -> NSPanel {
+	let window = NSPanel(contentRect: NSRect(x: 0, y: 0, width: 10, height: 10),
+		styleMask: [.borderless, .nonactivatingPanel], backing: .buffered,
+		defer: true)
+	window.level = .popUpMenu
+	window.isOpaque = false
+	window.backgroundColor = .clear
+	window.hasShadow = false
+	window.hidesOnDeactivate = false
+	window.ignoresMouseEvents = true
+	let label = NSTextField(labelWithString: "")
+	label.textColor = .tertiaryLabelColor
+	label.lineBreakMode = .byClipping
+	window.contentView = label
+	ghostLabel = label
+	return window
+}
+
+// The line the cursor is on: its bottom left (x, y) in screen coordinates
+// and height. font: the client's, or "" for the system font.
+@_cdecl("HPShowGhost")
+public func showGhost(_ text: UnsafePointer<CChar>, _ x: Double, _ y: Double,
+	_ lineHeight: Double, _ fontName: UnsafePointer<CChar>, _ fontSize: Double) {
+	let window = ghostPanel ?? makeGhost()
+	ghostPanel = window
+	guard let label = ghostLabel else { return }
+	let size = fontSize > 0 ? fontSize : max(lineHeight * 0.75, 12)
+	let name = String(cString: fontName)
+	label.font = (name.isEmpty ? nil : NSFont(name: name, size: size))
+		?? NSFont.systemFont(ofSize: size)
+	label.stringValue = String(cString: text)
+	let fitting = label.fittingSize
+	// Centred on the line, as the line's own text sits in it.
+	// A label draws its text 2 pt in from its edge.
+	window.setFrame(NSRect(x: x - 2, y: y + (lineHeight - fitting.height) / 2,
+		width: fitting.width, height: fitting.height), display: true)
+	window.orderFrontRegardless()
+}
+
+@_cdecl("HPHideGhost")
+public func hideGhost() {
+	ghostPanel?.orderOut(nil)
 }
