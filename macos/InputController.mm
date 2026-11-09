@@ -656,7 +656,35 @@ CloudAnswer(NSData* data, NSString* query)
 		initWithTitle:sLoaded && !sEngine->Chinese()
 			? @"现在是英文：切换到中文 (Shift)" : @"切换到英文 (Shift)"
 		action:@selector(toggleFromMenu:) keyEquivalent:@""]];
+	// 简体 / 繁體, ticked: the same setting as 字形 in the settings window.
+	[menu addItem:NSMenuItem.separatorItem];
+	NSInteger script = [NSUserDefaults.standardUserDefaults
+		integerForKey:@"script"];
+	NSArray* scripts = @[ @"简体中文", @"繁體中文" ];
+	for (NSInteger i = 0; i < 2; i++) {
+		NSMenuItem* item = [[NSMenuItem alloc] initWithTitle:scripts[i]
+			action:@selector(chooseScript:) keyEquivalent:@""];
+		item.tag = i;
+		item.state = script == i
+			? NSControlStateValueOn : NSControlStateValueOff;
+		[menu addItem:item];
+	}
 	return menu;
+}
+
+
+// The defaults observer applies it, as it does a change in the settings.
+- (void)chooseScript:(id)sender
+{
+	// IMK hands a menu action a dictionary holding the item.
+	id item = sender;
+	if ([sender isKindOfClass:NSDictionary.class])
+		item = [(NSDictionary*)sender objectForKey:kIMKCommandMenuItemName];
+	if (![item isKindOfClass:NSMenuItem.class])
+		return;
+	NSInteger script = [(NSMenuItem*)item tag];
+	HPDebug(@"menu: script %ld", long(script));
+	[NSUserDefaults.standardUserDefaults setInteger:script forKey:@"script"];
 }
 
 
