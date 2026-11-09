@@ -1,21 +1,24 @@
 #!/bin/sh
 # Builds the Mac download: HaikuPinyin.app signed with the Developer ID,
-# notarized and stapled, in a zip (what the app's updater fetches) and a
-# disk image (what people download), plus latest.json, the updater's feed.
-# All in dist/; publish them as the assets of GitHub release v<version>.
+# notarized and stapled, in a zip (what the app's updater fetches), a disk
+# image and an installer package (what people download), plus latest.json,
+# the updater's feed. All in dist/; tools/sign-release.sh then signs the
+# checksums, and they're published as the assets of GitHub release v<version>.
 #   macos/release.sh
-#   SIGN="Developer ID Application: …" NOTARY_PROFILE=<notarytool profile>
-#   NOTES="what changed" macos/release.sh
-# Notarizing takes a few minutes, twice (the app, then the disk image).
+#   SIGN="Developer ID Application: …" INSTALLER_SIGN="Developer ID Installer: …"
+#   NOTARY_PROFILE=<notarytool profile> NOTES="what changed" macos/release.sh
+# Notarizing takes a few minutes, three times (the app, disk image, package).
 set -e
 cd "$(dirname "$0")/.."
 version=$(cat VERSION)
 SIGN=${SIGN:-"Developer ID Application: Zheng Zheng (CKGXYS3R8N)"}
+INSTALLER_SIGN=${INSTALLER_SIGN:-"Developer ID Installer: Zheng Zheng (CKGXYS3R8N)"}
 NOTARY_PROFILE=${NOTARY_PROFILE:-terminal-cam-notary}
 NOTES=${NOTES:-$(git log -1 --format=%s)}
 app=build/HaikuPinyin.app
 zip=dist/HaikuPinyin-$version-mac.zip
 dmg=dist/HaikuPinyin-$version.dmg
+pkg=dist/HaikuPinyin-$version.pkg
 
 fail() {
 	echo "release: $*" >&2
@@ -40,6 +43,9 @@ of $1 wasn't accepted (xcrun notarytool log $id --keychain-profile $NOTARY_PROFI
 
 xcrun notarytool history --keychain-profile "$NOTARY_PROFILE" >/dev/null 2>&1 \
 	|| fail "notarytool profile \"$NOTARY_PROFILE\" doesn't work"
+# Made in Xcode: Settings › Accounts › Manage Certificates… › + › Developer ID Installer.
+security find-identity -v | grep -qF "\"$INSTALLER_SIGN\"" \
+	|| fail "no \"$INSTALLER_SIGN\" certificate in the keychain"
 [ -f build/data/pinyin.dict ] || make data
 
 echo "Building $version, signed by $SIGN"
@@ -66,6 +72,13 @@ codesign --force --timestamp -s "$SIGN" "$dmg"
 notarize "$dmg"
 xcrun stapler staple -q "$dmg"
 
+echo "Notarizing the installer package"
+INSTALLER_SIGN="$INSTALLER_SIGN" macos/pkg.sh >/dev/null
+pkgutil --check-signature "$pkg" | grep -q "Developer ID Installer" \
+	|| fail "$pkg isn't signed"
+notarize "$pkg"
+xcrun stapler staple -q "$pkg"
+
 sha=$(shasum -a 256 "$zip" | cut -d' ' -f1)
 minimum=$(/usr/libexec/PlistBuddy -c "Print LSMinimumSystemVersion" \
 	"$app/Contents/Info.plist")
@@ -91,6 +104,7 @@ spctl -a -t open --context context:primary-signature -v "$check" 2>&1 \
 	| sed 's/^/  /'
 rm -f "$check"
 spctl -a -t exec -v "$app" 2>&1 | sed 's/^/  /'
+spctl -a -t install -v "$pkg" 2>&1 | sed 's/^/  /'
 
-echo "Done: $zip, $dmg, dist/latest.json. Publish all three as the assets of"
-echo "GitHub release v$version."
+echo "Done: $zip, $dmg, $pkg, dist/latest.json. Next: tools/sign-release.sh,"
+echo "then publish dist/ as the assets of GitHub release v$version."

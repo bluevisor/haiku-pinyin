@@ -1,0 +1,13 @@
+#!/bin/sh
+# Runs as the user who installed the package (it installs into their home):
+# the new copy is in ~/Library/Input Methods. Quits the old copy, registers
+# and turns on the method, and selects it, as the app's own installer does.
+app="$HOME/Library/Input Methods/HaikuPinyin.app"
+binary="$app/Contents/MacOS/HaikuPinyin"
+[ -x "$binary" ] || { echo "postinstall: no $binary" >&2; exit 1; }
+# The old one may still be running; the system starts the new one when it's used.
+pkill -x -u "$(id -u)" HaikuPinyin 2>/dev/null || true
+xattr -dr com.apple.quarantine "$app" 2>/dev/null || true
+"$binary" --install || echo "postinstall: add it in System Settings › Keyboard › Input Sources" >&2
+"$binary" --select 2>/dev/null || true
+exit 0

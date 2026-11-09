@@ -1,0 +1,6 @@
+# 海酷拼音 Haiku Pinyin: new versions with apt upgrade. A flat repository in
+# the latest GitHub release; apt checks it against the release key.
+Types: deb
+URIs: https://github.com/bluevisor/haiku-pinyin/releases/latest/download/
+Suites: ./
+Signed-By: /usr/share/keyrings/haiku-pinyin-archive-keyring.gpg
