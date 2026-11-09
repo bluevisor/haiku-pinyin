@@ -115,7 +115,7 @@ struct SettingsView: View {
 					VStack(alignment: .leading, spacing: 3) {
 						Text("海酷拼音")
 							.font(.title2.weight(.semibold))
-						Text("全拼与双拼，整句输入")
+						Text("全拼与双拼，整句输入，本机 AI 选词与补全")
 							.foregroundStyle(.secondary)
 					}
 					Spacer()
