@@ -645,18 +645,68 @@ CloudAnswer(NSData* data, NSString* query)
 // #pragma mark - the input menu
 
 
+// The menu in the system's language: 简体 or 繁體 Chinese, else English.
+static NSString*
+Menu(NSString* english, NSString* simplified, NSString* traditional)
+{
+	static NSString* language = [NSBundle
+		preferredLocalizationsFromArray:@[ @"en", @"zh-Hans", @"zh-Hant" ]
+		forPreferences:NSLocale.preferredLanguages].firstObject;
+	if ([language isEqualToString:@"zh-Hans"])
+		return simplified;
+	if ([language isEqualToString:@"zh-Hant"])
+		return traditional;
+	return english;
+}
+
+
 - (NSMenu*)menu
 {
 	NSMenu* menu = [NSMenu new];
-	[menu addItem:[[NSMenuItem alloc] initWithTitle:@"设置…"
+	[menu addItem:[[NSMenuItem alloc]
+		initWithTitle:Menu(@"Settings…", @"设置…", @"設定…")
 		action:@selector(showPreferences:) keyEquivalent:@""]];
-	[menu addItem:[[NSMenuItem alloc] initWithTitle:@"检查更新…"
+	[menu addItem:[[NSMenuItem alloc]
+		initWithTitle:Menu(@"Check for Updates…", @"检查更新…", @"檢查更新…")
 		action:@selector(checkForUpdates:) keyEquivalent:@""]];
 	[menu addItem:[[NSMenuItem alloc]
 		initWithTitle:sLoaded && !sEngine->Chinese()
-			? @"现在是英文：切换到中文 (Shift)" : @"切换到英文 (Shift)"
+			? Menu(@"Switch to Chinese (Shift)",
+				@"现在是英文：切换到中文 (Shift)", @"現在是英文：切換到中文 (Shift)")
+			: Menu(@"Switch to English (Shift)",
+				@"切换到英文 (Shift)", @"切換到英文 (Shift)")
 		action:@selector(toggleFromMenu:) keyEquivalent:@""]];
+	// 简体 / 繁體, ticked: the same setting as 字形 in the settings window.
+	[menu addItem:NSMenuItem.separatorItem];
+	NSInteger script = [NSUserDefaults.standardUserDefaults
+		integerForKey:@"script"];
+	NSArray* scripts = @[
+		Menu(@"Simplified Chinese", @"简体中文", @"簡體中文"),
+		Menu(@"Traditional Chinese", @"繁体中文", @"繁體中文") ];
+	for (NSInteger i = 0; i < 2; i++) {
+		NSMenuItem* item = [[NSMenuItem alloc] initWithTitle:scripts[i]
+			action:@selector(chooseScript:) keyEquivalent:@""];
+		item.tag = i;
+		item.state = script == i
+			? NSControlStateValueOn : NSControlStateValueOff;
+		[menu addItem:item];
+	}
 	return menu;
+}
+
+
+// The defaults observer applies it, as it does a change in the settings.
+- (void)chooseScript:(id)sender
+{
+	// IMK hands a menu action a dictionary holding the item.
+	id item = sender;
+	if ([sender isKindOfClass:NSDictionary.class])
+		item = [(NSDictionary*)sender objectForKey:kIMKCommandMenuItemName];
+	if (![item isKindOfClass:NSMenuItem.class])
+		return;
+	NSInteger script = [(NSMenuItem*)item tag];
+	HPDebug(@"menu: script %ld", long(script));
+	[NSUserDefaults.standardUserDefaults setInteger:script forKey:@"script"];
 }
 
 
