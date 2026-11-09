@@ -55,14 +55,14 @@ cp dist/haiku-pinyin_"$version"_*.deb "$repo/"
 docker run --rm -v "$repo":/repo -w /repo ubuntu:22.04 sh -ec '
 	export DEBIAN_FRONTEND=noninteractive
 	apt-get update -qq && apt-get install -qq -y --no-install-recommends apt-utils >/dev/null
-	apt-ftparchive packages . > Packages
+	apt-ftparchive packages . | sed "s,^Filename: \./,Filename: ," > Packages
 	gzip -9kn Packages
 	apt-ftparchive -o APT::FTPArchive::Release::Origin=bluevisor \
 		-o APT::FTPArchive::Release::Label="Haiku Pinyin" \
 		-o APT::FTPArchive::Release::Suite=stable \
 		-o APT::FTPArchive::Release::Architectures="amd64 arm64" \
 		-o APT::FTPArchive::Release::Description="海酷拼音 Haiku Pinyin" \
-		release . > Release'
+		release . > /tmp/Release && mv /tmp/Release Release'
 for file in Packages Packages.gz Release; do
 	cp "$repo/$file" dist/
 done
