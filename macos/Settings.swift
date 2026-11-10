@@ -84,7 +84,7 @@ struct SettingsView: View {
 	@AppStorage("fullwidth") private var fullwidth = true
 	@AppStorage("emoji") private var emoji = true
 	@AppStorage("english") private var english = true
-	@AppStorage("cloud") private var cloud = false
+	@AppStorage("cloud") private var cloud = true
 	@AppStorage("fuzzy") private var fuzzy = 0
 	@AppStorage("vowels") private var vowels = 0	// engine's Vowels
 	@AppStorage("aiPicks") private var aiPicks = true

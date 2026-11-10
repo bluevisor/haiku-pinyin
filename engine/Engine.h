@@ -33,7 +33,7 @@ struct Options {
 	bool emoji = true;				// 太阳 also offers 🌞
 	unsigned fuzzy = 0;				// 模糊音, a Fuzzy mask
 	bool english = true;			// "hello" also offers hello
-	bool cloud = false;				// the front end asks a cloud service
+	bool cloud = true;				// the front end asks a cloud service
 	Vowels vowels = Vowels::kDoubled;	// shuangpin: aa oo ee, oa oo oe,
 										// or a o e
 };
