@@ -8,6 +8,9 @@
 #
 # The package puts the engine where IBus looks (/usr), and
 # haiku-pinyin-enable (linux/enable.sh) on the PATH for each user to run once.
+# It also adds the project's apt repository (linux/haiku-pinyin.sources) and
+# the release key (tools/release-key.asc), so apt upgrade brings new versions,
+# checked against that key; tools/sign-release.sh makes the repository.
 set -e
 cd "$(dirname "$0")/.."
 [ -f build/data/pinyin.dict ] || { echo "no build/data: run make data" >&2; exit 1; }
@@ -19,6 +22,8 @@ trap 'rm -rf "$tree"' EXIT
 # The tracked files and the built data, nothing of the Mac's own builds.
 git archive HEAD | tar xf - -C "$tree"
 mkdir -p "$tree/build" && cp -R build/data "$tree/build/"
+# apt wants the key in binary form.
+gpg --dearmor < tools/release-key.asc > "$tree/build/archive-keyring.gpg"
 for arch in $archs; do
 	echo ">> haiku-pinyin $version $arch"
 	docker run --rm --platform "linux/$arch" -v "$tree":/src:ro \
@@ -34,6 +39,10 @@ for arch in $archs; do
 		make install-ibus DESTDIR=$pkg >/dev/null
 		install -Dm755 linux/enable.sh $pkg/usr/bin/haiku-pinyin-enable
 		install -Dm644 LICENSE $pkg/usr/share/doc/haiku-pinyin/copyright
+		install -Dm644 build/archive-keyring.gpg \
+			$pkg/usr/share/keyrings/haiku-pinyin-archive-keyring.gpg
+		install -Dm644 linux/haiku-pinyin.sources \
+			$pkg/etc/apt/sources.list.d/haiku-pinyin.sources
 		strip $pkg/usr/libexec/ibus-engine-haiku-pinyin
 		mkdir -p debian $pkg/DEBIAN
 		printf "Source: haiku-pinyin\n\nPackage: haiku-pinyin\nArchitecture: any\n" > debian/control
@@ -48,7 +57,7 @@ Architecture: $ARCH
 Maintainer: John Zheng <bluevisor@gmail.com>
 Installed-Size: $size
 Depends: ibus, $deps
-Recommends: curl
+Recommends: curl, ca-certificates
 Section: utils
 Priority: optional
 Homepage: https://github.com/bluevisor/haiku-pinyin
@@ -57,7 +66,8 @@ Description: 海酷拼音 Haiku Pinyin, a Chinese input method for IBus
  sentences scored with word pairs, abbreviations, 模糊音, mixed Chinese and
  English, emoji, v-mode (numbers in 大写, dates, symbols), 简体 and 繁體,
  and words it learns from you. After installing, run haiku-pinyin-enable
- once as yourself (GNOME), or add it in ibus-setup.
+ once as yourself (GNOME), or add it in ibus-setup. Adds its apt
+ repository, signed with the release key, so apt upgrade brings new versions.
 EOF
 		cat > $pkg/DEBIAN/postinst <<EOF
 #!/bin/sh
@@ -65,6 +75,7 @@ set -e
 command -v ibus >/dev/null && ibus write-cache --system 2>/dev/null || true
 EOF
 		chmod 755 $pkg/DEBIAN/postinst
+		echo /etc/apt/sources.list.d/haiku-pinyin.sources > $pkg/DEBIAN/conffiles
 		dpkg-deb --root-owner-group -Zxz --build $pkg \
 			/out/haiku-pinyin_${VERSION}_${ARCH}.deb >/dev/null
 		echo "dist/haiku-pinyin_${VERSION}_${ARCH}.deb"'

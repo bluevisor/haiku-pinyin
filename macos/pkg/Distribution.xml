@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<installer-gui-script minSpecVersion="2">
+	<title>海酷拼音 Haiku Pinyin @VERSION@</title>
+	<conclusion file="conclusion.html" mime-type="text/html"/>
+	<options customize="never" hostArchitectures="arm64,x86_64"/>
+	<!-- For the current user only, like the app's own installer: into
+	     ~/Library/Input Methods, no admin password. -->
+	<domains enable_anywhere="false" enable_currentUserHome="true"
+		enable_localSystem="false"/>
+	<volume-check>
+		<allowed-os-versions><os-version min="13.0"/></allowed-os-versions>
+	</volume-check>
+	<choices-outline><line choice="default"/></choices-outline>
+	<choice id="default" title="海酷拼音 Haiku Pinyin">
+		<pkg-ref id="com.bluevisor.inputmethod.HaikuPinyin.pkg"/>
+	</choice>
+	<pkg-ref id="com.bluevisor.inputmethod.HaikuPinyin.pkg"
+		version="@VERSION@">HaikuPinyin.pkg</pkg-ref>
+</installer-gui-script>

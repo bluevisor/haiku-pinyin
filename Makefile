@@ -115,9 +115,14 @@ mac-release: data
 linux-deb: data
 	linux/deb.sh
 
+# After the Mac, Linux and Haiku packages are in dist/: the signed apt
+# repository and SHA256SUMS.asc.
+sign-release:
+	tools/sign-release.sh
+
 clean:
 	rm -rf $(OBJ) $(ENGINE) $(BUILD)/hpcli $(BUILD)/engine_test $(ADDON) \
 		$(IBUS_ENGINE)
 
 .PHONY: all data test install ibus install-ibus uninstall-ibus mac install-mac mac-release \
-	clean
+	linux-deb sign-release clean

@@ -9,9 +9,9 @@ you pick, and inline composition. One engine, three native front ends.
 
 | | Get it | Runs as | Only here |
 |---|---|---|---|
-| **macOS** 13+ | [`.dmg`](https://github.com/bluevisor/haiku-pinyin/releases/latest), signed and notarized | InputMethodKit input method | on-device AI picks and gray completion (Apple silicon), self-update, settings window |
-| **Linux** | [`.deb`](https://github.com/bluevisor/haiku-pinyin/releases/latest) for arm64 / amd64 (Ubuntu 22.04+, Debian 12+), or from source | IBus engine (GNOME and anywhere IBus runs) | settings in the top-bar input menu |
-| **Haiku** (64-bit) | [`.hpkg`](https://github.com/bluevisor/haiku-pinyin/releases/latest) for arm64 / x86_64 | input_server add-on | Deskbar menu, inline in BTextView and Terminal |
+| **macOS** 13+ | [`.pkg` or `.dmg`](https://github.com/bluevisor/haiku-pinyin/releases/latest), signed and notarized | InputMethodKit input method | on-device AI picks and gray completion (Apple silicon), self-update, settings window |
+| **Linux** | [`.deb`](https://github.com/bluevisor/haiku-pinyin/releases/latest) for arm64 / amd64 (Ubuntu 22.04+, Debian 12+), then signed updates with `apt`; or from source | IBus engine (GNOME and anywhere IBus runs) | settings in the top-bar input menu |
+| **Haiku** (64-bit) | [`.hpkg`](https://github.com/bluevisor/haiku-pinyin/releases/latest) for arm64 / x86_64, with signed checksums | input_server add-on | Deskbar menu, inline in BTextView and Terminal |
 
 The features below work on all three, except where marked.
 
@@ -53,7 +53,8 @@ haiku_pinyin_restart      # restarts the input_server; keep Deskbar menus closed
 
 (Logging out and in works too.) The candidate window needs a CJK font such
 as Noto Sans CJK; for emoji, add Noto Emoji. App_server falls back to both
-on its own.
+on its own. An `.hpkg` can't carry a signature, so check it against the
+signed checksums (see [Checking a download](#checking-a-download)).
 
 To build it yourself instead, see Build below.
 
@@ -68,6 +69,12 @@ and anywhere else IBus runs). On Ubuntu 22.04+ or Debian 12+, download
 sudo apt install ./haiku-pinyin_*.deb
 haiku-pinyin-enable        # as yourself: restarts IBus, adds it to GNOME
 ```
+
+The package also adds the project's apt repository and its release key
+(`/etc/apt/sources.list.d/haiku-pinyin.sources`,
+`/usr/share/keyrings/haiku-pinyin-archive-keyring.gpg`), so `sudo apt update
+&& sudo apt upgrade` brings each new release, and apt refuses one that isn't
+signed with that key. The repository is the latest GitHub release itself.
 
 Or build it with the IBus headers:
 
@@ -91,14 +98,18 @@ top bar, and are saved in `~/.config/haiku-pinyin/` with `user.dict`.
 ## Install on macOS
 
 On a Mac it's an InputMethodKit input method (macOS 13 or later, Apple
-silicon or Intel). Download `HaikuPinyin-<version>.dmg` from the
-[releases](https://github.com/bluevisor/haiku-pinyin/releases), open it and
-open **HaikuPinyin**: it offers to install itself into
+silicon or Intel). Download `HaikuPinyin-<version>.pkg` from the
+[releases](https://github.com/bluevisor/haiku-pinyin/releases) and open it:
+the installer puts it in `~/Library/Input Methods` for you alone (no admin
+password), adds it to the input menu and switches to it. Or download
+`HaikuPinyin-<version>.dmg`, open it and open **HaikuPinyin**: it offers to
+install itself into
 `~/Library/Input Methods`, adds itself to the input menu and switches to it.
 When macOS wants that done by hand, it says so and opens the place: System
 Settings → Keyboard → Input Sources → Edit… → **+** → Chinese, Simplified →
-**Haiku Pinyin**. Switch to it with Control+Space or 🌐. It's signed and
-notarized, and keeps itself up to date: once a day it looks for a newer
+**Haiku Pinyin**. Switch to it with Control+Space or 🌐. Both are signed
+(the package with a Developer ID Installer certificate) and notarized, and it
+keeps itself up to date: once a day it looks for a newer
 release, checks the download's signature, and puts it in place while the
 Mac sits idle (**自动更新** in the settings turns that off; **检查更新…**
 looks now).
@@ -130,9 +141,28 @@ hoc and never updates itself. `macos/ai/fetch-models.sh` converts the models
 itself (or links copies you have: `fetch-models.sh <directory>`);
 `NO_AI=1 macos/build.sh` builds without the helper. `make mac-release`
 (`macos/release.sh`) makes the download: signed with a Developer ID,
-notarized and stapled, as a disk image and the zip and `latest.json` the
-updater reads, all in `dist/` for a GitHub release;
-`macos/ai/upload-models.sh` publishes the models.
+notarized and stapled, as an installer package (`macos/pkg.sh`), a disk
+image, and the zip and `latest.json` the updater reads, all in `dist/` for a
+GitHub release; `macos/ai/upload-models.sh` publishes the models.
+
+## Checking a download
+
+Each release has `SHA256SUMS`, signed with the project's release key in
+`SHA256SUMS.asc`. The key is `tools/release-key.asc` here and
+`haiku-pinyin-release.asc` in each release, fingerprint
+`1016 60C1 F375 2B00 10E7  25F6 E34D C770 E462 7F58`. In the folder with the
+downloads:
+
+```sh
+gpg --import haiku-pinyin-release.asc
+gpg --verify SHA256SUMS.asc SHA256SUMS
+sha256sum --ignore-missing -c SHA256SUMS   # shasum -a 256 -c on a Mac; sha256sum on Haiku
+```
+
+The Mac downloads are also signed and notarized by Apple, and apt checks the
+Linux repository on its own. `tools/sign-release.sh` makes the checksums and
+the apt repository for a release, after the Mac, Linux and Haiku packages are
+in `dist/`.
 
 ## Using it
 
@@ -194,11 +224,12 @@ committed, to Google Input Tools. They're off until you turn them on.
 |---|---|
 | `engine/` | Portable C++17 engine: lexicon, syllable graph (full pinyin, shuangpin, 模糊音), bigram beam-search decoder, user dictionary, S→T converter; the questions and answers for cloud and AI candidates |
 | `haiku/` | input_server method add-on and candidate window |
-| `macos/` | InputMethodKit method (`InputController.mm`), AI helper client (`AI.mm`) and the helper itself (`ai/`, Swift + MLX), settings window and 中/英 bubble (`Settings.swift`), candidate window and gray AI completion (`Candidates.swift`), self-update (`Updater.swift`), model download (`Models.swift`), `build.sh`, `install.sh`, `release.sh` (signed, notarized zip + DMG and `latest.json`; `ai/upload-models.sh` puts the models on Hugging Face); dev only: `test-session.sh` types through it in a test window (full pinyin, shuangpin, then AI when its models are installed), `snapshot-settings.swift` renders the settings window and bubble to PNG |
-| `linux/` | IBus engine (`main.cpp`; its settings and top-bar menu in `Settings.cpp`, cloud candidates in `Cloud.cpp`), component file, installers (`enable.sh`, `install-user.sh`), `deb.sh` (arm64 and amd64 .deb in Docker, `make linux-deb`); dev only: `sync.sh` builds on a Linux box over ssh, `test-session.sh` types through gedit with xdotool |
+| `macos/` | InputMethodKit method (`InputController.mm`), AI helper client (`AI.mm`) and the helper itself (`ai/`, Swift + MLX), settings window and 中/英 bubble (`Settings.swift`), candidate window and gray AI completion (`Candidates.swift`), self-update (`Updater.swift`), model download (`Models.swift`), `build.sh`, `install.sh`, `release.sh` (signed, notarized zip, DMG and `.pkg` (`pkg.sh`, `pkg/`) and `latest.json`; `ai/upload-models.sh` puts the models on Hugging Face); dev only: `test-session.sh` types through it in a test window (full pinyin, shuangpin, then AI when its models are installed), `snapshot-settings.swift` renders the settings window and bubble to PNG |
+| `linux/` | IBus engine (`main.cpp`; its settings and top-bar menu in `Settings.cpp`, cloud candidates in `Cloud.cpp`), component file, installers (`enable.sh`, `install-user.sh`), `deb.sh` (arm64 and amd64 .deb in Docker, `make linux-deb`; each adds the apt repository, `haiku-pinyin.sources`); dev only: `sync.sh` builds on a Linux box over ssh, `test-session.sh` types through gedit with xdotool |
 | `cli/hpcli.cpp` | Drive the engine from a terminal: `echo nihao \| build/hpcli --layout pyjj` |
 | `tests/` | Engine tests |
 | `tools/build_data.py` | Builds `build/data/` from `sources/` |
+| `tools/sign-release.sh`, `tools/release-key.asc` | Signs a release in `dist/`: the apt repository (`InRelease`) and `SHA256SUMS.asc`, with the release key |
 | `tools/haiku-testkeys/` | Dev only: a virtual keyboard device + `hpkeys` to type through the input_server over ssh, `imtest`, `hpsettings` |
 
 ## Build
