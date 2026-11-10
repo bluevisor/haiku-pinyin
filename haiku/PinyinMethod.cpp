@@ -810,7 +810,7 @@ PinyinMethod::_LoadSettings()
 	fSavedOptions.fullwidthPunctuation = settings.GetBool("fullwidth", true);
 	fSavedOptions.emoji = settings.GetBool("emoji", true);
 	fSavedOptions.english = settings.GetBool("english", true);
-	fSavedOptions.cloud = settings.GetBool("cloud", false);
+	fSavedOptions.cloud = settings.GetBool("cloud", true);
 	fSavedOptions.fuzzy = (unsigned)settings.GetInt32("fuzzy", 0);
 	int32 vowels = settings.GetInt32("vowels", 0);
 	if (vowels >= 0 && vowels <= (int32)haikupinyin::Vowels::kSingle)
