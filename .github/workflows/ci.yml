@@ -16,12 +16,15 @@ concurrency:
 
 jobs:
   linux:
-    name: Linux (data, tests, bench, IBus)
+    name: Linux (data, tests, bench, IBus, Fcitx5)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
-      - name: IBus headers
-        run: sudo apt-get update && sudo apt-get install -y libibus-1.0-dev
+      - name: IBus and Fcitx5 headers
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libibus-1.0-dev fcitx5-modules-dev \
+            libfcitx5core-dev libfcitx5config-dev libfcitx5utils-dev
       # sources/ is the upstream data, fetched once per fetch_sources.sh.
       - name: Restore sources
         id: sources
@@ -49,6 +52,7 @@ jobs:
       - run: make test
       - run: make bench
       - run: make ibus
+      - run: make fcitx5
 
   macos:
     name: macOS (app without AI, tests)
