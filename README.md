@@ -159,7 +159,8 @@ install itself into
 `~/Library/Input Methods`, adds itself to the input menu and switches to it.
 When macOS wants that done by hand, it says so and opens the place: System
 Settings → Keyboard → Input Sources → Edit… → **+** → Chinese, Simplified →
-**Haiku Pinyin**. Switch to it with Control+Space or 🌐. Both are signed
+**Haiku Pinyin**. Both installers speak the system's language: English, 简体
+or 繁體 Chinese. Switch to it with Control+Space or 🌐. Both are signed
 (the package with a Developer ID Installer certificate) and notarized, and it
 keeps itself up to date: once a day it looks for a newer
 release, checks the download's signature, and puts it in place while the
@@ -167,7 +168,10 @@ Mac sits idle (**Update automatically** in the settings turns that off;
 **Check for Updates…** looks now).
 
 A Shift tap switches 中/英, with a 中 or 英 (EN in English) by the text to
-say which; **Settings…** in the input menu opens the settings window. The
+say which; **Settings…** in the input menu opens the settings window. A
+setting changed anywhere else (`defaults write
+com.bluevisor.inputmethod.HaikuPinyin layout pyjj`, a tool that syncs
+preferences) takes effect at once too, with no restart. The
 menu and the window follow the system's language: English, 简体 or 繁體
 Chinese. With VoiceOver on, the highlighted candidate is read out (with its
 place on the page) as it changes, and each candidate is a button VoiceOver

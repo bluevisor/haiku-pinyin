@@ -4,10 +4,10 @@
 // becomes the client's marked text, and its page of candidates goes to the
 // candidate window (Candidates.swift). A Shift tap switches 中/英. The
 // settings window (Settings.swift) writes the user defaults; they're applied
-// as they change. With the AI helper (AI.mm) running, a language model that
-// reads the text before the cursor moves the candidate it likes first, and
-// offers what likely comes after a commit: gray text after the cursor, taken
-// with Tab, gone with any other key.
+// as they change, wherever they're changed from. With the AI helper (AI.mm)
+// running, a language model that reads the text before the cursor moves the
+// candidate it likes first, and offers what likely comes after a commit: gray
+// text after the cursor, taken with Tab, gone with any other key.
 
 #import "InputController.h"
 #import "AI.h"
@@ -172,6 +172,63 @@ TurnPage(int32_t delta)
 }
 
 
+// #pragma mark - settings
+
+
+// What the settings window writes, and what's read from it as it changes.
+static NSArray<NSString*>* const kSettingsKeys = @[ @"layout", @"script",
+	@"pageSize", @"fullwidth", @"emoji", @"english", @"cloud", @"fuzzy",
+	@"vowels", @"aiPicks", @"aiComplete", @"aiModel", @"debugLog" ];
+static bool sSettingsPending;
+
+
+static void
+ApplySettings()
+{
+	sDebug = [NSUserDefaults.standardUserDefaults boolForKey:@"debugLog"];
+	HPAIUpdate();
+	haikupinyin::Options options = LoadSettings();
+	if (SameOptions(options, sEngine->GetOptions()))
+		return;
+	HPDebug(@"settings changed: layout %s", options.layout.c_str());
+	HPInputController* last = sLast;
+	if (last != nil)
+		[last commitComposition:nil];
+	sEngine->Reset();
+	sEngine->SetOptions(options);
+	HPHideCandidates();
+}
+
+
+// A setting changed: in the settings window, the input menu, or another
+// process (`defaults write`, a sync tool). Key-value observing hears them
+// all; NSUserDefaultsDidChangeNotification only this process's own. Another
+// process's change comes on another thread, a key at a time: they're applied
+// once, on the main thread.
+@interface HPSettingsObserver : NSObject
+@end
+
+@implementation HPSettingsObserver
+
+- (void)observeValueForKeyPath:(NSString*)keyPath ofObject:(id)object
+	change:(NSDictionary*)change context:(void*)context
+{
+	dispatch_async(dispatch_get_main_queue(), ^{
+		if (sSettingsPending)
+			return;
+		sSettingsPending = true;
+		dispatch_async(dispatch_get_main_queue(), ^{
+			sSettingsPending = false;
+			ApplySettings();
+		});
+	});
+}
+
+@end
+
+static HPSettingsObserver* sSettingsObserver;
+
+
 void
 HPSetUp(IMKServer* server)
 {
@@ -190,7 +247,7 @@ HPSetUp(IMKServer* server)
 	sEngine->SetUserDictionary([SupportDirectory()
 		stringByAppendingPathComponent:@"user.dict"].UTF8String);
 	// Only now can the layout the settings name be checked. (Before the
-	// observer below: registering defaults posts a change.)
+	// observers below: registering defaults is a change.)
 	RegisterDefaults();
 	sEngine->SetOptions(LoadSettings());
 	sDebug = [NSUserDefaults.standardUserDefaults boolForKey:@"debugLog"];
@@ -198,21 +255,11 @@ HPSetUp(IMKServer* server)
 
 	HPSetCandidateHandlers(PickCandidate, TurnPage);
 
-	// The settings window changed something.
-	[NSNotificationCenter.defaultCenter
-		addObserverForName:NSUserDefaultsDidChangeNotification object:nil
-		queue:NSOperationQueue.mainQueue usingBlock:^(NSNotification*) {
-			HPAIUpdate();
-			haikupinyin::Options options = LoadSettings();
-			if (SameOptions(options, sEngine->GetOptions()))
-				return;
-			HPInputController* last = sLast;
-			if (last != nil)
-				[last commitComposition:nil];
-			sEngine->Reset();
-			sEngine->SetOptions(options);
-			HPHideCandidates();
-		}];
+	sSettingsObserver = [HPSettingsObserver new];
+	for (NSString* key in kSettingsKeys) {
+		[NSUserDefaults.standardUserDefaults addObserver:sSettingsObserver
+			forKeyPath:key options:0 context:nullptr];
+	}
 }
 
 
@@ -645,9 +692,10 @@ CloudAnswer(NSData* data, NSString* query)
 // #pragma mark - the input menu
 
 
-// The menu in the system's language: 简体 or 繁體 Chinese, else English.
-static NSString*
-Menu(NSString* english, NSString* simplified, NSString* traditional)
+// The menu, and the installer's questions (main.mm), in the system's
+// language: 简体 or 繁體 Chinese, else English.
+NSString*
+HPLocalized(NSString* english, NSString* simplified, NSString* traditional)
 {
 	static NSString* language = [NSBundle
 		preferredLocalizationsFromArray:@[ @"en", @"zh-Hans", @"zh-Hant" ]
@@ -664,16 +712,16 @@ Menu(NSString* english, NSString* simplified, NSString* traditional)
 {
 	NSMenu* menu = [NSMenu new];
 	[menu addItem:[[NSMenuItem alloc]
-		initWithTitle:Menu(@"Settings…", @"设置…", @"設定…")
+		initWithTitle:HPLocalized(@"Settings…", @"设置…", @"設定…")
 		action:@selector(showPreferences:) keyEquivalent:@""]];
 	[menu addItem:[[NSMenuItem alloc]
-		initWithTitle:Menu(@"Check for Updates…", @"检查更新…", @"檢查更新…")
+		initWithTitle:HPLocalized(@"Check for Updates…", @"检查更新…", @"檢查更新…")
 		action:@selector(checkForUpdates:) keyEquivalent:@""]];
 	[menu addItem:[[NSMenuItem alloc]
 		initWithTitle:sLoaded && !sEngine->Chinese()
-			? Menu(@"Switch to Chinese (Shift)",
+			? HPLocalized(@"Switch to Chinese (Shift)",
 				@"现在是英文：切换到中文 (Shift)", @"現在是英文：切換到中文 (Shift)")
-			: Menu(@"Switch to English (Shift)",
+			: HPLocalized(@"Switch to English (Shift)",
 				@"切换到英文 (Shift)", @"切換到英文 (Shift)")
 		action:@selector(toggleFromMenu:) keyEquivalent:@""]];
 	// 简体 / 繁體, ticked: the same setting as 字形 in the settings window.
@@ -681,8 +729,8 @@ Menu(NSString* english, NSString* simplified, NSString* traditional)
 	NSInteger script = [NSUserDefaults.standardUserDefaults
 		integerForKey:@"script"];
 	NSArray* scripts = @[
-		Menu(@"Simplified Chinese", @"简体中文", @"簡體中文"),
-		Menu(@"Traditional Chinese", @"繁体中文", @"繁體中文") ];
+		HPLocalized(@"Simplified Chinese", @"简体中文", @"簡體中文"),
+		HPLocalized(@"Traditional Chinese", @"繁体中文", @"繁體中文") ];
 	for (NSInteger i = 0; i < 2; i++) {
 		NSMenuItem* item = [[NSMenuItem alloc] initWithTitle:scripts[i]
 			action:@selector(chooseScript:) keyEquivalent:@""];

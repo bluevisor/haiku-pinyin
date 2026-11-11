@@ -7,6 +7,13 @@ to the version.
 
 ## Unreleased
 
+- **Mac: settings changed from outside take effect at once.** A
+  `defaults write`, a tool that syncs preferences or another copy's settings
+  window used to reach the running input method only after it restarted.
+- **Mac: the installers speak your language.** The disk image's questions
+  and the installer package's last page come in English, 简体 or 繁體
+  Chinese, as the system's language is, like the input menu; they were
+  Chinese only (the package's page in Chinese and English at once).
 - **Sync between machines.** Pick a folder your own sync tool already keeps
   alike (iCloud Drive, Dropbox, Syncthing, Nextcloud, a network share) under
   同步 in the settings window, on Mac, Linux and Haiku, and the words it
