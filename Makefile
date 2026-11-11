@@ -79,7 +79,7 @@ ibus: $(IBUS_ENGINE)
 $(IBUS_ENGINE): linux/*.cpp linux/*.h engine/*.h $(ENGINE)
 	$(CXX) $(CXXFLAGS) $$($(PKG_CONFIG) --cflags ibus-1.0) \
 		-DHP_DATADIR='"$(DATADIR)"' -DHP_VERSION='"$(VERSION)"' \
-		$(filter %.cpp,$^) $(ENGINE) $$($(PKG_CONFIG) --libs ibus-1.0) -pthread -o $@
+		$(filter %.cpp,$^) $(ENGINE) $$($(PKG_CONFIG) --libs ibus-1.0) -pthread $(LDFLAGS) -o $@
 
 # IBus only reads components from /usr/share/ibus/component (or
 # $$IBUS_COMPONENT_PATH), so PREFIX defaults to /usr.
@@ -125,7 +125,7 @@ $(FCITX5_ADDON): $(FCITX5_SOURCES) linux/fcitx5/*.h linux/Common.h linux/Cloud.h
 	$(CXX) $(CXXFLAGS) -std=c++20 -fPIC -shared \
 		$$($(PKG_CONFIG) --cflags $(FCITX5_MODULES)) \
 		-DHP_DATADIR='"$(DATADIR)"' $(FCITX5_SOURCES) $(ENGINE) \
-		$$($(PKG_CONFIG) --libs $(FCITX5_MODULES)) -pthread \
+		$$($(PKG_CONFIG) --libs $(FCITX5_MODULES)) -pthread $(LDFLAGS) \
 		-Wl,--no-undefined -Wl,--exclude-libs,ALL -o $@
 
 install-fcitx5: $(FCITX5_ADDON) data
@@ -152,7 +152,24 @@ clean: clean-fcitx5
 clean-fcitx5:
 	rm -f $(FCITX5_ADDON)
 
-.PHONY: fcitx5 install-fcitx5 uninstall-fcitx5 clean-fcitx5
+# Packages for other distributions, built in Docker (linux-deb, below, makes
+# the Debian/Ubuntu ones, the Fcitx5 addon's among them).
+#   make linux-sources   dist/haiku-pinyin-data-<v>.tar.xz, a release asset
+#                        the Arch and Fedora packages build from
+#   make linux-arch      dist/arch/: PKGBUILD and .SRCINFO for the AUR, and
+#                        the packages, installed and checked in a container
+#   make linux-rpm       dist/fedora/: the spec, source rpm and rpms, the same
+linux-sources: data
+	linux/sources.sh
+
+linux-arch: data
+	linux/arch.sh
+
+linux-rpm: data
+	linux/rpm.sh
+
+.PHONY: fcitx5 install-fcitx5 uninstall-fcitx5 clean-fcitx5 linux-sources \
+	linux-arch linux-rpm
 
 # The app bundle builds with clang and swiftc from a script: two
 # architectures, Settings.swift, the data inside, signing.
