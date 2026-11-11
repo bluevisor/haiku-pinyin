@@ -50,6 +50,13 @@
 **AI 补全**，并选择模型：**自动**优先用 1.7B，在太慢的 Mac 上换成 0.8B；
 放进那个文件夹的任何 MLX 模型都能选。
 
+**卸载**：在设置窗口最下方点**卸载…**。它会先切换到英文键盘（ABC 或美国），
+把海酷拼音从输入法菜单里移除，等它退出后删掉 `~/Library/Input Methods` 里的程序。
+学到的词、自定义短语、AI 模型和设置默认保留，重新安装后一切照旧；勾选
+**同时删除我的数据**才会一并删除 `~/Library/Application Support/HaikuPinyin`
+（含模型）、设置和日志。从别处链接进模型文件夹的模型不会被删。
+输入法菜单里会马上消失；下次登录后 macOS 会彻底忘掉它。
+
 ### Linux
 
 两种输入法框架都支持：[IBus](https://github.com/ibus/ibus)（GNOME 等）和
@@ -252,7 +259,8 @@ echo zgr | build/hpcli      # 试一下
 
 - **macOS**（需要 Xcode 命令行工具）：
   `tools/fetch_sources.sh && make data install-mac`，装进 `~/Library/Input Methods`。
-  `macos/install.sh --remove` 卸载。自己构建的版本是临时签名，不会自动更新。
+  `macos/install.sh --remove`（或设置里的**卸载…**）卸载。
+  自己构建的版本是临时签名，不会自动更新。
   `NO_AI=1 macos/build.sh` 构建不带 AI 辅助进程的版本。
 - **Linux**（装好任一或两个框架的开发头文件）：
 

@@ -135,3 +135,20 @@
 "Imported %ld words (%@)." = "已匯入 %ld 個詞（%@）。";
 "Imported %ld phrases (%@)." = "已匯入 %ld 個片語（%@）。";
 "Skipped %ld." = "略過 %ld 項。";
+
+/* Uninstall (Uninstall.swift) */
+"Uninstall…" = "解除安裝…";
+"Uninstall Haiku Pinyin" = "解除安裝海酷拼音";
+"Uninstall Haiku Pinyin?" = "要解除安裝海酷拼音嗎？";
+"This removes:" = "將移除：";
+"Haiku Pinyin, from ~/Library/Input Methods" = "輸入法本身，在 ~/Library/Input Methods 裡";
+"Its input source, from the input menu. It switches you to %@ first." = "輸入法選單裡的這一項；會先切換到「%@」。";
+"Also delete my data:" = "同時刪除我的資料：";
+"Learned words and custom phrases" = "學到的詞和自訂片語";
+"AI models (%@)" = "AI 模型（%@）";
+"AI models (%@; models linked from elsewhere stay)" = "AI 模型（%@；從別處連結來的模型會保留）";
+"Settings and logs" = "設定和記錄";
+"This can't be undone. Export your learned words first if you might want them." = "刪除後無法復原。之後可能還要用學到的詞的話，請先匯出。";
+"Your data stays on this Mac, so installing again picks up where you left off." = "資料會留在這台 Mac 上，重新安裝後一切照舊。";
+"Couldn't uninstall: this copy isn't in Input Methods." = "無法解除安裝：這一份不在「輸入法」檔案夾裡。";
+"Uninstall" = "解除安裝";

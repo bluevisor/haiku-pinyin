@@ -7,6 +7,11 @@ to the version.
 
 ## Unreleased
 
+- **Mac: Uninstall…** at the bottom of the settings window removes 海酷拼音.
+  It switches you to your English keyboard layout first, takes it off the
+  input menu and deletes the app once it has quit. Your learned words, custom
+  phrases, AI models and settings stay, unless you tick the box to delete
+  them too.
 - **Linux: Fcitx5.** 海酷拼音 also comes as a Fcitx5 addon now (KDE Plasma,
   and wherever Fcitx5 runs), doing all the IBus engine does: inline
   composition, the candidate window, Shift for 中/英, 云候选, the words it

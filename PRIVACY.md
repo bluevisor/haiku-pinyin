@@ -121,6 +121,10 @@ folder shows as `~`. It never holds what you type or the words it learned.
 | Linux | `~/.config/haiku-pinyin/user.dict` | `~/.config/haiku-pinyin/settings` | |
 | Haiku | `~/config/settings/HaikuPinyin/user.dict` | `~/config/settings/HaikuPinyin/` | |
 
+On a Mac, **Uninstall…** in the settings deletes the app. With **Also
+delete my data** ticked, it deletes the Mac's row above too (learned words,
+custom phrases, settings, models and updates) and the logs.
+
 On a Mac, a debug log of every key
 (`defaults write com.bluevisor.inputmethod.HaikuPinyin debugLog -bool YES`,
 in `~/Library/Logs/HaikuPinyin.log`) is off unless you turn it on for

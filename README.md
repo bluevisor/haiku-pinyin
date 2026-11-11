@@ -181,14 +181,24 @@ completions on or off and chooses the model: **Automatic** uses the 1.7B and fal
 back to the 0.8B on a Mac too slow for it; any MLX model in that folder can be
 chosen. Nothing you type leaves the Mac.
 
+**Uninstall…**, at the bottom of the settings window, removes it. It switches
+you to your English keyboard layout (ABC or U.S.) first, takes 海酷拼音 off
+the input menu, and deletes the app from `~/Library/Input Methods` once it has
+quit. Your learned words, custom phrases, AI models and settings stay, so
+installing again picks up where you left off, unless you tick **Also delete
+my data**: then `~/Library/Application Support/HaikuPinyin` (the models
+included), the settings and the logs go too. Models linked into the models
+folder from elsewhere stay where they are. It's gone from the input menu
+at once; macOS forgets it entirely the next time you log in.
+
 To build it yourself, with Xcode's command line tools:
 
 ```sh
 tools/fetch_sources.sh && make data install-mac   # into ~/Library/Input Methods
 ```
 
-`macos/install.sh --remove` uninstalls it. A build of your own is signed ad
-hoc and never updates itself. `macos/ai/fetch-models.sh` converts the models
+`macos/install.sh --remove` uninstalls a build (or use **Uninstall…**). A
+build of your own is signed ad hoc and never updates itself. `macos/ai/fetch-models.sh` converts the models
 itself (or links copies you have: `fetch-models.sh <directory>`);
 `NO_AI=1 macos/build.sh` builds without the helper. `make mac-release`
 (`macos/release.sh`) makes the download: signed with a Developer ID,

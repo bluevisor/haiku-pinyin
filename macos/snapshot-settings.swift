@@ -4,10 +4,19 @@
 //   swiftc -parse-as-library macos/Settings.swift macos/Candidates.swift \
 //       macos/Models.swift macos/Updater.swift macos/Strings.swift \
 //       macos/Invitation.swift macos/Diagnostics.swift macos/Words.swift \
+//       macos/Uninstall.swift \
 //       macos/snapshot-settings.swift -o build/snapshot/snapshot-settings
 //   build/snapshot/snapshot-settings out.png \
-//       [light|dark|bubble[-english]|candidates[-dark]|invitation[-dark]]
+//       [light|dark|bubble[-english]|candidates[-dark]|invitation[-dark]
+//        |uninstall[-dark]]
 //   build/snapshot/snapshot-settings out.txt diagnostics    what Copy copies
+//   build/snapshot/snapshot-settings out.txt uninstall-plan [keep|all]
+//       the uninstall script for this Mac, as a dry run: nothing deleted
+//   build/snapshot/snapshot-settings out.txt uninstall-test <home>
+//       the uninstall script, with the data, for real, on a scratch copy
+//       of a home folder (and $HAIKU_PINYIN_MODELS, and the defaults domain
+//       com.bluevisor.inputmethod.HaikuPinyin.uninstall-test); it waits for
+//       this process to exit, as for the method, so check after a second
 //   build/snapshot/snapshot-settings out.txt accessibility
 // The last reads the candidate window as VoiceOver does (AXUIElement, on
 // this process: no Accessibility permission), presses a candidate, and
@@ -68,6 +77,47 @@ struct SnapshotSettings {
 		}
 		if arguments.count > 2 && arguments[2] == "accessibility" {
 			AccessibilityCheck.run(to: arguments[1])
+		}
+		if arguments.count > 2 && arguments[2] == "uninstall-plan" {
+			var plan = UninstallPlan.current(removeData: arguments.count > 3 && arguments[3] == "all")
+			plan.app = URL(fileURLWithPath: NSHomeDirectory())
+				.appendingPathComponent("Library/Input Methods/HaikuPinyin.app")
+			plan.domain = "com.bluevisor.inputmethod.HaikuPinyin"
+			plan.dryRun = true
+			FileManager.default.createFile(atPath: arguments[1], contents:
+				plan.script(waitingFor: getpid(), helper: 0).data(using: .utf8))
+			return
+		}
+		if arguments.count > 3 && arguments[2] == "uninstall-test" {
+			var plan = UninstallPlan.forHome(URL(fileURLWithPath: arguments[3]), removeData: true)
+			plan.domain = "com.bluevisor.inputmethod.HaikuPinyin.uninstall-test"
+			plan.receipt = nil
+			plan.processName = nil
+			let text = plan.script(waitingFor: getpid(), helper: 0)
+			FileManager.default.createFile(atPath: arguments[1], contents: text.data(using: .utf8))
+			guard plan.launch(waitingFor: getpid(), helper: 0) else {
+				print("couldn't start the script")
+				exit(1)
+			}
+			Thread.sleep(forTimeInterval: 0.5)
+			return
+		}
+		if arguments.count > 2 && arguments[2].hasPrefix("uninstall") {
+			// A sheet, in a window of its own.
+			let view = UninstallSheet {}
+			let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 400, height: 400),
+				styleMask: [.titled, .fullSizeContentView], backing: .buffered, defer: false)
+			window.titlebarAppearsTransparent = true
+			window.appearance = NSAppearance(named: dark || arguments[2].hasSuffix("dark")
+				? .darkAqua : .aqua)
+			let host = NSHostingView(rootView: view)
+			window.contentView = host
+			window.setContentSize(host.fittingSize)
+			window.center()
+			window.orderFrontRegardless()
+			RunLoop.main.run(until: Date().addingTimeInterval(1))
+			capture(window, to: arguments[1])
+			return
 		}
 		if arguments.count > 2 && arguments[2] == "diagnostics" {
 			FileManager.default.createFile(atPath: arguments[1],

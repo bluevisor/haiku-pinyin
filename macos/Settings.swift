@@ -96,6 +96,7 @@ struct SettingsView: View {
 	@ObservedObject private var updater = Updater.shared
 	@State private var aiState = 0		// bumped on HPAIStateChanged, to redraw
 	@State private var copied = false		// the diagnostics, a moment ago
+	@State private var uninstalling = false
 
 	private var aiInstalled: Bool { !models.isEmpty && aiSupported }
 	// The model the settings pick is there and didn't fail to load. Until it
@@ -324,8 +325,21 @@ struct SettingsView: View {
 				Text(L("Copies the version, this Mac, the settings, and the state and log of the AI and the updates, for a bug report. Never what you type or the words it learned."))
 					.foregroundStyle(.secondary)
 			}
+
+			// Uninstall.swift.
+			Section {
+				LabeledContent {
+					Button(L("Uninstall…")) { uninstalling = true }
+						.glassButton()
+				} label: {
+					Row(title: L("Uninstall Haiku Pinyin"), symbol: "trash.fill", color: .red)
+				}
+			}
 		}
 		.formStyle(.grouped)
+		.sheet(isPresented: $uninstalling) {
+			UninstallSheet { uninstalling = false }
+		}
 	}
 
 	// The models missing, a button to fetch them, and how far it's got.
