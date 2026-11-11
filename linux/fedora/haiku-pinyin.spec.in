@@ -37,6 +37,9 @@ Summary:        Chinese pinyin and shuangpin input method for IBus
 Requires:       ibus
 Requires:       %{name}-data = %{version}-%{release}
 Recommends:     curl
+Recommends:     xdg-utils
+Recommends:     zenity
+Recommends:     libnotify
 
 %description -n ibus-haiku-pinyin %_description
 
@@ -48,6 +51,9 @@ Summary:        Chinese pinyin and shuangpin input method for Fcitx5
 Requires:       fcitx5
 Requires:       %{name}-data = %{version}-%{release}
 Recommends:     curl
+Recommends:     xdg-utils
+Recommends:     (zenity or kdialog)
+Recommends:     libnotify
 
 %description -n fcitx5-haiku-pinyin %_description
 

@@ -102,3 +102,36 @@
 ", from the cloud" = "，雲端候選字";
 "Previous page" = "上一頁";
 "Next page" = "下一頁";
+
+/* Word lists: custom phrases, import and export (Words.swift) */
+"Word lists" = "詞庫";
+"Custom phrases" = "自訂片語";
+"Edit…" = "編輯…";
+"Import and export words" = "匯入 / 匯出詞庫";
+"Import…" = "匯入…";
+"Export…" = "匯出…";
+"Custom phrases are offered when you type their code: dz for your address, say. Import reads words exported from Haiku Pinyin or Rime, Rime's user dictionaries and custom_phrase.txt, Sogou's word lists and custom phrases, and the Mac's text replacements (the .plist you drag out of System Settings)." = "自訂片語：打出代碼時提供的片語，例如 dz 出地址。匯入：海酷拼音或 Rime 匯出的詞、Rime 的使用者辭典和 custom_phrase.txt、搜狗的詞庫和自訂片語、Mac 的替代文字（從系統設定中拖出的 .plist）。";
+"Import Words" = "匯入詞庫";
+"Words or custom phrases from Haiku Pinyin, Rime or Sogou, or the Mac's text replacements" = "海酷拼音、Rime、搜狗的詞庫或自訂片語，或 Mac 的替代文字";
+"Import" = "匯入";
+"Export Learned Words" = "匯出學到的詞";
+"Export" = "匯出";
+"Haiku Pinyin words.txt" = "海酷拼音詞庫.txt";
+"Couldn't write %@." = "無法寫入 %@。";
+"Exported %ld learned words." = "已匯出 %ld 個學到的詞。";
+"Couldn't load the dictionaries." = "無法載入辭典。";
+"Couldn't read that file." = "無法讀取這個檔案。";
+"That file isn't UTF-8 text. If it's GBK, convert it first: iconv -f GBK -t UTF-8" = "這個檔案不是 UTF-8 文字。如果是 GBK，請先轉換：iconv -f GBK -t UTF-8";
+"That's a binary plist. Convert it first: plutil -convert xml1" = "這是二進位的 plist，請先轉成文字：plutil -convert xml1";
+"Couldn't save the learned words." = "無法儲存學到的詞。";
+"Found nothing to import in that file." = "檔案裡沒有可匯入的詞或片語。";
+"Sogou word list" = "搜狗詞庫";
+"Sogou custom phrases" = "搜狗自訂片語";
+"Rime user dictionary" = "Rime 使用者辭典";
+"Rime custom phrases" = "Rime 自訂片語";
+"Mac text replacements" = "Mac 替代文字";
+"several formats" = "多種格式";
+"Imported %ld words and %ld phrases (%@)." = "已匯入 %ld 個詞、%ld 個片語（%@）。";
+"Imported %ld words (%@)." = "已匯入 %ld 個詞（%@）。";
+"Imported %ld phrases (%@)." = "已匯入 %ld 個片語（%@）。";
+"Skipped %ld." = "略過 %ld 項。";

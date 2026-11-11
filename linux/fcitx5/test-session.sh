@@ -26,15 +26,17 @@ Xvfb :99 -screen 0 1024x600x24 >/tmp/hp-xvfb.log 2>&1 &
 for i in $(seq 50); do xdpyinfo >/dev/null 2>&1 && break; sleep 0.1; done
 
 # Every setting written out, with the layout to type in ($1: full, or a
-# shuangpin layout such as xiaohe), never left to a default; an input method
-# group of the keyboard, then haiku-pinyin ($2: "alone" leaves the keyboard
-# out).
+# shuangpin layout such as xiaohe), never left to a default, and two custom
+# phrases; an input method group of the keyboard, then haiku-pinyin ($2:
+# "alone" leaves the keyboard out).
 setup() {
 	rm -rf "$config/haiku-pinyin" "$config/fcitx5"
 	mkdir -p "$config/haiku-pinyin" "$config/fcitx5"
 	printf '%s\n' "layout=$1" script=0 page_size=7 fullwidth=1 emoji=1 \
 		english=1 cloud=0 fuzzy=0 vowels=0 chinese=1 \
 		> "$config/haiku-pinyin/settings"
+	printf '%s\n' "dz,1=北京市海淀区中关村" "yx,2=me@example.com" \
+		> "$config/haiku-pinyin/phrases.txt"
 	{
 		echo "[Groups/0]"; echo "Name=Default"; echo "Default Layout=us"
 		echo "DefaultIM=haiku-pinyin"; echo
@@ -124,10 +126,13 @@ t xiexie; k equal; shot page2; k minus 1	# page on and back, then 谢谢
 t nihaoma; k BackSpace BackSpace space	# 你好
 k Return
 t "nihao1."					# 你好。 (period after a digit pick)
+k Return
+t dz; k space; t yx; k 2	# custom phrases, first and second
 check "全拼" "$file" "中国人，hello world 你好。bjdx入
 我在学习中文生日快乐
 谢谢你好
-你好。"
+你好。
+北京市海淀区中关村me@example.com"
 stop
 
 echo "== 双拼 · 小鹤, from the settings file"
@@ -142,7 +147,8 @@ t nihc; shot xiaohe; k space		# 你好: ni hao
 t wozdxtxivswf; k space		# 我在学习中文
 t vsgo; k 1					# 中国: zhong guo
 t nihao; k space			# 小鹤 reads ni ha o: 尼哈哦
-check "小鹤" "$file" "你好我在学习中文中国尼哈哦"
+t dz; k space; t yx; k 2	# custom phrases: dz also spells 都 here
+check "小鹤" "$file" "你好我在学习中文中国尼哈哦北京市海淀区中关村me@example.com"
 stop
 
 echo "== 中/英 and settings, haiku-pinyin alone in the group"
@@ -184,6 +190,45 @@ check "learning" "$file" "hello 你好
 grep -q "	时	shi$" "$config/haiku-pinyin/user.dict" \
 	&& echo "ok   learned words saved to ~/.config/haiku-pinyin/user.dict" \
 	|| { echo "FAIL nothing learned"; failed=1; }
+
+echo "== 词库, chosen in the status area"
+# Stand-ins for the file dialog (answering with what /tmp/hp-chosen names),
+# the notifications and the file opener, which note what they were given.
+fake=/tmp/hp-fake-bin
+mkdir -p $fake
+printf '%s\n' '#!/bin/sh' 'case " $* " in *" --file-selection "*) cat /tmp/hp-chosen ;; *) exit 1 ;; esac' \
+	> $fake/zenity
+printf '%s\n' '#!/bin/sh' 'for last; do :; done' 'echo "$last" >> /tmp/hp-told.txt' \
+	> $fake/notify-send
+printf '%s\n' '#!/bin/sh' 'echo "$1" >> /tmp/hp-opened.txt' > $fake/xdg-open
+chmod +x $fake/*
+rm -f /tmp/hp-told.txt /tmp/hp-opened.txt /tmp/hp-export.txt
+menu() { python3 "$here/panel.py" "haiku-pinyin-words.$1"; sleep 0.5; }
+setup full alone
+rm "$config/haiku-pinyin/phrases.txt"
+path=$PATH
+PATH=$fake:$PATH
+start alone
+PATH=$path
+menu phrases
+grep -qx "$config/haiku-pinyin/phrases.txt" /tmp/hp-opened.txt 2>/dev/null \
+	&& grep -q '^# 海酷拼音 自定义短语' "$config/haiku-pinyin/phrases.txt" \
+	&& echo "ok   自定义短语 makes phrases.txt and opens it" \
+	|| { echo "FAIL 自定义短语: opened '$(cat /tmp/hp-opened.txt 2>/dev/null)'"; failed=1; }
+printf '海酷拼音的短语\tfcdr\t1\n' > /tmp/hp-import.txt	# Rime's custom_phrase.txt
+echo /tmp/hp-import.txt > /tmp/hp-chosen
+menu import
+t fcdr; k space				# the phrase imported, without a restart
+t shi; k 5					# 十, learned
+echo /tmp/hp-export.txt > /tmp/hp-chosen
+menu export
+stop
+check "imported phrase" "$file" "海酷拼音的短语十"
+check "导入, 导出" /tmp/hp-told.txt "导入了 1 条短语（Rime 自定义短语）。
+导出了 1 个学到的词：/tmp/hp-export.txt"
+grep -q "^十	shi	" /tmp/hp-export.txt 2>/dev/null \
+	&& echo "ok   导出 wrote the learned word" \
+	|| { echo "FAIL 导出: '$(cat /tmp/hp-export.txt 2>/dev/null)'"; failed=1; }
 
 echo "== cloud: off, then turned on"
 setup full alone
