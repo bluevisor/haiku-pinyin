@@ -7,6 +7,25 @@ to the version.
 
 ## Unreleased
 
+- **Better sentences.** Whole sentences come out right more often (88% of
+  the conversion benchmark, from 85%; 85% of a second set written apart
+  from it, from 77%): word pairs now reach into the dictionary's longer
+  phrases (去看电影, 我想), 吧 and 吗 end sentences where 把 and 码 don't
+  (看电影吧, 便宜一点吗), and a finished syllable at the end is read as typed
+  (休息, not 修行). When the sentence isn't right, the next best one or two
+  follow it on the page (收银台在那里, then 收银台在哪里).
+- **Abbreviations**: z, c or s before an h that's an initial too reads as two
+  initials, so `zhrmghg` gives 中华人民共和国 and `shzy` 社会主义.
+- **Mac: Report a Problem…** in the settings gathers the diagnostics and a
+  summary of any crash reports from the last 30 days, shows it all for you to
+  edit, and opens a filled-in GitHub issue in your browser. Nothing is sent
+  unless you submit it there. After a crash, the settings window offers this
+  at the top.
+- **Mac: Uninstall…** at the bottom of the settings window removes 海酷拼音.
+  It switches you to your English keyboard layout first, takes it off the
+  input menu and deletes the app once it has quit. Your learned words, custom
+  phrases, AI models and settings stay, unless you tick the box to delete
+  them too.
 - **Linux: a settings window.** Every setting in the top-bar menu, the 词库
   actions, and **Report a problem**, which opens a new GitHub issue with the
   version, the system and the settings filled in (never anything you typed).

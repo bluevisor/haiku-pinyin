@@ -176,7 +176,12 @@ a learned word. What it learns is in
 `~/Library/Application Support/HaikuPinyin/user.dict`. For a bug report,
 **Diagnostics → Copy** in the settings copies the version, the Mac, the
 settings, the AI's and the updater's state and the end of the AI's log;
-never what you type or the words it learned.
+never what you type or the words it learned. **Report a Problem…** adds a
+summary of any crash reports macOS kept for the method or the AI helper in
+the last 30 days, shows it all for you to edit, and opens a new GitHub issue
+in your browser with it filled in. Nothing is sent until you submit the
+issue there. When macOS has kept a new crash report since you last opened
+the settings, a notice at the top offers to report it.
 
 **AI** needs Apple silicon and a model: **Download** in the settings window
 fetches Qwen3-1.7B-Base and Qwen3.5-0.8B-Base, converted to 4-bit MLX (about
@@ -191,14 +196,24 @@ completions on or off and chooses the model: **Automatic** uses the 1.7B and fal
 back to the 0.8B on a Mac too slow for it; any MLX model in that folder can be
 chosen. Nothing you type leaves the Mac.
 
+**Uninstall…**, at the bottom of the settings window, removes it. It switches
+you to your English keyboard layout (ABC or U.S.) first, takes 海酷拼音 off
+the input menu, and deletes the app from `~/Library/Input Methods` once it has
+quit. Your learned words, custom phrases, AI models and settings stay, so
+installing again picks up where you left off, unless you tick **Also delete
+my data**: then `~/Library/Application Support/HaikuPinyin` (the models
+included), the settings and the logs go too. Models linked into the models
+folder from elsewhere stay where they are. It's gone from the input menu
+at once; macOS forgets it entirely the next time you log in.
+
 To build it yourself, with Xcode's command line tools:
 
 ```sh
 tools/fetch_sources.sh && make data install-mac   # into ~/Library/Input Methods
 ```
 
-`macos/install.sh --remove` uninstalls it. A build of your own is signed ad
-hoc and never updates itself. `macos/ai/fetch-models.sh` converts the models
+`macos/install.sh --remove` uninstalls a build (or use **Uninstall…**). A
+build of your own is signed ad hoc and never updates itself. `macos/ai/fetch-models.sh` converts the models
 itself (or links copies you have: `fetch-models.sh <directory>`);
 `NO_AI=1 macos/build.sh` builds without the helper. `make mac-release`
 (`macos/release.sh`) makes the download: signed with a Developer ID,
@@ -221,9 +236,17 @@ sha256sum --ignore-missing -c SHA256SUMS   # shasum -a 256 -c on a Mac; sha256su
 ```
 
 The Mac downloads are also signed and notarized by Apple, and apt checks the
-Linux repository on its own. `tools/sign-release.sh` makes the checksums and
-the apt repository for a release, after the Mac, Linux and Haiku packages are
-in `dist/`.
+Linux repository on its own.
+
+A release is one command on the owner's Mac. `make release` is the dry run:
+it checks a release can start (a clean main, up to date; notes in
+CHANGELOG.md; the Developer ID certificates, the notary profile and the
+release key; Docker; the Haiku VM) and lists what it would do.
+`make release PUBLISH=1` builds every package, makes the checksums and the apt
+repository (`tools/sign-release.sh`), checks every asset and signature,
+publishes GitHub release v<version> and turns CHANGELOG.md's Unreleased into
+that version. `tools/release.sh --check` runs just the asset check on
+`dist/`.
 
 ## Using it
 
@@ -350,7 +373,9 @@ A running input method takes up the change as the next composition starts.
 | `linux/fcitx5/` | Fcitx5 addon (`HaikuPinyin.cpp`: the engine, candidate window, 中/英, the 词库 menu in the tray, settings for Fcitx5's configuration tool), addon and input method `.conf` files; dev only: `docker-test.sh` types through it under Xvfb in Docker (`test-session.sh`, `textview.py`, and `panel.py`, which picks tray menu items as KDE's panel does) |
 | `cli/hpcli.cpp` | Drive the engine from a terminal: `echo nihao \| build/hpcli --layout pyjj`; `hpcli import`, `hpcli export` |
 | `tests/` | Engine tests |
+| `tools/fetch_sources.sh`, `tools/sources.sha256` | Fetches `sources/`, each upstream at a pinned commit, checked against the checksums |
 | `tools/build_data.py` | Builds `build/data/` from `sources/` |
+| `tools/release.sh` | The whole release (`make release`): pre-flight, every build, the asset and signature check, the GitHub release |
 | `tools/sign-release.sh`, `tools/release-key.asc` | Signs a release in `dist/`: the apt repository (`InRelease`) and `SHA256SUMS.asc`, with the release key |
 | `CHANGELOG.md`, `tools/release-notes.sh` | What changed in each release; the script prints a version's notes (or Unreleased) for the GitHub release and the Mac updater's feed |
 | `tools/haiku-testkeys/` | Dev only: a virtual keyboard device + `hpkeys` to type through the input_server over ssh, `imtest`, `hpsettings` |
@@ -358,7 +383,7 @@ A running input method takes up the change as the next composition starts.
 ## Build
 
 ```sh
-tools/fetch_sources.sh      # rime-ice, libpinyin, OpenCC, rime-double-pinyin
+tools/fetch_sources.sh      # rime-ice, libpinyin, OpenCC, rime-double-pinyin, pinned
 make data test              # anywhere: data, engine, hpcli, tests
 echo zgr | build/hpcli      # try it
 haiku/sync.sh haiku-dbg     # copy to a Haiku machine and build there
@@ -369,11 +394,19 @@ haiku/package.sh            # or: dist/haiku_pinyin-<v>-1-<arch>.hpkg
 
 `make bench` measures conversion: about 300 everyday sentences in full
 pinyin, 50 abbreviations and some shuangpin (`tests/bench/`), typed with no
-user dictionary. It prints how often the first candidate is the whole
+user dictionary, and held-out sets (`heldout*.tsv`) written apart from them:
+a scoring change should help both, not just the sentences it was tuned on.
+It prints how often the first candidate is the whole
 sentence, how many characters are right, how often the sentence is among
 the first five, and the worst misses, and fails when the first drops more
 than a point below `tests/bench/baseline.txt`. After a change that improves
 the scores, `make bench-update` records them; commit the baseline with it.
+
+The upstream data comes at pinned commits, every file checked against
+`tools/sources.sha256`, so the data and the bench scores only move when a pin
+does. To bump one: set it in `tools/fetch_sources.sh`, run
+`tools/fetch_sources.sh --update` (it rewrites the checksums), then
+`make data test bench`, and commit the script, checksums and baseline together.
 
 `haiku/cross.sh` cross-compiles the x86_64 add-on on a Mac (Haiku's
 cross-compiler image in Docker) and packages it on a Haiku machine.
