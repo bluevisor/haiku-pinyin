@@ -79,6 +79,39 @@ HideCandidates(IBusEngine* engine)
 }
 
 
+// The cloud's answer, back on the main loop.
+struct CloudAnswer {
+	std::string query;
+	std::string text;
+};
+
+
+static gboolean
+CloudAnswered(gpointer data)
+{
+	CloudAnswer* answer = static_cast<CloudAnswer*>(data);
+	sShared->cloud.Answered();
+	if (sShared->loaded) {
+		if (!sShared->engine.SetCloudResult(answer->query, answer->text))
+			AskCloud();		// typing moved on while it was asked
+		else if (sShared->last != nullptr)
+			ShowCandidates(sShared->last);
+	}
+	delete answer;
+	return G_SOURCE_REMOVE;
+}
+
+
+void
+AskCloud()
+{
+	sShared->cloud.Ask(sShared->engine,
+		[](const std::string& query, const std::string& text) {
+			g_idle_add(CloudAnswered, new CloudAnswer{query, text});
+		});
+}
+
+
 void
 ShowCandidates(IBusEngine* engine)
 {
