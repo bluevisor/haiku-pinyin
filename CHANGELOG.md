@@ -16,7 +16,6 @@ to the version.
   follow it on the page (收银台在那里, then 收银台在哪里).
 - **Abbreviations**: z, c or s before an h that's an initial too reads as two
   initials, so `zhrmghg` gives 中华人民共和国 and `shzy` 社会主义.
-
 - **Linux: Fcitx5.** 海酷拼音 also comes as a Fcitx5 addon now (KDE Plasma,
   and wherever Fcitx5 runs), doing all the IBus engine does: inline
   composition, the candidate window, Shift for 中/英, 云候选, the words it
