@@ -287,7 +287,7 @@ by default nothing you type leaves the machine.
 ## Build
 
 ```sh
-tools/fetch_sources.sh      # rime-ice, libpinyin, OpenCC, rime-double-pinyin
+tools/fetch_sources.sh      # rime-ice, libpinyin, OpenCC, rime-double-pinyin, pinned
 make data test              # anywhere: data, engine, hpcli, tests
 echo zgr | build/hpcli      # try it
 haiku/sync.sh haiku-dbg     # copy to a Haiku machine and build there
@@ -303,6 +303,12 @@ sentence, how many characters are right, how often the sentence is among
 the first five, and the worst misses, and fails when the first drops more
 than a point below `tests/bench/baseline.txt`. After a change that improves
 the scores, `make bench-update` records them; commit the baseline with it.
+
+The upstream data comes at pinned commits, every file checked against
+`tools/sources.sha256`, so the data and the bench scores only move when a pin
+does. To bump one: set it in `tools/fetch_sources.sh`, run
+`tools/fetch_sources.sh --update` (it rewrites the checksums), then
+`make data test bench`, and commit the script, checksums and baseline together.
 
 `haiku/cross.sh` cross-compiles the x86_64 add-on on a Mac (Haiku's
 cross-compiler image in Docker) and packages it on a Haiku machine.
