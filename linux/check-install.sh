@@ -21,6 +21,14 @@ if [ -f $xml ]; then
 	"$exec" --version >/dev/null && ok "IBus engine runs: $exec" \
 		|| fail "IBus engine doesn't run: $exec"
 	[ -f "$icon" ] && ok "IBus icon $icon" || fail "no IBus icon $icon"
+	# The settings window: ibus-setup opens <setup>, GNOME Settings the
+	# desktop file named for the engine.
+	setup=$(sed -n 's|.*<setup>\([^<]*\)</setup>.*|\1|p' $xml)
+	desktop=/usr/share/applications/ibus-setup-haiku-pinyin.desktop
+	[ -n "$setup" ] && "$setup" --version >/dev/null \
+		&& ok "settings window runs: $setup" || fail "no settings window: '$setup'"
+	grep -qx "Exec=$setup" $desktop 2>/dev/null \
+		&& ok "GNOME Settings opens it: $desktop" || fail "no $desktop for it"
 fi
 
 # Fcitx5 loads addons from the directory its own are in.

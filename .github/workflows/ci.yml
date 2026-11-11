@@ -21,16 +21,17 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
-      - name: IBus and Fcitx5 headers
+      - name: IBus, GTK 3 and Fcitx5 headers
         run: |
           sudo apt-get update
-          sudo apt-get install -y libibus-1.0-dev fcitx5-modules-dev \
+          sudo apt-get install -y libibus-1.0-dev libgtk-3-dev fcitx5-modules-dev \
             libfcitx5core-dev libfcitx5config-dev libfcitx5utils-dev
       - uses: ./.github/actions/sources
       - run: make -j"$(nproc)" all
       - run: make test
       - run: make bench
       - run: make ibus
+      - run: make setup
       - run: make fcitx5
 
   # linux/deb.sh as for a release (it needs only the public key), on each
@@ -61,7 +62,7 @@ jobs:
               apt-get install -qq -y --no-install-recommends /src/dist/*.deb >/dev/null
               /src/linux/check-install.sh
               test -f /etc/apt/sources.list.d/haiku-pinyin.sources
-              test -f /usr/share/keyrings/haiku-pinyin-archive-keyring.gpg
+              test -f /etc/apt/keyrings/haiku-pinyin-archive-keyring.gpg
               command -v haiku-pinyin-enable'
             echo "::endgroup::"
           done

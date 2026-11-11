@@ -1,0 +1,16 @@
+[Desktop Entry]
+# GNOME Settings opens an IBus engine's settings by this file's name,
+# ibus-setup-<engine>.desktop; make install-ibus fills in the path.
+Name=Haiku Pinyin Settings
+Name[zh_CN]=海酷拼音设置
+Name[zh_TW]=海酷拼音設定
+Comment=Settings for the 海酷拼音 Haiku Pinyin input method
+Comment[zh_CN]=海酷拼音输入法的设置
+Comment[zh_TW]=海酷拼音輸入法的設定
+Exec=@LIBEXECDIR@/haiku-pinyin-setup
+Icon=haiku-pinyin
+NoDisplay=true
+Terminal=false
+Type=Application
+StartupNotify=true
+Categories=Settings;

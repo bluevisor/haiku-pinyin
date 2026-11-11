@@ -26,6 +26,22 @@ to the version.
   input menu and deletes the app once it has quit. Your learned words, custom
   phrases, AI models and settings stay, unless you tick the box to delete
   them too.
+- **Linux: a settings window.** Every setting in the top-bar menu, the 词库
+  actions, and **Report a problem**, which opens a new GitHub issue with the
+  version, the system and the settings filled in (never anything you typed).
+  It opens from 设置… in the IBus menu, the gear by the input source in GNOME
+  Settings, and `ibus-setup`; changes take effect at once, with no restart.
+  It works with Fcitx5 too, beside Fcitx5's own configuration tool. Chinese,
+  or English when the system's language isn't Chinese.
+- **Linux packages**: the apt release key moved to
+  `/etc/apt/keyrings/haiku-pinyin-archive-keyring.gpg`, a conffile like the
+  apt source beside it. `apt remove haiku-pinyin-data` used to delete the
+  key but keep the source, so every `apt update` after it warned
+  `NO_PUBKEY`; now remove keeps both, working, and `apt purge` takes both.
+- **Haiku: a settings window.** 设置… in the Deskbar menu opens it: the
+  menu's settings in Haiku's own boxes, the 词库 actions, and Report a
+  problem (the same prefilled GitHub issue). Changes take effect at once,
+  and the window follows changes made in the menu.
 - **Linux: Fcitx5.** 海酷拼音 also comes as a Fcitx5 addon now (KDE Plasma,
   and wherever Fcitx5 runs), doing all the IBus engine does: inline
   composition, the candidate window, Shift for 中/英, 云候选, the words it

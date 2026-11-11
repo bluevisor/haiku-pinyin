@@ -8,7 +8,7 @@ pkgdesc='海酷拼音 Haiku Pinyin, a Chinese pinyin and shuangpin input method'
 arch=(x86_64 aarch64)
 url='https://github.com/bluevisor/haiku-pinyin'
 license=(GPL-3.0-only)
-makedepends=(ibus fcitx5 pkgconf)
+makedepends=(ibus fcitx5 gtk3 pkgconf)
 source=("$pkgbase-$pkgver.tar.gz::$url/archive/refs/tags/v$pkgver.tar.gz"
 	"$url/releases/download/v$pkgver/haiku-pinyin-data-$pkgver.tar.xz")
 sha256sums=('@SOURCE_SHA256@'
@@ -25,7 +25,7 @@ prepare() {
 
 build() {
 	cd "$pkgbase-$pkgver"
-	make ibus fcitx5
+	make ibus setup fcitx5
 }
 
 check() {
@@ -45,7 +45,7 @@ package_haiku-pinyin-data() {
 
 package_ibus-haiku-pinyin() {
 	pkgdesc='海酷拼音 Haiku Pinyin, a Chinese pinyin and shuangpin input method for IBus'
-	depends=(ibus glib2 gcc-libs glibc "haiku-pinyin-data=$pkgver")
+	depends=(ibus glib2 gtk3 gcc-libs glibc "haiku-pinyin-data=$pkgver")
 	optdepends=('curl: cloud candidates (云候选), when turned on'
 		'zenity: file dialogs for 导入 / 导出 (or kdialog)'
 		'kdialog: file dialogs for 导入 / 导出 (or zenity)'
@@ -53,7 +53,7 @@ package_ibus-haiku-pinyin() {
 		'xdg-utils: opening the custom phrases file')
 	cd "$pkgbase-$pkgver"
 	make install-ibus DESTDIR="$pkgdir" PREFIX=/usr LIBEXECDIR=/usr/lib/ibus
-	rm -r "$pkgdir/usr/share/haiku-pinyin"	# in haiku-pinyin-data
+	rm -r "$pkgdir/usr/share/haiku-pinyin" "$pkgdir/usr/share/icons"	# in haiku-pinyin-data
 	install -Dm755 linux/enable.sh "$pkgdir/usr/bin/haiku-pinyin-enable"
 }
 

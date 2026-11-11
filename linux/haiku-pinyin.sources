@@ -3,4 +3,4 @@
 Types: deb
 URIs: https://github.com/bluevisor/haiku-pinyin/releases/latest/download/
 Suites: ./
-Signed-By: /usr/share/keyrings/haiku-pinyin-archive-keyring.gpg
+Signed-By: /etc/apt/keyrings/haiku-pinyin-archive-keyring.gpg

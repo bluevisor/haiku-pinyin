@@ -19,6 +19,8 @@ std::string PhrasesPath();
 // file doesn't name.
 void ReadSettings(haikupinyin::Options* options, bool* chinese);
 bool WriteSettings(const haikupinyin::Options& options, bool chinese);
+// Whether two sets of options would be saved the same.
+bool SameSettings(const haikupinyin::Options& a, const haikupinyin::Options& b);
 
 // Where to look for the data, in order: $HAIKU_PINYIN_DATA, then
 // haiku-pinyin/ in the XDG data directories, then HP_DATADIR.

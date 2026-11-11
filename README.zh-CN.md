@@ -17,8 +17,8 @@
 | | 下载 | 形式 | 独有功能 |
 |---|---|---|---|
 | **macOS** 13+ | [`.pkg` 或 `.dmg`](https://github.com/bluevisor/haiku-pinyin/releases/latest)，已签名并经 Apple 公证 | InputMethodKit 输入法 | 本机 AI 选词和灰色补全（Apple 芯片）、自动更新、设置窗口 |
-| **Linux** | arm64 / amd64 的 [`.deb`](https://github.com/bluevisor/haiku-pinyin/releases/latest)（Ubuntu 22.04+、Debian 12+），之后用 `apt` 签名更新；Arch 的 `PKGBUILD`、Fedora 的 `.spec`；也可以从源码构建 | IBus 引擎（GNOME 等）或 Fcitx5 插件（KDE Plasma 等） | 设置在顶栏输入法菜单（IBus）或 Fcitx5 配置工具里 |
-| **Haiku**（64 位） | arm64 / x86_64 的 [`.hpkg`](https://github.com/bluevisor/haiku-pinyin/releases/latest)，附签名校验和 | input_server 插件 | Deskbar 菜单，在 BTextView 和 Terminal 里内嵌输入 |
+| **Linux** | arm64 / amd64 的 [`.deb`](https://github.com/bluevisor/haiku-pinyin/releases/latest)（Ubuntu 22.04+、Debian 12+），之后用 `apt` 签名更新；Arch 的 `PKGBUILD`、Fedora 的 `.spec`；也可以从源码构建 | IBus 引擎（GNOME 等）或 Fcitx5 插件（KDE Plasma 等） | 设置窗口（IBus、GNOME 设置；Fcitx5 也能用）、顶栏输入法菜单或 Fcitx5 配置工具 |
+| **Haiku**（64 位） | arm64 / x86_64 的 [`.hpkg`](https://github.com/bluevisor/haiku-pinyin/releases/latest)，附签名校验和 | input_server 插件 | Deskbar 菜单和设置窗口，在 BTextView 和 Terminal 里内嵌输入 |
 
 ## 安装
 
@@ -81,10 +81,12 @@ fcitx5 -rd                 # 用你自己的账户运行：重启 Fcitx5
 
 `haiku-pinyin-data` 会添加本项目的 apt 软件源和发布密钥
 （`/etc/apt/sources.list.d/haiku-pinyin.sources`、
-`/usr/share/keyrings/haiku-pinyin-archive-keyring.gpg`），之后
+`/etc/apt/keyrings/haiku-pinyin-archive-keyring.gpg`），之后
 `sudo apt update && sudo apt upgrade` 就能升级到新版本，
 没有用这把密钥签名的包 apt 会拒绝。软件源就是 GitHub 上的最新 Release；
 配好以后也可以直接 `sudo apt install fcitx5-haiku-pinyin`（或 `haiku-pinyin`）。
+这两个文件算配置：`apt remove` 会留下它们（仍然可用），
+`apt purge haiku-pinyin-data` 才会删掉。
 
 **Arch**：`make linux-arch` 在 `dist/arch/` 生成可以直接提交到 AUR 的
 `PKGBUILD`，从 Release 的源码包和数据包构建 `ibus-haiku-pinyin`、
@@ -100,11 +102,15 @@ fcitx5 -rd                 # 用你自己的账户运行：重启 Fcitx5
 需要重启时用
 `systemctl --user restart org.freedesktop.IBus.session.GNOME.service`。
 不在桌面会话里启动的程序需要设置 `GTK_IM_MODULE=ibus`。
-设置在顶栏的输入法菜单里。
+设置在顶栏的输入法菜单里，也有设置窗口：菜单里的“设置…”、设置 › 键盘 ›
+输入源 里海酷拼音旁的齿轮，或 `ibus-setup` 的“首选项”。改了立即生效，不用重启。
+窗口里还有词库的操作和**报告问题**：在 GitHub 上新建问题，填好版本、系统和设置，
+不含你输入的文字。界面是中文，系统语言不是中文时用英文。
 
 **Fcitx5**：在 `fcitx5-configtool` 里添加**海酷拼音 Haiku Pinyin**
 （KDE 上是 系统设置 › 输入法 › 添加输入法），用 Ctrl+空格 切换。
-设置在它旁边的配置按钮里，和 IBus 菜单里的一样。轻按 Shift 切换中/英；
+设置在它旁边的配置按钮里，和 IBus 菜单里的一样。设置窗口随 IBus 的包安装
+（`haiku-pinyin-setup`，在引擎旁边）；装了的话 Fcitx5 也能用，改动立即生效。轻按 Shift 切换中/英；
 有一点不同：如果输入法分组里键盘布局排在它前面，Fcitx5 自己的左 Shift
 （“临时在当前和第一个输入法之间切换”）会切到那个键盘布局，效果同样是打英文；
 右 Shift 和托盘菜单里的“中/英”切换的是海酷拼音自己的模式。
@@ -221,7 +227,7 @@ Mac 上用 Control+空格 或 🌐 键。
 数字后面继续打数字，所以用字母（a b c ……）选词；编码后面照常用数字选词。
 只打 `v` 会把每类各列一个。不是编码的字母（比如 `very`）照常当拼音和英文处理。
 
-**设置**（Haiku 在 Deskbar 菜单，Linux 在 IBus 的顶栏输入法菜单或
+**设置**（Haiku 在 Deskbar 菜单和其中“设置…”打开的窗口，Linux 在设置窗口、IBus 的顶栏输入法菜单或
 Fcitx5 配置工具，Mac 在设置窗口）：全拼或某种双拼方案、双拼里 a o e
 零声母的打法（aa oo ee、oa oo oe，或单键）、简体 / 繁體、全角标点、emoji、
 中英混输、云候选、三组模糊音、每页候选数。Haiku 上保存在

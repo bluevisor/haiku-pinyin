@@ -566,6 +566,9 @@ NewComponent()
 		"symbol", "中",
 		"rank", 99,
 		nullptr);
+	std::string setup = SetupProgram();
+	if (!setup.empty())
+		g_object_set(desc, "setup", setup.c_str(), nullptr);
 	ibus_component_add_engine(component, desc);
 	return component;
 }
@@ -612,6 +615,7 @@ main(int argc, char** argv)
 
 	// Load the dictionaries now rather than on the first key.
 	EnsureLoaded();
+	WatchSettings();
 	ibus_main();
 
 	if (sShared->loaded)
