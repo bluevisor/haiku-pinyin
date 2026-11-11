@@ -1,7 +1,8 @@
 # 海酷拼音 Haiku Pinyin
 
 **English** · [简体中文](README.zh-CN.md) · [繁體中文](README.zh-TW.md) ·
-[Privacy](PRIVACY.md) · [Security](SECURITY.md) · [Contributing](CONTRIBUTING.md)
+[Website](https://bluevisor.github.io/haiku-pinyin/) · [Privacy](PRIVACY.md) ·
+[Security](SECURITY.md) · [Contributing](CONTRIBUTING.md)
 
 A modern Chinese input method for Haiku, Linux and macOS, in the spirit of
 搜狗拼音 and the macOS pinyin input: whole-sentence conversion, abbreviations
