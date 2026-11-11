@@ -231,6 +231,7 @@ by default nothing you type leaves the machine.
 | `tests/` | Engine tests |
 | `tools/build_data.py` | Builds `build/data/` from `sources/` |
 | `tools/sign-release.sh`, `tools/release-key.asc` | Signs a release in `dist/`: the apt repository (`InRelease`) and `SHA256SUMS.asc`, with the release key |
+| `CHANGELOG.md`, `tools/release-notes.sh` | What changed in each release; the script prints a version's notes (or Unreleased) for the GitHub release and the Mac updater's feed |
 | `tools/haiku-testkeys/` | Dev only: a virtual keyboard device + `hpkeys` to type through the input_server over ssh, `imtest`, `hpsettings` |
 
 ## Build

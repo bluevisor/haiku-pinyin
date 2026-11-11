@@ -7,6 +7,7 @@
 #   macos/release.sh
 #   SIGN="Developer ID Application: …" INSTALLER_SIGN="Developer ID Installer: …"
 #   NOTARY_PROFILE=<notarytool profile> NOTES="what changed" macos/release.sh
+# NOTES defaults to this version's CHANGELOG.md section (tools/release-notes.sh).
 # Notarizing takes a few minutes, three times (the app, disk image, package).
 set -e
 cd "$(dirname "$0")/.."
@@ -14,7 +15,7 @@ version=$(cat VERSION)
 SIGN=${SIGN:-"Developer ID Application: Zheng Zheng (CKGXYS3R8N)"}
 INSTALLER_SIGN=${INSTALLER_SIGN:-"Developer ID Installer: Zheng Zheng (CKGXYS3R8N)"}
 NOTARY_PROFILE=${NOTARY_PROFILE:-terminal-cam-notary}
-NOTES=${NOTES:-$(git log -1 --format=%s)}
+NOTES=${NOTES:-$(tools/release-notes.sh --plain "$version")}
 app=build/HaikuPinyin.app
 zip=dist/HaikuPinyin-$version-mac.zip
 dmg=dist/HaikuPinyin-$version.dmg
