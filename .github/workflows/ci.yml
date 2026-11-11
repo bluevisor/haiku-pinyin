@@ -1,0 +1,103 @@
+# Builds and tests on every pull request and push to main. No signing or
+# releases here: the keys stay on the owner's machine.
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  linux:
+    name: Linux (data, tests, bench, IBus)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - name: IBus headers
+        run: sudo apt-get update && sudo apt-get install -y libibus-1.0-dev
+      # sources/ is the upstream data, fetched once per fetch_sources.sh.
+      - name: Restore sources
+        id: sources
+        uses: actions/cache/restore@v5
+        with:
+          path: sources
+          key: sources-${{ runner.os }}-${{ hashFiles('tools/fetch_sources.sh') }}
+      - name: Fetch sources
+        if: steps.sources.outputs.cache-hit != 'true'
+        run: |
+          for try in 1 2 3; do
+            rm -rf sources && mkdir sources
+            tools/fetch_sources.sh && exit 0
+            sleep 20
+          done
+          exit 1
+      - name: Save sources
+        if: steps.sources.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v5
+        with:
+          path: sources
+          key: ${{ steps.sources.outputs.cache-primary-key }}
+      - run: make data
+      - run: make -j"$(nproc)" all
+      - run: make test
+      - run: make bench
+      - run: make ibus
+
+  macos:
+    name: macOS (app without AI, tests)
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v5
+      - name: Restore sources
+        id: sources
+        uses: actions/cache/restore@v5
+        with:
+          path: sources
+          key: sources-${{ runner.os }}-${{ hashFiles('tools/fetch_sources.sh') }}
+      - name: Fetch sources
+        if: steps.sources.outputs.cache-hit != 'true'
+        run: |
+          for try in 1 2 3; do
+            rm -rf sources && mkdir sources
+            tools/fetch_sources.sh && exit 0
+            sleep 20
+          done
+          exit 1
+      - name: Save sources
+        if: steps.sources.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v5
+        with:
+          path: sources
+          key: ${{ steps.sources.outputs.cache-primary-key }}
+      - run: make data
+      - run: make -j"$(sysctl -n hw.ncpu)" all
+      - run: make test
+      # The MLX helper takes a long Xcode build; ad hoc signed.
+      - run: NO_AI=1 macos/build.sh
+
+  haiku:
+    name: Haiku (x86_64 add-on, cross-compiled)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      # The compile half of haiku/cross.sh; packaging needs a Haiku machine.
+      - name: Cross-compile the add-on
+        run: |
+          docker run --rm -v "$PWD":/src -w /src \
+            ghcr.io/haiku/cross-compiler:x86_64-r1beta5 sh -ec '
+              cxx=x86_64-unknown-haiku-g++
+              out=build/x86_64
+              mkdir -p $out
+              for f in engine/*.cpp haiku/*.cpp; do
+                $cxx -O2 -std=c++17 -fPIC -Wall -Wno-multichar \
+                  -c $f -o $out/$(basename $f .cpp).o
+              done
+              $cxx -shared -o $out/HaikuPinyin $out/*.o -lbe
+              ls -l $out/HaikuPinyin'

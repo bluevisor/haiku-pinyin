@@ -64,14 +64,19 @@ Choice()
 }
 
 
+// The model it would start: the one chosen, alone, as Start has it; with
+// none chosen, the default or its backup. A chosen model that's gone isn't
+// made up for by the default, or the settings would show the AI on while
+// nothing runs.
 bool
 HPAIAvailable()
 {
 	NSString* helper = HelperPath();
-	return helper != nil
-		&& [NSFileManager.defaultManager isExecutableFileAtPath:helper]
-		&& (ModelPath(kModel) != nil || ModelPath(kBackup) != nil
-			|| (Choice().length > 0 && ModelPath(Choice()) != nil));
+	if (helper == nil || ![NSFileManager.defaultManager isExecutableFileAtPath:helper])
+		return false;
+	NSString* choice = Choice();
+	return choice.length > 0 ? ModelPath(choice) != nil
+		: ModelPath(kModel) != nil || ModelPath(kBackup) != nil;
 }
 
 
@@ -103,10 +108,17 @@ SetFailed(bool failed)
 }
 
 
-bool
+extern "C" bool
 HPAIReady()
 {
 	return sReady;
+}
+
+
+extern "C" int
+HPAIHelperProcess()
+{
+	return sTask != nil ? sTask.processIdentifier : 0;
 }
 
 

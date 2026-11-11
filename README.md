@@ -149,22 +149,31 @@ Settings → Keyboard → Input Sources → Edit… → **+** → Chinese, Simpl
 (the package with a Developer ID Installer certificate) and notarized, and it
 keeps itself up to date: once a day it looks for a newer
 release, checks the download's signature, and puts it in place while the
-Mac sits idle (**自动更新** in the settings turns that off; **检查更新…**
-looks now).
+Mac sits idle (**Update automatically** in the settings turns that off;
+**Check for Updates…** looks now).
 
-A Shift tap switches 中/英, with a 中 or 英 by the text to say which;
-**设置…** in the input menu opens the settings window. Control-Delete forgets
+A Shift tap switches 中/英, with a 中 or 英 (EN in English) by the text to
+say which; **Settings…** in the input menu opens the settings window. The
+menu and the window follow the system's language: English, 简体 or 繁體
+Chinese. With VoiceOver on, the highlighted candidate is read out (with its
+place on the page) as it changes, and each candidate is a button VoiceOver
+can press. Control-Delete forgets
 a learned word. What it learns is in
-`~/Library/Application Support/HaikuPinyin/user.dict`.
+`~/Library/Application Support/HaikuPinyin/user.dict`. For a bug report,
+**Diagnostics → Copy** in the settings copies the version, the Mac, the
+settings, the AI's and the updater's state and the end of the AI's log;
+never what you type or the words it learned.
 
-**AI** needs Apple silicon and a model: **下载模型** in the settings window
+**AI** needs Apple silicon and a model: **Download** in the settings window
 fetches Qwen3-1.7B-Base and Qwen3.5-0.8B-Base, converted to 4-bit MLX (about
 1.4 GB), from Hugging Face (or its mirror) into
 `~/Library/Application Support/HaikuPinyin/models`, and checks every file. A
-stopped download carries on where it left off. A helper process holds the
+stopped download carries on where it left off. Without a model, the first
+pause after typing a word shows a small card under the line that offers
+this, once; it never takes the keyboard. A helper process holds the
 model (about 1 GB of memory while AI is on) and answers on the side, like the
 cloud: typing never waits for it. The settings window turns AI picks and
-completions on or off and chooses the model: 自动 uses the 1.7B and falls
+completions on or off and chooses the model: **Automatic** uses the 1.7B and falls
 back to the 0.8B on a Mac too slow for it; any MLX model in that folder can be
 chosen. Nothing you type leaves the Mac.
 
@@ -272,6 +281,7 @@ by default nothing you type leaves the machine.
 | `tests/` | Engine tests |
 | `tools/build_data.py` | Builds `build/data/` from `sources/` |
 | `tools/sign-release.sh`, `tools/release-key.asc` | Signs a release in `dist/`: the apt repository (`InRelease`) and `SHA256SUMS.asc`, with the release key |
+| `CHANGELOG.md`, `tools/release-notes.sh` | What changed in each release; the script prints a version's notes (or Unreleased) for the GitHub release and the Mac updater's feed |
 | `tools/haiku-testkeys/` | Dev only: a virtual keyboard device + `hpkeys` to type through the input_server over ssh, `imtest`, `hpsettings` |
 
 ## Build
@@ -285,6 +295,14 @@ haiku/sync.sh haiku-dbg     # copy to a Haiku machine and build there
 make install                # add-on + data into ~/config/non-packaged
 haiku/package.sh            # or: dist/haiku_pinyin-<v>-1-<arch>.hpkg
 ```
+
+`make bench` measures conversion: about 300 everyday sentences in full
+pinyin, 50 abbreviations and some shuangpin (`tests/bench/`), typed with no
+user dictionary. It prints how often the first candidate is the whole
+sentence, how many characters are right, how often the sentence is among
+the first five, and the worst misses, and fails when the first drops more
+than a point below `tests/bench/baseline.txt`. After a change that improves
+the scores, `make bench-update` records them; commit the baseline with it.
 
 `haiku/cross.sh` cross-compiles the x86_64 add-on on a Mac (Haiku's
 cross-compiler image in Docker) and packages it on a Haiku machine.

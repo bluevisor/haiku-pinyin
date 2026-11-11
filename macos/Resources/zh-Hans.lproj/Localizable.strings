@@ -1,0 +1,104 @@
+/* 海酷拼音: the settings window, the 中/英 bubble, model downloads and updates
+   in 简体中文 (Strings.swift). The keys are the English. */
+
+/* Settings */
+"Haiku Pinyin" = "海酷拼音";
+"Whole-sentence pinyin with on-device AI" = "全拼与双拼，整句输入，本机 AI 选词与补全";
+"Input" = "输入";
+"Typing scheme" = "拼写方式";
+"Full pinyin" = "全拼";
+"Shuangpin · Pinyin Jiajia" = "双拼 · 拼音加加";
+"Shuangpin · Xiaohe" = "双拼 · 小鹤";
+"Shuangpin · Ziranma" = "双拼 · 自然码";
+"Shuangpin · Microsoft" = "双拼 · 微软";
+"Shuangpin · Intelligent ABC" = "双拼 · 智能ABC";
+"Shuangpin a o e" = "双拼 a o e";
+"a  o  e (one key)" = "a  o  e（单键）";
+"Characters" = "字形";
+"Simplified Chinese" = "简体中文";
+"Traditional Chinese" = "繁体中文";
+"Per page" = "每页候选";
+"%ld candidates" = "%ld 个";
+"Candidates" = "候选";
+"Mixed Chinese and English" = "中英混输";
+"Emoji" = "Emoji 候选";
+"Full-width punctuation" = "全角标点";
+"Mixed Chinese and English: typing hello also offers hello." = "中英混输：hello 也给出 hello。";
+"AI picks" = "AI 选词";
+"AI completion (Tab)" = "AI 补全 (Tab)";
+"Model" = "模型";
+"Automatic" = "自动";
+"%@ (not found)" = "%@（未找到）";
+"Models folder" = "模型文件夹";
+"Show in Finder" = "在访达中显示";
+"AI needs a Mac with Apple silicon." = "AI 需要 Apple 芯片的 Mac。";
+"The model didn't load, so AI is off. Choose another model, or delete it from the models folder and download it again." = "模型没能载入，AI 已关闭。换一个模型，或在模型文件夹里删掉它再重新下载。";
+"The chosen model isn't there, so AI is off. Choose a model you have, or download the default ones." = "没找到所选的模型，AI 已关闭。选一个已有的模型，或下载默认的模型。";
+"A language model on this Mac reads the text before the cursor. It moves the candidate that reads best to the front (marked ✦), and after you enter a word it shows what likely comes next; Tab takes it. Nothing you type leaves this Mac. Automatic uses Qwen3-1.7B, and a smaller model on a Mac too slow for it. Any MLX model in the models folder can be chosen." = "在本机运行的语言模型读光标前的文字：把更通顺的候选排到第一（标 ✦），上屏后给出接下来的字，按 Tab 输入。文字不离开这台 Mac。自动：用 Qwen3-1.7B，这台 Mac 跑得慢时换小的。模型文件夹里的 MLX 模型都可以选。";
+"Download the models first: Qwen3's 1.7B and 0.8B base models, about 1.4 GB in all, from Hugging Face. They take about 1 GB of memory while AI is on. Nothing you type leaves this Mac." = "先下载模型：Qwen3 的 1.7B 和 0.8B 两个基础模型，从 Hugging Face 下载，共约 1.4 GB；用的时候约占 1 GB 内存。文字不离开这台 Mac。";
+"Downloading models" = "正在下载模型";
+"Cancel" = "取消";
+"Download" = "下载模型";
+"Download the AI models" = "下载 AI 模型";
+"Download the other models" = "下载其余的模型";
+"%@ · %@ to go" = "%@ · 还差 %@";
+"Fuzzy pinyin" = "模糊音";
+"Cloud candidates (Google)" = "云候选 (Google)";
+"Sends the pinyin being typed to Google Input Tools, never the text already entered." = "把正在输入的拼音发给 Google 输入工具，不含已上屏的文字。";
+"Learned words" = "学到的词";
+"Tap Shift to switch between Chinese and English. Control-Delete on a candidate forgets a learned word." = "轻按 Shift 切换中 / 英；在候选上按 Control-Delete 忘掉学到的词。";
+"Updates" = "更新";
+"Update automatically" = "自动更新";
+"Version %@" = "版本 %@";
+"Install Now" = "现在安装";
+"Check for Updates…" = "检查更新…";
+"Last checked %@." = "上次检查：%@。";
+"Updates come from the releases on GitHub; each is checked against its signature and goes in while the Mac is idle." = "从 GitHub 上的发布下载，签名核对后在空闲时换上。";
+/* Between sentences: a space in English, nothing in Chinese. */
+" " = "";
+
+/* The 中/英 bubble: English is on. */
+"EN" = "英";
+
+/* Model downloads */
+"Downloading…" = "正在下载…";
+"Downloaded" = "已下载";
+"Download failed: %@" = "下载失败：%@";
+"the server answered %ld" = "服务器返回 %ld";
+"%@ didn't match its checksum" = "%@ 校验不符";
+"Canceled" = "已取消";
+
+/* Updates */
+"A development build: it doesn't update itself." = "开发版，不自动更新。";
+"Checking for updates…" = "正在检查更新…";
+"Can't reach the update server." = "无法连接更新服务器。";
+"The update check failed (%ld)." = "检查更新失败（%ld）。";
+"This is the latest version." = "已是最新版本。";
+"%@ needs macOS %@." = "%@ 需要 macOS %@。";
+"Downloading %@…" = "正在下载 %@…";
+"The download failed (%@)." = "下载失败（%@）。";
+"%@ is downloaded and goes in when the Mac is idle." = "%@ 已下载，空闲时自动安装。";
+"The download didn't match its checksum." = "下载的文件校验不符。";
+"Can't unpack the update." = "无法解压更新。";
+"The update has the wrong version number." = "更新的版本号不符。";
+"The update isn't signed by us; it was thrown away." = "更新的签名不对，已丢弃。";
+"Installing the update failed: %@" = "安装更新失败：%@";
+
+/* The AI's one invitation, under the line (Invitation.swift) */
+"Try on-device AI" = "试试本机 AI";
+"Better word picks and a guess at what comes next, all on this Mac. A 1.4 GB download." = "选词更准，还能猜出接下来的字，全在这台 Mac 上运行。需下载 1.4 GB。";
+"Not Now" = "以后再说";
+"Set Up…" = "设置…";
+
+/* Diagnostics (Diagnostics.swift) */
+"Diagnostics" = "诊断信息";
+"Copy" = "拷贝";
+"Copied" = "已拷贝";
+"Copies the version, this Mac, the settings, and the state and log of the AI and the updates, for a bug report. Never what you type or the words it learned." = "拷贝版本、这台 Mac 的信息、设置，以及 AI 和更新的状态与日志，用来报告问题。不含你输入的文字和学到的词。";
+
+/* VoiceOver in the candidate window (Candidates.swift) */
+"%@, %ld of %ld" = "%@，第 %ld 个，共 %ld 个";
+", AI pick" = "，AI 推荐";
+", from the cloud" = "，云候选";
+"Previous page" = "上一页";
+"Next page" = "下一页";

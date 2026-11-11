@@ -1,17 +1,33 @@
 // Dev only: renders the settings window's view to a PNG, to look at it
 // without screen recording permission:
+//   mkdir -p build/snapshot && cp -R macos/Resources/*.lproj build/snapshot/
 //   swiftc -parse-as-library macos/Settings.swift macos/Candidates.swift \
-//       macos/Models.swift macos/Updater.swift macos/snapshot-settings.swift \
-//       -o build/snapshot-settings
-//   build/snapshot-settings out.png [light|dark|bubble|candidates[-dark]]
-// It flashes the window on screen for a second.
+//       macos/Models.swift macos/Updater.swift macos/Strings.swift \
+//       macos/Invitation.swift macos/Diagnostics.swift \
+//       macos/snapshot-settings.swift -o build/snapshot/snapshot-settings
+//   build/snapshot/snapshot-settings out.png \
+//       [light|dark|bubble[-english]|candidates[-dark]|invitation[-dark]]
+//   build/snapshot/snapshot-settings out.txt diagnostics    what Copy copies
+//   build/snapshot/snapshot-settings out.txt accessibility
+// The last reads the candidate window as VoiceOver does (AXUIElement, on
+// this process: no Accessibility permission), presses a candidate, and
+// lists what was announced; it exits 1 if something's off (in English).
+// It flashes the window on screen for a second. The string tables sit next
+// to it, so -AppleLanguages '(zh-Hant)' (or en, zh-Hans) at the end picks
+// the language.
 import AppKit
 import SwiftUI
 
 // What the input method's own code provides the settings window.
+// SNAPSHOT_AI=failed or missing shows the AI as a broken or missing model
+// leaves it; HAIKU_PINYIN_AI=/usr/bin/true stands in for the helper, and
+// HAIKU_PINYIN_MODELS=<empty folder> shows the download.
+private let aiState = ProcessInfo.processInfo.environment["SNAPSHOT_AI"] ?? ""
 @_cdecl("HPAIModelsChanged") func aiModelsChangedStub() {}
-@_cdecl("HPAIUsable") func aiUsableStub() -> Bool { true }
-@_cdecl("HPAIFailed") func aiFailedStub() -> Bool { false }
+@_cdecl("HPAIUsable") func aiUsableStub() -> Bool { aiState.isEmpty }
+@_cdecl("HPAIFailed") func aiFailedStub() -> Bool { aiState == "failed" }
+@_cdecl("HPAIReady") func aiReadyStub() -> Bool { aiState.isEmpty }
+@_cdecl("HPAIHelperProcess") func aiHelperProcessStub() -> Int32 { 0 }
 @_cdecl("HPSaveNow") func saveNowStub() {}
 @_cdecl("HPComposing") func composingStub() -> Bool { false }
 
@@ -42,18 +58,42 @@ struct SnapshotSettings {
 			capture(NSApp.windows.first { $0 is NSPanel }!, to: arguments[1])
 			return
 		}
-		if arguments.count > 2 && arguments[2] == "bubble" {
+		if arguments.count > 2 && arguments[2] == "accessibility" {
+			AccessibilityCheck.run(to: arguments[1])
+		}
+		if arguments.count > 2 && arguments[2] == "diagnostics" {
+			FileManager.default.createFile(atPath: arguments[1],
+				contents: diagnosticsReport().data(using: .utf8))
+			return
+		}
+		if arguments.count > 2 && arguments[2].hasPrefix("invitation") {
+			// The AI's invitation under a line of text.
+			let backdrop = NSWindow(contentRect: NSRect(x: 380, y: 300, width: 400, height: 200),
+				styleMask: [.borderless], backing: .buffered, defer: false)
+			backdrop.backgroundColor = .textBackgroundColor
+			backdrop.appearance = NSAppearance(named: arguments[2].hasSuffix("dark")
+				? .darkAqua : .aqua)
+			NSApp.appearance = backdrop.appearance
+			backdrop.orderFrontRegardless()
+			showInvitation(400, 470, 20)
+			RunLoop.main.run(until: Date().addingTimeInterval(0.5))
+			capture(NSApp.windows.first { $0 is NSPanel }!, to: arguments[1])
+			return
+		}
+		if arguments.count > 2 && arguments[2].hasPrefix("bubble") {
 			// The 中/英 bubble, over a window to show the glass against.
 			let backdrop = NSWindow(contentRect: NSRect(x: 400, y: 400, width: 160, height: 90),
 				styleMask: [.borderless], backing: .buffered, defer: false)
 			backdrop.backgroundColor = .systemOrange
 			backdrop.orderFrontRegardless()
-			showModeBubble(true, 440, 470)
+			showModeBubble(!arguments[2].hasSuffix("english"), 440, 470)
 			RunLoop.main.run(until: Date().addingTimeInterval(0.3))
 			capture(NSApp.windows.first { $0 is NSPanel }!, to: arguments[1])
 			return
 		}
 
+		// SNAPSHOT_AT=ai opens it at the AI section, as the invitation does.
+		SettingsTarget.shared.section = ProcessInfo.processInfo.environment["SNAPSHOT_AT"]
 		let host = NSHostingView(rootView: SettingsView())
 		let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 480, height: 400),
 			styleMask: [.titled], backing: .buffered, defer: false)
@@ -104,5 +144,139 @@ struct SnapshotSettings {
 		let png = NSBitmapImageRep(cgImage: image)
 			.representation(using: .png, properties: [:])
 		FileManager.default.createFile(atPath: path, contents: png)
+	}
+}
+
+private var checkPicked: Int32 = -1		// what a press picked
+private var heard: [String] = []		// announcements, as VoiceOver gets them
+private let heardLock = NSLock()
+
+// The candidate window through the accessibility API, from another thread
+// (asking this process from its main thread can't be answered).
+enum AccessibilityCheck {
+	static var report: [String] = []
+	static var failed = false
+
+	static func run(to path: String) {
+		announceAlways = true
+		setCandidateHandlers({ checkPicked = $0 }, { _ in })
+		showCandidates("中国\n中\n种", 0, 2, 0, false, true, 420, 470, 20, "123")
+		Thread {
+			check()
+			DispatchQueue.main.async {
+				report.append(failed ? "FAILED" : "OK")
+				let text = report.joined(separator: "\n") + "\n"
+				print(text, terminator: "")
+				FileManager.default.createFile(atPath: path, contents: text.data(using: .utf8))
+				exit(failed ? 1 : 0)
+			}
+		}.start()
+		NSApp.run()
+	}
+
+	static func expect(_ ok: Bool, _ what: String) {
+		report.append((ok ? "ok    " : "WRONG ") + what)
+		if !ok { failed = true }
+	}
+
+	static func attribute(_ element: AXUIElement, _ name: String) -> CFTypeRef? {
+		var value: CFTypeRef?
+		AXUIElementCopyAttributeValue(element, name as CFString, &value)
+		return value
+	}
+
+	static func string(_ element: AXUIElement, _ name: String) -> String {
+		(attribute(element, name) as? String) ?? ""
+	}
+
+	static func children(_ element: AXUIElement) -> [AXUIElement] {
+		(attribute(element, kAXChildrenAttribute) as? [AXUIElement]) ?? []
+	}
+
+	// Every element under element, depth first, with its depth.
+	static func walk(_ element: AXUIElement, _ depth: Int = 0) -> [(AXUIElement, Int)] {
+		[(element, depth)] + children(element).flatMap { walk($0, depth + 1) }
+	}
+
+	static func onMain<T>(_ work: () -> T) -> T { DispatchQueue.main.sync(execute: work) }
+
+	// Listens as VoiceOver does, on a thread of its own.
+	static func listen() {
+		Thread {
+			var observer: AXObserver?
+			AXObserverCreateWithInfoCallback(getpid(), { _, _, _, info, _ in
+				let text = (info as? [String: Any])?[NSAccessibility.NotificationUserInfoKey
+					.announcement.rawValue] as? String ?? "?"
+				heardLock.lock()
+				heard.append(text)
+				heardLock.unlock()
+			}, &observer)
+			guard let observer else { return }
+			AXObserverAddNotification(observer, AXUIElementCreateApplication(getpid()),
+				"AXAnnouncementRequested" as CFString, nil)
+			CFRunLoopAddSource(CFRunLoopGetCurrent(), AXObserverGetRunLoopSource(observer),
+				.defaultMode)
+			CFRunLoopRun()
+		}.start()
+	}
+
+	static func heardSoFar() -> [String] {
+		heardLock.lock()
+		defer { heardLock.unlock() }
+		return heard
+	}
+
+	static func check() {
+		Thread.sleep(forTimeInterval: 0.5)
+		let app = AXUIElementCreateApplication(getpid())
+		let windows = (attribute(app, kAXWindowsAttribute) as? [AXUIElement]) ?? []
+		expect(windows.count == 1, "one window: \(windows.count)")
+		guard let window = windows.first else { return }
+		for (element, depth) in walk(window) {
+			var line = String(repeating: "  ", count: depth) + string(element, kAXRoleAttribute)
+			let label = string(element, kAXDescriptionAttribute)
+			if !label.isEmpty { line += " \"\(label)\"" }
+			if (attribute(element, kAXSelectedAttribute) as? Bool) == true { line += " selected" }
+			report.append(line)
+		}
+		let buttons = walk(window).map(\.0).filter {
+			string($0, kAXRoleAttribute) == kAXButtonRole as String }
+		let labels = buttons.map { string($0, kAXDescriptionAttribute) }
+		expect(labels.prefix(3) == ["中国, 1 of 3, AI pick", "中, 2 of 3", "种, 3 of 3, from the cloud"],
+			"the candidates are buttons, in order: \(labels)")
+		expect(labels.contains("Next page") && !labels.contains("Previous page"),
+			"the page arrow that works, and not the other")
+		expect((attribute(buttons[0], kAXSelectedAttribute) as? Bool) == true
+			&& (attribute(buttons[1], kAXSelectedAttribute) as? Bool) != true,
+			"the highlighted one is selected, the others aren't")
+		expect(onMain { announced } == "中国, 1 of 3, AI pick",
+			"announced as it showed: \(onMain { announced })")
+
+		// The highlight moves on: announced once; again with no change: not.
+		listen()
+		Thread.sleep(forTimeInterval: 0.3)
+		for _ in 0 ..< 2 {
+			onMain { showCandidates("中国\n中\n种", 1, 2, 0, false, true, 420, 470, 20, "123") }
+			Thread.sleep(forTimeInterval: 0.3)
+		}
+		expect(heardSoFar() == ["中, 2 of 3"],
+			"the next one announced to accessibility clients, once: \(heardSoFar())")
+
+		// VoiceOver's press picks.
+		AXUIElementPerformAction(buttons[2], kAXPressAction as CFString)
+		Thread.sleep(forTimeInterval: 0.3)
+		expect(onMain { checkPicked } == 2, "pressing the third picks it: \(onMain { checkPicked })")
+
+		// It never takes the keyboard.
+		let focus = onMain { () -> (Bool, Bool, Bool) in
+			let panel = NSApp.windows.first { $0 is NSPanel }!
+			panel.makeKey()
+			return (panel.canBecomeKey, panel.isKeyWindow, NSApp.keyWindow != nil)
+		}
+		expect(!focus.0 && !focus.1 && !focus.2,
+			"the window can't become key, even when asked: \(focus)")
+		expect((attribute(window, kAXMainAttribute) as? Bool) != true
+			&& (attribute(window, kAXFocusedAttribute) as? Bool) != true,
+			"not main or focused for VoiceOver either")
 	}
 }
