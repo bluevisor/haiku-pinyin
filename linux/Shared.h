@@ -36,6 +36,10 @@ void PropertyActivate(IBusEngine* engine, const gchar* name, guint state);
 // Cloud.cpp: asks Google Input Tools about the composition, on the side.
 void AskCloud();
 
+// Words.cpp: the 词库 menu (custom phrases, import, export) and its items.
+void AppendWordsMenu(IBusPropList* list);
+bool WordsActivate(const std::string& property);
+
 // main.cpp
 void ShowCandidates(IBusEngine* engine);
 void Cancel(IBusEngine* engine);

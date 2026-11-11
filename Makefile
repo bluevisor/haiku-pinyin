@@ -70,13 +70,14 @@ bench: $(BUILD)/hpcli data
 bench-update: $(BUILD)/hpcli data
 	python3 tests/bench.py --hpcli $(BUILD)/hpcli --data $(BUILD)/data --update
 
-# The add-on resolves BInputServerMethod against the input_server itself.
+# The add-on resolves BInputServerMethod against the input_server itself;
+# BFilePanel is in libtracker, not libbe.
 $(OBJ)/haiku_%.o: haiku/%.cpp haiku/*.h engine/*.h
 	@mkdir -p $(OBJ)
 	$(CXX) $(CXXFLAGS) -fPIC -c $< -o $@
 
 $(ADDON): $(ADDON_OBJECTS) $(ENGINE)
-	$(CXX) -shared -o $@ $(ADDON_OBJECTS) $(ENGINE) -lbe \
+	$(CXX) -shared -o $@ $(ADDON_OBJECTS) $(ENGINE) -lbe -ltracker \
 		/boot/system/servers/input_server
 
 install: all data

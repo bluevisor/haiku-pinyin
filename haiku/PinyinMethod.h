@@ -11,6 +11,7 @@
 
 #include "../engine/Engine.h"
 
+class BFilePanel;
 class CandidateWindow;
 class PinyinMethod;
 
@@ -53,6 +54,9 @@ private:
 			void				_RepaintDeskbar();
 			void				_LoadSettings();
 			void				_SaveSettings();
+			void				_Open(const char* path, const char* type);
+			void				_ShowPanel(bool save);
+			void				_Notify(const char* text);
 
 			BLocker				fLock;
 			haikupinyin::Engine		fEngine;
@@ -75,4 +79,6 @@ private:
 			std::string			fCloudAnswered;	// last asked
 			bool				fShiftAlone;
 			bigtime_t			fShiftDown;
+			BFilePanel*			fImportPanel;
+			BFilePanel*			fExportPanel;
 };

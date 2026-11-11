@@ -3,7 +3,7 @@
 //   mkdir -p build/snapshot && cp -R macos/Resources/*.lproj build/snapshot/
 //   swiftc -parse-as-library macos/Settings.swift macos/Candidates.swift \
 //       macos/Models.swift macos/Updater.swift macos/Strings.swift \
-//       macos/Invitation.swift macos/Diagnostics.swift \
+//       macos/Invitation.swift macos/Diagnostics.swift macos/Words.swift \
 //       macos/snapshot-settings.swift -o build/snapshot/snapshot-settings
 //   build/snapshot/snapshot-settings out.png \
 //       [light|dark|bubble[-english]|candidates[-dark]|invitation[-dark]]
@@ -30,6 +30,13 @@ private let aiState = ProcessInfo.processInfo.environment["SNAPSHOT_AI"] ?? ""
 @_cdecl("HPAIHelperProcess") func aiHelperProcessStub() -> Int32 { 0 }
 @_cdecl("HPSaveNow") func saveNowStub() {}
 @_cdecl("HPComposing") func composingStub() -> Bool { false }
+@_cdecl("HPPhrasesFile") func phrasesFileStub() -> UnsafePointer<CChar> {
+	UnsafePointer(strdup("/tmp/phrases.txt")!)
+}
+@_cdecl("HPImportWords") func importWordsStub(_ path: UnsafePointer<CChar>)
+	-> UnsafePointer<CChar> { UnsafePointer(strdup("")!) }
+@_cdecl("HPExportWords") func exportWordsStub(_ path: UnsafePointer<CChar>)
+	-> UnsafePointer<CChar> { UnsafePointer(strdup("")!) }
 
 @main
 struct SnapshotSettings {

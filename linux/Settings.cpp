@@ -254,6 +254,7 @@ BuildProperties()
 	ibus_prop_list_append(list, NewProperty("page", PROP_TYPE_MENU,
 		("每页 " + std::to_string(options.pageSize) + " 个候选").c_str(),
 		false, sizes));
+	AppendWordsMenu(list);
 	return list;
 }
 
@@ -305,6 +306,8 @@ PropertyActivate(IBusEngine* engine, const gchar* name, guint state)
 		ToggleChinese(engine);
 		return;
 	}
+	if (WordsActivate(property))
+		return;
 	// Radio items are also activated as they're unchecked.
 	bool radio = property.rfind("layout.", 0) == 0
 		|| property.rfind("script.", 0) == 0 || property.rfind("page.", 0) == 0

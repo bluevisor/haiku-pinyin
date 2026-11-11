@@ -243,6 +243,18 @@ TestPhrases()
 		Expect("phrase verbatim", First(engine), "北京市海淀区");
 		engine.ProcessKey(Key::kCharacter, '1', 0);
 		Expect("phrase verbatim commit", engine.TakeCommit(), "北京市海淀区");
+
+		// Shuangpin: the code is the keys as typed, whatever they spell
+		// (dz is 段 in 拼音加加).
+		for (const char* layout : {"pyjj", "xiaohe", "mspy"}) {
+			options = Options();
+			options.layout = layout;
+			engine.SetOptions(options);
+			Type(engine, "dz");
+			Expect((std::string("phrase in ") + layout).c_str(), First(engine),
+				"北京市海淀区");
+			engine.ProcessKey(Key::kEscape, 0, 0);
+		}
 		engine.SetOptions(Options());
 
 		// Changed on disk: read again as the next composition starts.

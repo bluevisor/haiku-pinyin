@@ -57,7 +57,7 @@ Architecture: $ARCH
 Maintainer: John Zheng <bluevisor@gmail.com>
 Installed-Size: $size
 Depends: ibus, $deps
-Recommends: curl, ca-certificates
+Recommends: curl, ca-certificates, zenity, libnotify-bin
 Section: utils
 Priority: optional
 Homepage: https://github.com/bluevisor/haiku-pinyin
