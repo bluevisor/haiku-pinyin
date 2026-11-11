@@ -16,6 +16,16 @@ to the version.
   follow it on the page (收银台在那里, then 收银台在哪里).
 - **Abbreviations**: z, c or s before an h that's an initial too reads as two
   initials, so `zhrmghg` gives 中华人民共和国 and `shzy` 社会主义.
+- **Mac: Report a Problem…** in the settings gathers the diagnostics and a
+  summary of any crash reports from the last 30 days, shows it all for you to
+  edit, and opens a filled-in GitHub issue in your browser. Nothing is sent
+  unless you submit it there. After a crash, the settings window offers this
+  at the top.
+- **Mac: Uninstall…** at the bottom of the settings window removes 海酷拼音.
+  It switches you to your English keyboard layout first, takes it off the
+  input menu and deletes the app once it has quit. Your learned words, custom
+  phrases, AI models and settings stay, unless you tick the box to delete
+  them too.
 - **Linux: Fcitx5.** 海酷拼音 also comes as a Fcitx5 addon now (KDE Plasma,
   and wherever Fcitx5 runs), doing all the IBus engine does: inline
   composition, the candidate window, Shift for 中/英, 云候选, the words it

@@ -275,8 +275,10 @@ public func updaterCheck() {
 	Updater.shared.check(manual: true)
 }
 
+// As the method starts (main.mm).
 @_cdecl("HPUpdaterStart")
 public func updaterStart() {
+	uninstallIfAsked()		// HP_UNINSTALL, for testing (Uninstall.swift)
 	Updater.shared.start()
 }
 

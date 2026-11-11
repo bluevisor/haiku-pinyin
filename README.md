@@ -166,7 +166,12 @@ a learned word. What it learns is in
 `~/Library/Application Support/HaikuPinyin/user.dict`. For a bug report,
 **Diagnostics → Copy** in the settings copies the version, the Mac, the
 settings, the AI's and the updater's state and the end of the AI's log;
-never what you type or the words it learned.
+never what you type or the words it learned. **Report a Problem…** adds a
+summary of any crash reports macOS kept for the method or the AI helper in
+the last 30 days, shows it all for you to edit, and opens a new GitHub issue
+in your browser with it filled in. Nothing is sent until you submit the
+issue there. When macOS has kept a new crash report since you last opened
+the settings, a notice at the top offers to report it.
 
 **AI** needs Apple silicon and a model: **Download** in the settings window
 fetches Qwen3-1.7B-Base and Qwen3.5-0.8B-Base, converted to 4-bit MLX (about
@@ -181,14 +186,24 @@ completions on or off and chooses the model: **Automatic** uses the 1.7B and fal
 back to the 0.8B on a Mac too slow for it; any MLX model in that folder can be
 chosen. Nothing you type leaves the Mac.
 
+**Uninstall…**, at the bottom of the settings window, removes it. It switches
+you to your English keyboard layout (ABC or U.S.) first, takes 海酷拼音 off
+the input menu, and deletes the app from `~/Library/Input Methods` once it has
+quit. Your learned words, custom phrases, AI models and settings stay, so
+installing again picks up where you left off, unless you tick **Also delete
+my data**: then `~/Library/Application Support/HaikuPinyin` (the models
+included), the settings and the logs go too. Models linked into the models
+folder from elsewhere stay where they are. It's gone from the input menu
+at once; macOS forgets it entirely the next time you log in.
+
 To build it yourself, with Xcode's command line tools:
 
 ```sh
 tools/fetch_sources.sh && make data install-mac   # into ~/Library/Input Methods
 ```
 
-`macos/install.sh --remove` uninstalls it. A build of your own is signed ad
-hoc and never updates itself. `macos/ai/fetch-models.sh` converts the models
+`macos/install.sh --remove` uninstalls a build (or use **Uninstall…**). A
+build of your own is signed ad hoc and never updates itself. `macos/ai/fetch-models.sh` converts the models
 itself (or links copies you have: `fetch-models.sh <directory>`);
 `NO_AI=1 macos/build.sh` builds without the helper. `make mac-release`
 (`macos/release.sh`) makes the download: signed with a Developer ID,

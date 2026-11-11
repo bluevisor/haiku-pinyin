@@ -28,8 +28,8 @@ for arch in arm64 x86_64; do
 	swiftc -target $target -O -g -parse-as-library \
 		macos/Settings.swift macos/Candidates.swift macos/Models.swift \
 		macos/Updater.swift macos/Strings.swift macos/Invitation.swift \
-		macos/Diagnostics.swift macos/Words.swift \
-		"$objects"/*.o -lc++ \
+		macos/Diagnostics.swift macos/Words.swift macos/Report.swift \
+		macos/Uninstall.swift "$objects"/*.o -lc++ \
 		-framework Cocoa -framework InputMethodKit -framework Carbon \
 		-framework Security \
 		-o "$objects/HaikuPinyin"
