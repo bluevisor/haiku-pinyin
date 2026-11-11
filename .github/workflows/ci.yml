@@ -62,7 +62,7 @@ jobs:
               apt-get install -qq -y --no-install-recommends /src/dist/*.deb >/dev/null
               /src/linux/check-install.sh
               test -f /etc/apt/sources.list.d/haiku-pinyin.sources
-              test -f /usr/share/keyrings/haiku-pinyin-archive-keyring.gpg
+              test -f /etc/apt/keyrings/haiku-pinyin-archive-keyring.gpg
               command -v haiku-pinyin-enable'
             echo "::endgroup::"
           done
