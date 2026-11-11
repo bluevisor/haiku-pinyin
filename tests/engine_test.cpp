@@ -574,7 +574,9 @@ TestSync()
 		forgot.Add(key, "甲", 0, 0, 300);
 		Expect("forgotten", std::to_string(CountOf(forgot, "甲")), "0");
 		UserDict stale = a;
-		Expect("forget wins", std::to_string(stale.Join(forgot)) + " "
+		// Joined first: the order operands of + are evaluated in isn't fixed.
+		int changes = stale.Join(forgot);
+		Expect("forget wins", std::to_string(changes) + " "
 			+ std::to_string(CountOf(stale, "甲")), "3 0");
 		stale.Join(a);
 		Expect("old copy stays out", std::to_string(CountOf(stale, "甲")), "0");
