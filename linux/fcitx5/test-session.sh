@@ -107,6 +107,10 @@ k Escape
 t zgr; k space				# 中国人 (abbreviation)
 t ,						# ，
 shift_tap; t "hello "; shift_tap	# English: Fcitx5 switches to the keyboard
+shift_tap Shift_R					# English: 海酷拼音's own
+[ "$(fcitx5-remote -n)" = haiku-pinyin ] && echo "ok   Right Shift stays in 海酷拼音" \
+	|| { echo "FAIL Right Shift switched to $(fcitx5-remote -n)"; failed=1; }
+t "world "; shift_tap Shift_R
 t nihao; k 1				# 你好
 t .						# 。
 t bjdx; k Return			# bjdx, as typed
@@ -120,7 +124,7 @@ t xiexie; k equal; shot page2; k minus 1	# page on and back, then 谢谢
 t nihaoma; k BackSpace BackSpace space	# 你好
 k Return
 t "nihao1."					# 你好。 (period after a digit pick)
-check "全拼" "$file" "中国人，hello 你好。bjdx入
+check "全拼" "$file" "中国人，hello world 你好。bjdx入
 我在学习中文生日快乐
 谢谢你好
 你好。"

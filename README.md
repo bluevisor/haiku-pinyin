@@ -10,7 +10,7 @@ you pick, and inline composition. One engine, three native front ends.
 | | Get it | Runs as | Only here |
 |---|---|---|---|
 | **macOS** 13+ | [`.pkg` or `.dmg`](https://github.com/bluevisor/haiku-pinyin/releases/latest), signed and notarized | InputMethodKit input method | on-device AI picks and gray completion (Apple silicon), self-update, settings window |
-| **Linux** | [`.deb`](https://github.com/bluevisor/haiku-pinyin/releases/latest) for arm64 / amd64 (Ubuntu 22.04+, Debian 12+), then signed updates with `apt`; or from source | IBus engine (GNOME and anywhere IBus runs) | settings in the top-bar input menu |
+| **Linux** | [`.deb`](https://github.com/bluevisor/haiku-pinyin/releases/latest) for arm64 / amd64 (Ubuntu 22.04+, Debian 12+), then signed updates with `apt`; Arch `PKGBUILD` and Fedora `.spec`; or from source | IBus engine (GNOME and anywhere IBus runs) or Fcitx5 addon (KDE Plasma and anywhere Fcitx5 runs) | settings in the top-bar input menu (IBus) or Fcitx5's configuration tool |
 | **Haiku** (64-bit) | [`.hpkg`](https://github.com/bluevisor/haiku-pinyin/releases/latest) for arm64 / x86_64, with signed checksums | input_server add-on | Deskbar menu, inline in BTextView and Terminal |
 
 The features below work on all three, except where marked.
@@ -60,40 +60,78 @@ To build it yourself instead, see Build below.
 
 ## Install on Linux
 
-On Linux it's an [IBus](https://github.com/ibus/ibus) engine (GNOME,
-and anywhere else IBus runs). On Ubuntu 22.04+ or Debian 12+, download
-`haiku-pinyin_<version>_<arch>.deb` (`arm64` or `amd64`) from the
-[releases](https://github.com/bluevisor/haiku-pinyin/releases), then:
+On Linux it's an [IBus](https://github.com/ibus/ibus) engine (GNOME, and
+anywhere else IBus runs) or a [Fcitx5](https://github.com/fcitx/fcitx5) addon
+(KDE Plasma, and the distributions and desktops that use Fcitx5). Both are the
+same engine, and both keep their settings and the words they learn in
+`~/.config/haiku-pinyin/` (`settings`, `user.dict`), so switching from one
+framework to the other keeps them.
+
+**Debian, Ubuntu** (Ubuntu 22.04+, Debian 12+): download
+`haiku-pinyin-data_<version>_all.deb` and the package for your framework,
+`haiku-pinyin_<version>_<arch>.deb` (IBus) or
+`fcitx5-haiku-pinyin_<version>_<arch>.deb` (Fcitx5), `arm64` or `amd64`, from
+the [releases](https://github.com/bluevisor/haiku-pinyin/releases), then:
 
 ```sh
-sudo apt install ./haiku-pinyin_*.deb
+# IBus
+sudo apt install ./haiku-pinyin-data_*.deb ./haiku-pinyin_*.deb
 haiku-pinyin-enable        # as yourself: restarts IBus, adds it to GNOME
+# Fcitx5
+sudo apt install ./haiku-pinyin-data_*.deb ./fcitx5-haiku-pinyin_*.deb
+fcitx5 -rd                 # as yourself: restarts Fcitx5
 ```
 
-The package also adds the project's apt repository and its release key
-(`/etc/apt/sources.list.d/haiku-pinyin.sources`,
+`haiku-pinyin-data` also adds the project's apt repository and its release
+key (`/etc/apt/sources.list.d/haiku-pinyin.sources`,
 `/usr/share/keyrings/haiku-pinyin-archive-keyring.gpg`), so `sudo apt update
 && sudo apt upgrade` brings each new release, and apt refuses one that isn't
-signed with that key. The repository is the latest GitHub release itself.
+signed with that key. The repository is the latest GitHub release itself;
+once it's set up, `sudo apt install fcitx5-haiku-pinyin` (or `haiku-pinyin`)
+works too. Upgrading from a release that had just the one `haiku-pinyin`
+package brings in `haiku-pinyin-data` on its own.
 
-Or build it with the IBus headers:
+**Arch**: `make linux-arch` writes an AUR-ready `PKGBUILD` (in `dist/arch/`)
+that builds `ibus-haiku-pinyin`, `fcitx5-haiku-pinyin` and
+`haiku-pinyin-data` from a release's source and data tarballs; run
+`makepkg -si` beside it. **Fedora**: `make linux-rpm` writes
+`dist/fedora/haiku-pinyin.spec` and builds the rpms (`ibus-haiku-pinyin`,
+`fcitx5-haiku-pinyin`, `haiku-pinyin-data`) in Docker; `sudo dnf install` the
+ones you want. Neither is in the AUR or Copr yet.
+
+Or build it yourself, with the headers of either framework or both:
 
 ```sh
-sudo apt install build-essential libibus-1.0-dev curl python3   # Debian/Ubuntu
-tools/fetch_sources.sh && make data ibus
+sudo apt install build-essential curl python3 libibus-1.0-dev   # IBus
+sudo apt install fcitx5-modules-dev libfcitx5core-dev \
+	libfcitx5config-dev libfcitx5utils-dev                      # Fcitx5
+# Fedora: gcc-c++ make ibus-devel fcitx5-devel; Arch: base-devel ibus fcitx5
+tools/fetch_sources.sh && make data ibus fcitx5
 sudo make install-ibus && linux/enable.sh  # into /usr, where IBus looks
-# or, without root (GNOME, or another systemd user session):
+sudo make install-fcitx5 && fcitx5 -rd     # into Fcitx5's addon directory
+# or the IBus engine without root (GNOME, or another systemd user session):
 linux/install-user.sh                      # into ~/.local; --remove undoes it
 ```
 
-`haiku-pinyin-enable` (`linux/enable.sh` in a build) restarts IBus and adds **海酷拼音 Haiku Pinyin** to
-GNOME's input sources (or add it under Settings → Keyboard → Input Sources →
-Chinese); switch with Super+Space. On GNOME, don't use `ibus restart`: the
-daemon runs as a systemd user unit and stays stopped. Restart it with
+**IBus**: `haiku-pinyin-enable` (`linux/enable.sh` in a build) restarts IBus
+and adds **海酷拼音 Haiku Pinyin** to GNOME's input sources (or add it under
+Settings → Keyboard → Input Sources → Chinese); switch with Super+Space. On
+GNOME, don't use `ibus restart`: the daemon runs as a systemd user unit and
+stays stopped. Restart it with
 `systemctl --user restart org.freedesktop.IBus.session.GNOME.service`. Apps
-started outside the desktop session need `GTK_IM_MODULE=ibus` to reach it. Everything in Using it
-below applies, except that the settings live in the input source menu in the
-top bar, and are saved in `~/.config/haiku-pinyin/` with `user.dict`.
+started outside the desktop session need `GTK_IM_MODULE=ibus` to reach it.
+The settings live in the input source menu in the top bar.
+
+**Fcitx5**: add **海酷拼音 Haiku Pinyin** in `fcitx5-configtool` (on KDE,
+System Settings → Input Method → Add Input Method); switch
+with Ctrl+Space. Its settings are on the configure button next to it there,
+the same ones as IBus's menu. A Shift tap switches 中/英 as everywhere else,
+with one difference: when the keyboard layout comes before it in the input
+method group, Fcitx5's own Left Shift ("temporarily switch between first and
+current input method") goes to that layout instead, which types English just
+the same; Right Shift and 中/英 in the tray menu switch 海酷拼音's own mode.
+
+Everything in Using it below applies to both.
 
 ## Install on macOS
 
@@ -168,7 +206,8 @@ in `dist/`.
 
 Switch to it like any input method: on Haiku from the keyboard menu in
 Deskbar or with **Alt+Space** (with [Kigo](https://github.com/bluevisor/kigo),
-which takes Alt+Space for itself, **Win+Space**); on Linux with Super+Space;
+which takes Alt+Space for itself, **Win+Space**); on Linux with Super+Space
+(GNOME, IBus) or Ctrl+Space (Fcitx5);
 on a Mac with Control+Space or 🌐.
 
 | Key | |
@@ -203,7 +242,8 @@ After a number, digits are typing, so letters pick (a b c …); after a code,
 digits pick as usual. `v` alone lists one of each. Letters that are no code
 (`very`) are pinyin and English as before.
 
-The settings (Deskbar menu on Haiku, the top-bar input menu on Linux, the
+The settings (Deskbar menu on Haiku, the top-bar input menu with IBus or
+Fcitx5's configuration tool on Linux, the
 settings window on a Mac) are: 全拼 or a shuangpin layout, how
 shuangpin spells a, o and e (aa oo ee, oa oo oe, or one key each), 简体 /
 繁體, 全角标点, emoji, 中英混输, 云候选, the three 模糊音 groups,
@@ -226,7 +266,8 @@ by default nothing you type leaves the machine.
 | `engine/` | Portable C++17 engine: lexicon, syllable graph (full pinyin, shuangpin, 模糊音), bigram beam-search decoder, user dictionary, S→T converter; the questions and answers for cloud and AI candidates |
 | `haiku/` | input_server method add-on and candidate window |
 | `macos/` | InputMethodKit method (`InputController.mm`), AI helper client (`AI.mm`) and the helper itself (`ai/`, Swift + MLX), settings window and 中/英 bubble (`Settings.swift`), candidate window and gray AI completion (`Candidates.swift`), self-update (`Updater.swift`), model download (`Models.swift`), `build.sh`, `install.sh`, `release.sh` (signed, notarized zip, DMG and `.pkg` (`pkg.sh`, `pkg/`) and `latest.json`; `ai/upload-models.sh` puts the models on Hugging Face); dev only: `test-session.sh` types through it in a test window (full pinyin, shuangpin, then AI when its models are installed), `snapshot-settings.swift` renders the settings window and bubble to PNG |
-| `linux/` | IBus engine (`main.cpp`; its settings and top-bar menu in `Settings.cpp`, cloud candidates in `Cloud.cpp`), component file, installers (`enable.sh`, `install-user.sh`), `deb.sh` (arm64 and amd64 .deb in Docker, `make linux-deb`; each adds the apt repository, `haiku-pinyin.sources`); dev only: `sync.sh` builds on a Linux box over ssh, `test-session.sh` types through gedit with xdotool |
+| `linux/` | IBus engine (`main.cpp`; its settings and top-bar menu in `Settings.cpp`), component file, installers (`enable.sh`, `install-user.sh`); what it shares with the Fcitx5 addon: settings, data and user dictionary (`Common.cpp`), cloud candidates (`Cloud.cpp`); packages, built in Docker: `deb.sh` (`make linux-deb`: IBus and Fcitx5 .debs for arm64 and amd64, and `haiku-pinyin-data`, which adds the apt repository, `haiku-pinyin.sources`), `arch/PKGBUILD.in` and `arch.sh` (`make linux-arch`), `fedora/haiku-pinyin.spec.in` and `rpm.sh` (`make linux-rpm`), `sources.sh` (the data tarball those two build from, `make linux-sources`), `check-install.sh` (are the files where IBus and Fcitx5 look); dev only: `sync.sh` builds on a Linux box over ssh, `test-session.sh` types through gedit with xdotool |
+| `linux/fcitx5/` | Fcitx5 addon (`HaikuPinyin.cpp`: the engine, candidate window, 中/英, settings for Fcitx5's configuration tool), addon and input method `.conf` files; dev only: `docker-test.sh` types through it under Xvfb in Docker (`test-session.sh`, `textview.py`) |
 | `cli/hpcli.cpp` | Drive the engine from a terminal: `echo nihao \| build/hpcli --layout pyjj` |
 | `tests/` | Engine tests |
 | `tools/build_data.py` | Builds `build/data/` from `sources/` |
