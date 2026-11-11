@@ -83,12 +83,13 @@ func modelsFolder() -> URL {
 }
 
 // The AI runs on Apple silicon only (MLX), with the helper the app was
-// built with.
+// built with (or $HAIKU_PINYIN_AI, as AI.mm has it).
 var aiSupported: Bool {
 	var arm = 0
 	var size = MemoryLayout<Int>.size
 	sysctlbyname("hw.optional.arm64", &arm, &size, nil, 0)
-	return arm == 1 && Bundle.main.path(forAuxiliaryExecutable: "HaikuPinyinAI") != nil
+	return arm == 1 && (ProcessInfo.processInfo.environment["HAIKU_PINYIN_AI"]
+		?? Bundle.main.path(forAuxiliaryExecutable: "HaikuPinyinAI")) != nil
 }
 
 func modelInstalled(_ spec: ModelSpec) -> Bool {
@@ -103,9 +104,9 @@ private enum DownloadError: LocalizedError {
 
 	var errorDescription: String? {
 		switch self {
-		case .status(let code): return "服务器返回 \(code)"
-		case .mismatch(let file): return "\(file) 校验不符"
-		case .cancelled: return "已取消"
+		case .status(let code): return L("the server answered %ld", code)
+		case .mismatch(let file): return L("%@ didn't match its checksum", file)
+		case .cancelled: return L("Canceled")
 		}
 	}
 }
@@ -138,7 +139,7 @@ final class ModelDownloader: NSObject, ObservableObject, URLSessionDataDelegate 
 		cancelled = false
 		total = specs.reduce(0) { $0 + $1.size }
 		done = 0
-		message = "正在下载…"
+		message = L("Downloading…")
 		Thread.detachNewThread { self.run(specs) }
 	}
 
@@ -163,9 +164,9 @@ final class ModelDownloader: NSObject, ObservableObject, URLSessionDataDelegate 
 			self.running = false
 			self.task = nil
 			if let failure {
-				self.message = "下载失败：\(failure.localizedDescription)"
+				self.message = L("Download failed: %@", failure.localizedDescription)
 			} else {
-				self.message = "已下载"
+				self.message = L("Downloaded")
 				aiModelsChanged()
 			}
 		}

@@ -27,7 +27,8 @@ for arch in arm64 x86_64; do
 	done
 	swiftc -target $target -O -g -parse-as-library \
 		macos/Settings.swift macos/Candidates.swift macos/Models.swift \
-		macos/Updater.swift \
+		macos/Updater.swift macos/Strings.swift macos/Invitation.swift \
+		macos/Diagnostics.swift \
 		"$objects"/*.o -lc++ \
 		-framework Cocoa -framework InputMethodKit -framework Carbon \
 		-framework Security \
@@ -53,6 +54,8 @@ if [ -z "$NO_AI" ]; then
 		"$contents/Resources/mlx.metallib"
 fi
 sed "s/@VERSION@/$version/g" macos/Info.plist.in > "$contents/Info.plist"
+# The icon, and the words in English, 简体 and 繁體 (Strings.swift).
+python3 macos/check-strings.py >&2 || echo "warning: the string tables don't match the code" >&2
 cp -R macos/Resources/ "$contents/Resources/"
 cp -R build/data "$contents/Resources/data"
 

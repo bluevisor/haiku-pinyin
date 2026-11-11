@@ -70,6 +70,7 @@ final class Updater: ObservableObject {
 	@Published private(set) var busy = false
 	@Published private(set) var staged: String?		// the version waiting to go in
 	@Published private(set) var lastCheck: Date?
+	private(set) var upToDate = false		// what the last check found
 
 	private let defaults = UserDefaults.standard
 	private var stagedApp: URL?
@@ -101,7 +102,7 @@ final class Updater: ObservableObject {
 
 	func start() {
 		guard canUpdate else {
-			status = "开发版，不自动更新"
+			status = L("A development build: it doesn't update itself.")
 			return
 		}
 		try? FileManager.default.removeItem(at: updates)	// half-done ones
@@ -122,11 +123,12 @@ final class Updater: ObservableObject {
 	func check(manual: Bool) {
 		guard !busy, stagedApp == nil else { return }
 		guard canUpdate else {
-			status = "开发版，不自动更新"
+			status = L("A development build: it doesn't update itself.")
 			return
 		}
 		busy = true
-		status = "正在检查更新…"
+		upToDate = false
+		status = L("Checking for updates…")
 		let feed = URL(string: defaults.string(forKey: "updateFeed") ?? defaultFeed)!
 		var request = URLRequest(url: feed, cachePolicy: .reloadIgnoringLocalCacheData,
 			timeoutInterval: 30)
@@ -138,7 +140,8 @@ final class Updater: ObservableObject {
 				self.lastCheck = Date()
 				self.defaults.set(self.lastCheck, forKey: "lastUpdateCheck")
 				guard let release, code == 200 else {
-					self.finish(error != nil ? "无法连接更新服务器" : "检查更新失败（\(code)）")
+					self.finish(error != nil ? L("Can't reach the update server.")
+						: L("The update check failed (%ld).", code))
 					return
 				}
 				self.consider(release)
@@ -148,7 +151,8 @@ final class Updater: ObservableObject {
 
 	private func consider(_ release: Release) {
 		guard newer(release.version, than: version) else {
-			finish("已是最新版本")
+			upToDate = true
+			finish(L("This is the latest version."))
 			return
 		}
 		if let minimum = release.minimumSystemVersion {
@@ -156,25 +160,27 @@ final class Updater: ObservableObject {
 			let needed = OperatingSystemVersion(majorVersion: parts.first ?? 0,
 				minorVersion: parts.count > 1 ? parts[1] : 0, patchVersion: 0)
 			if !ProcessInfo.processInfo.isOperatingSystemAtLeast(needed) {
-				finish("\(release.version) 需要 macOS \(minimum)")
+				finish(L("%@ needs macOS %@.", release.version, minimum))
 				return
 			}
 		}
-		status = "正在下载 \(release.version)…"
+		status = L("Downloading %@…", release.version)
 		URLSession.shared.downloadTask(with: release.url) { file, response, error in
 			let code = (response as? HTTPURLResponse)?.statusCode ?? 0
 			var result: Result<URL, Error>
 			if let file, code == 200 {
 				result = Result { try self.unpack(file, release) }
 			} else {
-				result = .failure(UpdateError("下载失败（\(error?.localizedDescription ?? "\(code)")）"))
+				result = .failure(UpdateError(L("The download failed (%@).",
+					error?.localizedDescription ?? "\(code)")))
 			}
 			DispatchQueue.main.async {
 				switch result {
 				case .success(let app):
 					self.stagedApp = app
 					self.staged = release.version
-					self.finish("\(release.version) 已下载，空闲时自动安装")
+					self.finish(L("%@ is downloaded and goes in when the Mac is idle.",
+						release.version))
 				case .failure(let error):
 					self.finish(error.localizedDescription)
 				}
@@ -188,7 +194,7 @@ final class Updater: ObservableObject {
 		let data = try Data(contentsOf: zip, options: .mappedIfSafe)
 		let digest = SHA256.hash(data: data).map { String(format: "%02x", $0) }.joined()
 		guard digest == release.sha256.lowercased() else {
-			throw UpdateError("下载的文件校验不符")
+			throw UpdateError(L("The download didn't match its checksum."))
 		}
 		let folder = updates.appendingPathComponent(release.version)
 		try? manager.removeItem(at: folder)
@@ -210,15 +216,15 @@ final class Updater: ObservableObject {
 		ditto.waitUntilExit()
 		let app = folder.appendingPathComponent(Bundle.main.bundleURL.lastPathComponent)
 		guard ditto.terminationStatus == 0, manager.fileExists(atPath: app.path) else {
-			throw UpdateError("无法解压更新")
+			throw UpdateError(L("Can't unpack the update."))
 		}
 		let info = Bundle(url: app)?.object(forInfoDictionaryKey:
 			"CFBundleShortVersionString") as? String
 		guard info == release.version else {
-			throw UpdateError("更新的版本号不符")
+			throw UpdateError(L("The update has the wrong version number."))
 		}
 		guard signedByUs(app) else {
-			throw UpdateError("更新的签名不对，已丢弃")
+			throw UpdateError(L("The update isn't signed by us; it was thrown away."))
 		}
 		return app
 	}
@@ -249,7 +255,7 @@ final class Updater: ObservableObject {
 		} catch {
 			stagedApp = nil
 			staged = nil
-			status = "安装更新失败：\(error.localizedDescription)"
+			status = L("Installing the update failed: %@", error.localizedDescription)
 			return
 		}
 		try? FileManager.default.removeItem(at: updates)
@@ -290,5 +296,5 @@ public func updaterRunOnce() -> Int32 {
 		print(updater.status)
 		return 1
 	}
-	return updater.status == "已是最新版本" ? 0 : 1
+	return updater.upToDate ? 0 : 1
 }

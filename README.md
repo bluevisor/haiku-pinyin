@@ -111,22 +111,31 @@ Settings → Keyboard → Input Sources → Edit… → **+** → Chinese, Simpl
 (the package with a Developer ID Installer certificate) and notarized, and it
 keeps itself up to date: once a day it looks for a newer
 release, checks the download's signature, and puts it in place while the
-Mac sits idle (**自动更新** in the settings turns that off; **检查更新…**
-looks now).
+Mac sits idle (**Update automatically** in the settings turns that off;
+**Check for Updates…** looks now).
 
-A Shift tap switches 中/英, with a 中 or 英 by the text to say which;
-**设置…** in the input menu opens the settings window. Control-Delete forgets
+A Shift tap switches 中/英, with a 中 or 英 (EN in English) by the text to
+say which; **Settings…** in the input menu opens the settings window. The
+menu and the window follow the system's language: English, 简体 or 繁體
+Chinese. With VoiceOver on, the highlighted candidate is read out (with its
+place on the page) as it changes, and each candidate is a button VoiceOver
+can press. Control-Delete forgets
 a learned word. What it learns is in
-`~/Library/Application Support/HaikuPinyin/user.dict`.
+`~/Library/Application Support/HaikuPinyin/user.dict`. For a bug report,
+**Diagnostics → Copy** in the settings copies the version, the Mac, the
+settings, the AI's and the updater's state and the end of the AI's log;
+never what you type or the words it learned.
 
-**AI** needs Apple silicon and a model: **下载模型** in the settings window
+**AI** needs Apple silicon and a model: **Download** in the settings window
 fetches Qwen3-1.7B-Base and Qwen3.5-0.8B-Base, converted to 4-bit MLX (about
 1.4 GB), from Hugging Face (or its mirror) into
 `~/Library/Application Support/HaikuPinyin/models`, and checks every file. A
-stopped download carries on where it left off. A helper process holds the
+stopped download carries on where it left off. Without a model, the first
+pause after typing a word shows a small card under the line that offers
+this, once; it never takes the keyboard. A helper process holds the
 model (about 1 GB of memory while AI is on) and answers on the side, like the
 cloud: typing never waits for it. The settings window turns AI picks and
-completions on or off and chooses the model: 自动 uses the 1.7B and falls
+completions on or off and chooses the model: **Automatic** uses the 1.7B and falls
 back to the 0.8B on a Mac too slow for it; any MLX model in that folder can be
 chosen. Nothing you type leaves the Mac.
 
