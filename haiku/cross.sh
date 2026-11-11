@@ -18,7 +18,7 @@ echo ">> $cxx (ghcr.io/haiku/cross-compiler:x86_64-r1beta5)"
 mkdir -p "$out"
 docker run --rm --platform linux/amd64 -v "$PWD":/src -w /src \
 	ghcr.io/haiku/cross-compiler:x86_64-r1beta5 sh -ec "
-		flags='-O2 -std=c++17 -fPIC -Wall -Wno-multichar'
+		flags='-O2 -std=c++17 -fPIC -Wall -Wno-multichar -DHP_VERSION=\"$(cat VERSION)\"'
 		for f in engine/*.cpp haiku/*.cpp; do
 			$cxx \$flags -c \$f -o $out/\$(basename \$f .cpp).o &
 		done

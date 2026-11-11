@@ -15,7 +15,7 @@ you pick, and inline composition. One engine, three native front ends.
 |---|---|---|---|
 | **macOS** 13+ | [`.pkg` or `.dmg`](https://github.com/bluevisor/haiku-pinyin/releases/latest), signed and notarized | InputMethodKit input method | on-device AI picks and gray completion (Apple silicon), self-update, settings window |
 | **Linux** | [`.deb`](https://github.com/bluevisor/haiku-pinyin/releases/latest) for arm64 / amd64 (Ubuntu 22.04+, Debian 12+), then signed updates with `apt`; Arch `PKGBUILD` and Fedora `.spec`; or from source | IBus engine (GNOME and anywhere IBus runs) or Fcitx5 addon (KDE Plasma and anywhere Fcitx5 runs) | a settings window (IBus, GNOME Settings; it works with Fcitx5 too), the top-bar input menu, or Fcitx5's configuration tool |
-| **Haiku** (64-bit) | [`.hpkg`](https://github.com/bluevisor/haiku-pinyin/releases/latest) for arm64 / x86_64, with signed checksums | input_server add-on | Deskbar menu, inline in BTextView and Terminal |
+| **Haiku** (64-bit) | [`.hpkg`](https://github.com/bluevisor/haiku-pinyin/releases/latest) for arm64 / x86_64, with signed checksums | input_server add-on | Deskbar menu and a settings window, inline in BTextView and Terminal |
 
 The features below work on all three, except where marked.
 
@@ -263,7 +263,7 @@ After a number, digits are typing, so letters pick (a b c …); after a code,
 digits pick as usual. `v` alone lists one of each. Letters that are no code
 (`very`) are pinyin and English as before.
 
-The settings (Deskbar menu on Haiku, the settings window, the top-bar input
+The settings (the Deskbar menu and its settings window on Haiku, the settings window, the top-bar input
 menu with IBus or Fcitx5's configuration tool on Linux, the
 settings window on a Mac) are: 全拼 or a shuangpin layout, how
 shuangpin spells a, o and e (aa oo ee, oa oo oe, or one key each), 简体 /
@@ -286,7 +286,7 @@ lists everything that can reach the network.
 `phrases.txt`, next to `user.dict`, maps a code to text: type the code and the
 text is offered at the position you chose, several per code if you like. Open
 it from 自定义短语 in the settings window (Mac, Linux), the 词库 menu (Linux: in the
-top bar with IBus, in the tray with Fcitx5) or the Deskbar menu (Haiku); it's made with a commented example the
+top bar with IBus, in the tray with Fcitx5) or the Deskbar menu and settings window (Haiku); it's made with a commented example the
 first time. Changes take effect as soon as it's saved.
 
 ```
@@ -332,7 +332,7 @@ refused with how to convert them (`iconv -f GBK -t UTF-8`,
 `plutil -convert xml1`). Sogou's `.bin` and `.scel` files aren't read.
 
 On the Mac, 导入… / 导出… are in the settings window; on Linux in the
-settings window and the 词库 menu (with zenity's or kdialog's file dialogs); on Haiku in the Deskbar menu (Tracker's
+settings window and the 词库 menu (with zenity's or kdialog's file dialogs); on Haiku in the Deskbar menu and the settings window (Tracker's
 file panels). Anywhere, from a build: `build/hpcli export words.txt`,
 `build/hpcli import file` (on this system's `user.dict`, or `--user FILE`).
 A running input method takes up the change as the next composition starts.
@@ -342,7 +342,7 @@ A running input method takes up the change as the next composition starts.
 | Path | What |
 |---|---|
 | `engine/` | Portable C++17 engine: lexicon, syllable graph (full pinyin, shuangpin, 模糊音), bigram beam-search decoder, user dictionary, custom phrases (`Phrases`), word import and export (`Words`), S→T converter, the prefilled bug report link (`Report`); the questions and answers for cloud and AI candidates |
-| `haiku/` | input_server method add-on and candidate window |
+| `haiku/` | input_server method add-on (`PinyinMethod.cpp`: the engine, the Deskbar menu), candidate window, settings window (`SettingsWindow.cpp`) |
 | `macos/` | InputMethodKit method (`InputController.mm`), AI helper client (`AI.mm`) and the helper itself (`ai/`, Swift + MLX), settings window and 中/英 bubble (`Settings.swift`), candidate window and gray AI completion (`Candidates.swift`), self-update (`Updater.swift`), model download (`Models.swift`), custom phrases, import and export (`Words.swift`, `Words.mm`), `build.sh`, `install.sh`, `release.sh` (signed, notarized zip, DMG and `.pkg` (`pkg.sh`, `pkg/`) and `latest.json`; `ai/upload-models.sh` puts the models on Hugging Face); dev only: `test-session.sh` types through it in a test window (full pinyin, shuangpin, then AI when its models are installed), `snapshot-settings.swift` renders the settings window and bubble to PNG |
 | `linux/` | IBus engine (`main.cpp`; its settings and top-bar menu in `Settings.cpp`), the settings window (`setup/Setup.cpp`, GTK 3, and `setup/ibus-setup-haiku-pinyin.desktop.in` for GNOME Settings), component file, installers (`enable.sh`, `install-user.sh`); what it shares with the Fcitx5 addon: settings, data, user dictionary and custom phrases (`Common.cpp`), cloud candidates (`Cloud.cpp`), the 词库 menu (`Words.cpp`); packages, built in Docker: `deb.sh` (`make linux-deb`: IBus and Fcitx5 .debs for arm64 and amd64, and `haiku-pinyin-data`, which adds the apt repository, `haiku-pinyin.sources`), `arch/PKGBUILD.in` and `arch.sh` (`make linux-arch`), `fedora/haiku-pinyin.spec.in` and `rpm.sh` (`make linux-rpm`), `sources.sh` (the data tarball those two build from, `make linux-sources`), `check-install.sh` (are the files where IBus and Fcitx5 look); dev only: `sync.sh` builds on a Linux box over ssh, `test-session.sh` types through gedit with xdotool |
 | `linux/fcitx5/` | Fcitx5 addon (`HaikuPinyin.cpp`: the engine, candidate window, 中/英, the 词库 menu in the tray, settings for Fcitx5's configuration tool), addon and input method `.conf` files; dev only: `docker-test.sh` types through it under Xvfb in Docker (`test-session.sh`, `textview.py`, and `panel.py`, which picks tray menu items as KDE's panel does) |

@@ -14,6 +14,10 @@ to the version.
   Settings, and `ibus-setup`; changes take effect at once, with no restart.
   It works with Fcitx5 too, beside Fcitx5's own configuration tool. Chinese,
   or English when the system's language isn't Chinese.
+- **Haiku: a settings window.** 设置… in the Deskbar menu opens it: the
+  menu's settings in Haiku's own boxes, the 词库 actions, and Report a
+  problem (the same prefilled GitHub issue). Changes take effect at once,
+  and the window follows changes made in the menu.
 - **Linux: Fcitx5.** 海酷拼音 also comes as a Fcitx5 addon now (KDE Plasma,
   and wherever Fcitx5 runs), doing all the IBus engine does: inline
   composition, the candidate window, Shift for 中/英, 云候选, the words it

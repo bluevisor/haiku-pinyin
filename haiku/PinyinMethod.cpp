@@ -11,6 +11,7 @@
 #include <Menu.h>
 #include <MenuItem.h>
 #include <Message.h>
+#include <MessageRunner.h>
 #include <NodeInfo.h>
 #include <Notification.h>
 #include <Path.h>
@@ -22,6 +23,7 @@
 #include <sys/stat.h>
 
 #include "CandidateWindow.h"
+#include "SettingsWindow.h"
 
 using haikupinyin::Key;
 
@@ -42,12 +44,8 @@ enum {
 	kMsgToggleFuzzy		= 'hpFz',	// "mask" int32
 	kMsgSetVowels		= 'hpVw',	// "vowels" int32, a haikupinyin::Vowels
 	kMsgCloudResult		= 'hpCl',	// "query", "text"
-	kMsgEditPhrases		= 'hpPh',
-	kMsgShowImport		= 'hpSI',
-	kMsgShowExport		= 'hpSE',
 	kMsgImport			= 'hpIm',	// "refs", from the open panel
 	kMsgExport			= 'hpEx',	// "directory", "name", from the save panel
-	kMsgOpenFolder		= 'hpFo',
 };
 
 static const struct {
@@ -153,6 +151,8 @@ MethodLooper::MessageReceived(BMessage* message)
 		case kMsgImport:
 		case kMsgExport:
 		case kMsgOpenFolder:
+		case kMsgShowSettings:
+		case kMsgApplySettings:
 			fMethod->LooperMessage(message);
 			break;
 		default:
@@ -199,6 +199,10 @@ PinyinMethod::~PinyinMethod()
 		fEngine.SaveUserDictionary();
 	if (fWindow != NULL && fWindow->Lock())
 		fWindow->Quit();
+	// Its code goes with the add-on.
+	BLooper* settings;
+	if (fSettings.Target(&settings) != NULL && settings->Lock())
+		settings->Quit();
 	delete fImportPanel;
 	delete fExportPanel;
 	if (fLooper->Lock())
@@ -665,6 +669,13 @@ PinyinMethod::LooperMessage(BMessage* message)
 				_Notify(fEngine.ImportWords(path.Path()).Summary().c_str());
 				break;
 			}
+			case kMsgShowSettings:
+				_ShowSettings();
+				return;
+			case kMsgApplySettings:
+				_Cancel(&events);
+				fEngine.SetOptions(LoadOptions(*message));
+				break;
 			case kMsgExport:
 			{
 				entry_ref directory;
@@ -689,8 +700,39 @@ PinyinMethod::LooperMessage(BMessage* message)
 		}
 		_UpdateMenu();
 		_SaveSettings();
+		_UpdateSettingsWindow();
 	}
 	_Deliver(events);
+}
+
+
+// Called with fLock held.
+void
+PinyinMethod::_ShowSettings()
+{
+	if (!fSettings.IsValid()) {
+		SettingsWindow* window = new SettingsWindow(BMessenger(fLooper),
+			fEngine.GetOptions());
+		fSettings = BMessenger(window);
+		window->Show();
+	}
+	// In front of the application that had the focus, not behind it: Deskbar
+	// gives the focus back to it as its menu closes, after this.
+	BMessage activate(kMsgShowSettings);
+	fSettings.SendMessage(&activate);
+	BMessageRunner::StartSending(fSettings, &activate, 300000, 1);
+}
+
+
+// The window follows the menu, and its own changes come back the same way.
+void
+PinyinMethod::_UpdateSettingsWindow()
+{
+	if (!fSettings.IsValid())
+		return;
+	BMessage changed(kMsgSettingsChanged);
+	StoreOptions(&changed, fEngine.GetOptions());
+	fSettings.SendMessage(&changed);
 }
 
 
@@ -792,6 +834,8 @@ PinyinMethod::_UpdateMenu()
 	menu->AddItem(new BMenuItem("导入词库…", new BMessage(kMsgShowImport)));
 	menu->AddItem(new BMenuItem("导出学到的词…", new BMessage(kMsgShowExport)));
 	menu->AddItem(new BMenuItem("打开词库文件夹", new BMessage(kMsgOpenFolder)));
+	menu->AddSeparatorItem();
+	menu->AddItem(new BMenuItem("设置…", new BMessage(kMsgShowSettings)));
 
 	// The add-on only keeps (and finally deletes) the latest menu.
 	SetMenu(menu, BMessenger(fLooper));
@@ -873,20 +917,7 @@ PinyinMethod::_LoadSettings()
 	BMessage settings;
 	if (file.InitCheck() != B_OK || settings.Unflatten(&file) != B_OK)
 		return;
-	fSavedOptions.layout = settings.GetString("layout", "full");
-	// Only 简体 and 繁體 are offered; older settings may name a regional
-	// variant.
-	fSavedOptions.script = settings.GetInt32("script", 0) == 0
-		? haikupinyin::Script::kSimplified : haikupinyin::Script::kTraditional;
-	fSavedOptions.pageSize = settings.GetInt32("page size", 7);
-	fSavedOptions.fullwidthPunctuation = settings.GetBool("fullwidth", true);
-	fSavedOptions.emoji = settings.GetBool("emoji", true);
-	fSavedOptions.english = settings.GetBool("english", true);
-	fSavedOptions.cloud = settings.GetBool("cloud", false);
-	fSavedOptions.fuzzy = (unsigned)settings.GetInt32("fuzzy", 0);
-	int32 vowels = settings.GetInt32("vowels", 0);
-	if (vowels >= 0 && vowels <= (int32)haikupinyin::Vowels::kSingle)
-		fSavedOptions.vowels = (haikupinyin::Vowels)vowels;
+	fSavedOptions = LoadOptions(settings);
 	fSavedChinese = settings.GetBool("chinese", true);
 }
 
@@ -894,17 +925,8 @@ PinyinMethod::_LoadSettings()
 void
 PinyinMethod::_SaveSettings()
 {
-	const haikupinyin::Options& options = fEngine.GetOptions();
 	BMessage settings;
-	settings.AddString("layout", options.layout.c_str());
-	settings.AddInt32("script", (int32)options.script);
-	settings.AddInt32("page size", options.pageSize);
-	settings.AddBool("fullwidth", options.fullwidthPunctuation);
-	settings.AddBool("emoji", options.emoji);
-	settings.AddBool("english", options.english);
-	settings.AddBool("cloud", options.cloud);
-	settings.AddInt32("fuzzy", (int32)options.fuzzy);
-	settings.AddInt32("vowels", (int32)options.vowels);
+	StoreOptions(&settings, fEngine.GetOptions());
 	settings.AddBool("chinese", fEngine.Chinese());
 
 	BPath path = SettingsDirectory();

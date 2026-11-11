@@ -82,7 +82,7 @@ bench-update: $(BUILD)/hpcli data
 # BFilePanel is in libtracker, not libbe.
 $(OBJ)/haiku_%.o: haiku/%.cpp haiku/*.h engine/*.h
 	@mkdir -p $(OBJ)
-	$(CXX) $(CXXFLAGS) -fPIC -c $< -o $@
+	$(CXX) $(CXXFLAGS) -fPIC -DHP_VERSION='"$(VERSION)"' -c $< -o $@
 
 $(ADDON): $(ADDON_OBJECTS) $(ENGINE)
 	$(CXX) -shared -o $@ $(ADDON_OBJECTS) $(ENGINE) -lbe -ltracker \

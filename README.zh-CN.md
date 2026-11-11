@@ -18,7 +18,7 @@
 |---|---|---|---|
 | **macOS** 13+ | [`.pkg` 或 `.dmg`](https://github.com/bluevisor/haiku-pinyin/releases/latest)，已签名并经 Apple 公证 | InputMethodKit 输入法 | 本机 AI 选词和灰色补全（Apple 芯片）、自动更新、设置窗口 |
 | **Linux** | arm64 / amd64 的 [`.deb`](https://github.com/bluevisor/haiku-pinyin/releases/latest)（Ubuntu 22.04+、Debian 12+），之后用 `apt` 签名更新；Arch 的 `PKGBUILD`、Fedora 的 `.spec`；也可以从源码构建 | IBus 引擎（GNOME 等）或 Fcitx5 插件（KDE Plasma 等） | 设置窗口（IBus、GNOME 设置；Fcitx5 也能用）、顶栏输入法菜单或 Fcitx5 配置工具 |
-| **Haiku**（64 位） | arm64 / x86_64 的 [`.hpkg`](https://github.com/bluevisor/haiku-pinyin/releases/latest)，附签名校验和 | input_server 插件 | Deskbar 菜单，在 BTextView 和 Terminal 里内嵌输入 |
+| **Haiku**（64 位） | arm64 / x86_64 的 [`.hpkg`](https://github.com/bluevisor/haiku-pinyin/releases/latest)，附签名校验和 | input_server 插件 | Deskbar 菜单和设置窗口，在 BTextView 和 Terminal 里内嵌输入 |
 
 ## 安装
 
@@ -214,7 +214,7 @@ Mac 上用 Control+空格 或 🌐 键。
 数字后面继续打数字，所以用字母（a b c ……）选词；编码后面照常用数字选词。
 只打 `v` 会把每类各列一个。不是编码的字母（比如 `very`）照常当拼音和英文处理。
 
-**设置**（Haiku 在 Deskbar 菜单，Linux 在设置窗口、IBus 的顶栏输入法菜单或
+**设置**（Haiku 在 Deskbar 菜单和其中“设置…”打开的窗口，Linux 在设置窗口、IBus 的顶栏输入法菜单或
 Fcitx5 配置工具，Mac 在设置窗口）：全拼或某种双拼方案、双拼里 a o e
 零声母的打法（aa oo ee、oa oo oe，或单键）、简体 / 繁體、全角标点、emoji、
 中英混输、云候选、三组模糊音、每页候选数。Haiku 上保存在

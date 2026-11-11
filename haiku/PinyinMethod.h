@@ -4,6 +4,7 @@
 #include <InputServerMethod.h>
 #include <Locker.h>
 #include <Looper.h>
+#include <Messenger.h>
 #include <Point.h>
 
 #include <set>
@@ -57,6 +58,8 @@ private:
 			void				_Open(const char* path, const char* type);
 			void				_ShowPanel(bool save);
 			void				_Notify(const char* text);
+			void				_ShowSettings();
+			void				_UpdateSettingsWindow();
 
 			BLocker				fLock;
 			haikupinyin::Engine		fEngine;
@@ -81,4 +84,5 @@ private:
 			bigtime_t			fShiftDown;
 			BFilePanel*			fImportPanel;
 			BFilePanel*			fExportPanel;
+			BMessenger			fSettings;		// the settings window, while open
 };
