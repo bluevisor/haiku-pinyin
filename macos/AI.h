@@ -13,7 +13,8 @@ typedef void (^HPCompleteHandler)(NSString* text);
 // Where the models go: ~/Library/Application Support/HaikuPinyin/models, or
 // $HAIKU_PINYIN_MODELS.
 NSString* HPAIModelDirectory(void);
-// Whether the helper and a model are there to start.
+// Whether the helper and the model it would start (the one chosen, or the
+// default or its backup) are there.
 bool HPAIAvailable(void);
 // Available, and the model didn't fail to load: the settings show the AI
 // off when it isn't. HPAIStateChanged is posted when this may have changed.
