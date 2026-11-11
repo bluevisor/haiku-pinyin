@@ -7,6 +7,10 @@ to the version.
 
 ## Unreleased
 
+- **Mac: the installers speak your language.** The disk image's questions
+  and the installer package's last page come in English, 简体 or 繁體
+  Chinese, as the system's language is, like the input menu; they were
+  Chinese only (the package's page in Chinese and English at once).
 - **Better sentences.** Whole sentences come out right more often (88% of
   the conversion benchmark, from 85%; 85% of a second set written apart
   from it, from 77%): word pairs now reach into the dictionary's longer

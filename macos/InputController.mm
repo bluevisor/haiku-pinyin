@@ -666,9 +666,10 @@ CloudAnswer(NSData* data, NSString* query)
 // #pragma mark - the input menu
 
 
-// The menu in the system's language: 简体 or 繁體 Chinese, else English.
-static NSString*
-Menu(NSString* english, NSString* simplified, NSString* traditional)
+// The menu, and the installer's questions (main.mm), in the system's
+// language: 简体 or 繁體 Chinese, else English.
+NSString*
+HPLocalized(NSString* english, NSString* simplified, NSString* traditional)
 {
 	static NSString* language = [NSBundle
 		preferredLocalizationsFromArray:@[ @"en", @"zh-Hans", @"zh-Hant" ]
@@ -685,16 +686,16 @@ Menu(NSString* english, NSString* simplified, NSString* traditional)
 {
 	NSMenu* menu = [NSMenu new];
 	[menu addItem:[[NSMenuItem alloc]
-		initWithTitle:Menu(@"Settings…", @"设置…", @"設定…")
+		initWithTitle:HPLocalized(@"Settings…", @"设置…", @"設定…")
 		action:@selector(showPreferences:) keyEquivalent:@""]];
 	[menu addItem:[[NSMenuItem alloc]
-		initWithTitle:Menu(@"Check for Updates…", @"检查更新…", @"檢查更新…")
+		initWithTitle:HPLocalized(@"Check for Updates…", @"检查更新…", @"檢查更新…")
 		action:@selector(checkForUpdates:) keyEquivalent:@""]];
 	[menu addItem:[[NSMenuItem alloc]
 		initWithTitle:sLoaded && !sEngine->Chinese()
-			? Menu(@"Switch to Chinese (Shift)",
+			? HPLocalized(@"Switch to Chinese (Shift)",
 				@"现在是英文：切换到中文 (Shift)", @"現在是英文：切換到中文 (Shift)")
-			: Menu(@"Switch to English (Shift)",
+			: HPLocalized(@"Switch to English (Shift)",
 				@"切换到英文 (Shift)", @"切換到英文 (Shift)")
 		action:@selector(toggleFromMenu:) keyEquivalent:@""]];
 	// 简体 / 繁體, ticked: the same setting as 字形 in the settings window.
@@ -702,8 +703,8 @@ Menu(NSString* english, NSString* simplified, NSString* traditional)
 	NSInteger script = [NSUserDefaults.standardUserDefaults
 		integerForKey:@"script"];
 	NSArray* scripts = @[
-		Menu(@"Simplified Chinese", @"简体中文", @"簡體中文"),
-		Menu(@"Traditional Chinese", @"繁体中文", @"繁體中文") ];
+		HPLocalized(@"Simplified Chinese", @"简体中文", @"簡體中文"),
+		HPLocalized(@"Traditional Chinese", @"繁体中文", @"繁體中文") ];
 	for (NSInteger i = 0; i < 2; i++) {
 		NSMenuItem* item = [[NSMenuItem alloc] initWithTitle:scripts[i]
 			action:@selector(chooseScript:) keyEquivalent:@""];

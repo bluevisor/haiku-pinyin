@@ -183,7 +183,8 @@ Ask(NSString* title, NSString* text, NSArray<NSString*>* buttons)
 // Opened from the disk image or Downloads: copies itself into
 // ~/Library/Input Methods in place of an older copy, registers and turns on
 // the method there, and says how to switch to it, or where to add it when
-// macOS wants that done by hand.
+// macOS wants that done by hand. It asks in the system's language, as the
+// input menu is (HPLocalized).
 static int
 Install()
 {
@@ -192,12 +193,22 @@ Install()
 	NSBundle* bundle = NSBundle.mainBundle;
 	NSString* version = [bundle
 		objectForInfoDictionaryKey:@"CFBundleShortVersionString"];
-	if (Ask(@"安装海酷拼音 Haiku Pinyin",
-			[NSString stringWithFormat:@"把海酷拼音 %@ 装进“输入法”文件夹"
-				"（~/Library/Input Methods），换下旧版，并加进输入法列表。", version],
-			@[@"安装", @"取消"]) != NSAlertFirstButtonReturn) {
+	NSString* cancel = HPLocalized(@"Cancel", @"取消", @"取消");
+	if (Ask(HPLocalized(@"Install Haiku Pinyin", @"安装海酷拼音", @"安裝海酷拼音"),
+			[NSString stringWithFormat:HPLocalized(
+				@"Puts Haiku Pinyin %@ in the Input Methods folder "
+					"(~/Library/Input Methods) in place of an older version, "
+					"and adds it to your input sources.",
+				@"把海酷拼音 %@ 装进“输入法”文件夹"
+					"（~/Library/Input Methods），换下旧版，并加进输入法列表。",
+				@"把海酷拼音 %@ 裝進「輸入法」檔案夾"
+					"（~/Library/Input Methods），取代舊版，並加入輸入方式列表。"),
+				version],
+			@[HPLocalized(@"Install", @"安装", @"安裝"), cancel])
+		!= NSAlertFirstButtonReturn) {
 		return 0;
 	}
+	NSString* ok = HPLocalized(@"OK", @"好", @"好");
 
 	NSFileManager* manager = NSFileManager.defaultManager;
 	const char* testFolder = getenv("HP_INPUT_METHODS");
@@ -217,7 +228,8 @@ Install()
 		attributes:nil error:nil];
 	[manager removeItemAtPath:dest error:nil];
 	if (![manager copyItemAtPath:bundle.bundlePath toPath:dest error:&error]) {
-		Ask(@"无法安装", error.localizedDescription, @[@"好"]);
+		Ask(HPLocalized(@"Couldn't install", @"无法安装", @"無法安裝"),
+			error.localizedDescription, @[ok]);
 		return 1;
 	}
 	// It passed Gatekeeper to get here; the system starts the copy in the
@@ -234,14 +246,29 @@ Install()
 	Run(binary, @[@"--select"]);
 
 	if (ModeEnabled()) {
-		Ask(@"海酷拼音已安装",
-			@"按 Control-空格 或 🌐 键切换到海酷拼音，轻按 Shift 切换中 / 英。"
-				"设置和 AI 模型下载在菜单栏输入法菜单的“设置…”里。",
-			@[@"好"]);
-	} else if (Ask(@"还差一步",
-			@"在“系统设置 › 键盘 › 输入法”里点“编辑…”，再点 +，"
-				"选“简体中文 › 海酷拼音”。",
-			@[@"打开系统设置", @"稍后"]) == NSAlertFirstButtonReturn) {
+		Ask(HPLocalized(@"Haiku Pinyin is installed", @"海酷拼音已安装",
+				@"海酷拼音已安裝"),
+			HPLocalized(
+				@"Switch to it with Control-Space or 🌐, and tap Shift for "
+					"中 / 英. Settings, and the AI models' download, are under "
+					"Settings… in the input menu in the menu bar.",
+				@"按 Control-空格 或 🌐 键切换到海酷拼音，轻按 Shift 切换中 / 英。"
+					"设置和 AI 模型下载在菜单栏输入法菜单的“设置…”里。",
+				@"按 Control-空白鍵 或 🌐 鍵切換到海酷拼音，輕按 Shift 切換中 / 英。"
+					"設定與 AI 模型下載在選單列輸入法選單的「設定…」裡。"),
+			@[ok]);
+	} else if (Ask(HPLocalized(@"One more step", @"还差一步", @"還差一步"),
+			HPLocalized(
+				@"In System Settings › Keyboard › Input Sources, click Edit…, "
+					"then +, and choose Chinese, Simplified › Haiku Pinyin.",
+				@"在“系统设置 › 键盘 › 输入法”里点“编辑…”，再点 +，"
+					"选“简体中文 › 海酷拼音”。",
+				@"在「系統設定 › 鍵盤 › 輸入方式」中按一下「編輯…」，再按 +，"
+					"選擇「簡體中文 › 海酷拼音」。"),
+			@[HPLocalized(@"Open System Settings", @"打开系统设置",
+					@"打開系統設定"),
+				HPLocalized(@"Later", @"稍后", @"稍後")])
+		== NSAlertFirstButtonReturn) {
 		[NSWorkspace.sharedWorkspace openURL:[NSURL URLWithString:
 			@"x-apple.systempreferences:com.apple.Keyboard-Settings.extension"]];
 	}

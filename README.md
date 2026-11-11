@@ -159,7 +159,8 @@ install itself into
 `~/Library/Input Methods`, adds itself to the input menu and switches to it.
 When macOS wants that done by hand, it says so and opens the place: System
 Settings → Keyboard → Input Sources → Edit… → **+** → Chinese, Simplified →
-**Haiku Pinyin**. Switch to it with Control+Space or 🌐. Both are signed
+**Haiku Pinyin**. Both installers speak the system's language: English, 简体
+or 繁體 Chinese. Switch to it with Control+Space or 🌐. Both are signed
 (the package with a Developer ID Installer certificate) and notarized, and it
 keeps itself up to date: once a day it looks for a newer
 release, checks the download's signature, and puts it in place while the

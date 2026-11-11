@@ -14,6 +14,11 @@
 #define HPChineseMode @"com.bluevisor.inputmethod.HaikuPinyin.Chinese"
 #define HPEnglishMode @"com.bluevisor.inputmethod.HaikuPinyin.English"
 
+// english, simplified or traditional, by the system's language as the input
+// menu has it (Strings.swift's L() chooses the same way).
+NSString* HPLocalized(NSString* english, NSString* simplified,
+	NSString* traditional);
+
 // Loads the dictionaries and makes the candidate window, before the run loop.
 void HPSetUp(IMKServer* server);
 // Saves what it has learned; at exit.
