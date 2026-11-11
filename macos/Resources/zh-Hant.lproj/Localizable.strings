@@ -89,3 +89,9 @@
 "Better word picks and a guess at what comes next, all on this Mac. A 1.4 GB download." = "選字更準，還能聯想接下來的字，全在這台 Mac 上執行。需下載 1.4 GB。";
 "Not Now" = "以後再說";
 "Set Up…" = "設定…";
+
+/* Diagnostics (Diagnostics.swift) */
+"Diagnostics" = "診斷資訊";
+"Copy" = "拷貝";
+"Copied" = "已拷貝";
+"Copies the version, this Mac, the settings, and the state and log of the AI and the updates, for a bug report. Never what you type or the words it learned." = "拷貝版本、這台 Mac 的資訊、設定，以及 AI 與更新的狀態和記錄，用來回報問題。不包含你輸入的文字和學到的詞。";

@@ -3,10 +3,11 @@
 //   mkdir -p build/snapshot && cp -R macos/Resources/*.lproj build/snapshot/
 //   swiftc -parse-as-library macos/Settings.swift macos/Candidates.swift \
 //       macos/Models.swift macos/Updater.swift macos/Strings.swift \
-//       macos/Invitation.swift macos/snapshot-settings.swift \
-//       -o build/snapshot/snapshot-settings
+//       macos/Invitation.swift macos/Diagnostics.swift \
+//       macos/snapshot-settings.swift -o build/snapshot/snapshot-settings
 //   build/snapshot/snapshot-settings out.png \
 //       [light|dark|bubble[-english]|candidates[-dark]|invitation[-dark]]
+//   build/snapshot/snapshot-settings out.txt diagnostics    what Copy copies
 // It flashes the window on screen for a second. The string tables sit next
 // to it, so -AppleLanguages '(zh-Hant)' (or en, zh-Hans) at the end picks
 // the language.
@@ -21,6 +22,8 @@ private let aiState = ProcessInfo.processInfo.environment["SNAPSHOT_AI"] ?? ""
 @_cdecl("HPAIModelsChanged") func aiModelsChangedStub() {}
 @_cdecl("HPAIUsable") func aiUsableStub() -> Bool { aiState.isEmpty }
 @_cdecl("HPAIFailed") func aiFailedStub() -> Bool { aiState == "failed" }
+@_cdecl("HPAIReady") func aiReadyStub() -> Bool { aiState.isEmpty }
+@_cdecl("HPAIHelperProcess") func aiHelperProcessStub() -> Int32 { 0 }
 @_cdecl("HPSaveNow") func saveNowStub() {}
 @_cdecl("HPComposing") func composingStub() -> Bool { false }
 
@@ -49,6 +52,11 @@ struct SnapshotSettings {
 				420, 470, 20)
 			RunLoop.main.run(until: Date().addingTimeInterval(0.5))
 			capture(NSApp.windows.first { $0 is NSPanel }!, to: arguments[1])
+			return
+		}
+		if arguments.count > 2 && arguments[2] == "diagnostics" {
+			FileManager.default.createFile(atPath: arguments[1],
+				contents: diagnosticsReport().data(using: .utf8))
 			return
 		}
 		if arguments.count > 2 && arguments[2].hasPrefix("invitation") {

@@ -27,7 +27,9 @@ void HPAIUpdate(void);
 // Restarts the helper on the models there now (after a download).
 extern "C" void HPAIModelsChanged(void);
 // Loaded and answering.
-bool HPAIReady(void);
+extern "C" bool HPAIReady(void);
+// The helper's process, or 0 when it isn't running.
+extern "C" int HPAIHelperProcess(void);
 
 // ln P(option | prompt) for each option.
 void HPAIRank(NSString* prompt, NSArray<NSString*>* options,

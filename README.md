@@ -119,7 +119,10 @@ say which; **Settings…** in the input menu opens the settings window. The
 menu and the window follow the system's language: English, 简体 or 繁體
 Chinese. Control-Delete forgets
 a learned word. What it learns is in
-`~/Library/Application Support/HaikuPinyin/user.dict`.
+`~/Library/Application Support/HaikuPinyin/user.dict`. For a bug report,
+**Diagnostics → Copy** in the settings copies the version, the Mac, the
+settings, the AI's and the updater's state and the end of the AI's log;
+never what you type or the words it learned.
 
 **AI** needs Apple silicon and a model: **Download** in the settings window
 fetches Qwen3-1.7B-Base and Qwen3.5-0.8B-Base, converted to 4-bit MLX (about

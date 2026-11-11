@@ -95,6 +95,7 @@ struct SettingsView: View {
 	@ObservedObject private var downloader = ModelDownloader.shared
 	@ObservedObject private var updater = Updater.shared
 	@State private var aiState = 0		// bumped on HPAIStateChanged, to redraw
+	@State private var copied = false		// the diagnostics, a moment ago
 
 	private var aiInstalled: Bool { !models.isEmpty && aiSupported }
 	// The model the settings pick is there and didn't fail to load. Until it
@@ -303,6 +304,22 @@ struct SettingsView: View {
 				Text(L("Updates"))
 			} footer: {
 				Text(updateFooter)
+					.foregroundStyle(.secondary)
+			}
+
+			Section {
+				LabeledContent {
+					Button(copied ? L("Copied") : L("Copy")) {
+						copyDiagnostics()
+						copied = true
+						DispatchQueue.main.asyncAfter(deadline: .now() + 2) { copied = false }
+					}
+					.glassButton()
+				} label: {
+					Row(title: L("Diagnostics"), symbol: "stethoscope", color: .gray)
+				}
+			} footer: {
+				Text(L("Copies the version, this Mac, the settings, and the state and log of the AI and the updates, for a bug report. Never what you type or the words it learned."))
 					.foregroundStyle(.secondary)
 			}
 		}

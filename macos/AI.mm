@@ -103,10 +103,17 @@ SetFailed(bool failed)
 }
 
 
-bool
+extern "C" bool
 HPAIReady()
 {
 	return sReady;
+}
+
+
+extern "C" int
+HPAIHelperProcess()
+{
+	return sTask != nil ? sTask.processIdentifier : 0;
 }
 
 
