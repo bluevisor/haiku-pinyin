@@ -1,0 +1,82 @@
+name: Bug report / 问题反馈
+description: Something went wrong, or a sentence came out wrong. 出错了，或者转换结果不对。
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting. English or Chinese is fine. 中英文都可以。
+        Security problems go privately through [Report a vulnerability](https://github.com/bluevisor/haiku-pinyin/security/advisories/new), not here.
+  - type: dropdown
+    id: platform
+    attributes:
+      label: Platform / 平台
+      options:
+        - macOS (Apple silicon)
+        - macOS (Intel)
+        - Linux, IBus
+        - Linux, Fcitx5
+        - Haiku
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Version / 版本
+      description: "Mac: the settings window, under Updates. Linux: `apt policy haiku-pinyin-data`. Haiku: `pkgman search -i -D haiku_pinyin`. Or the release you downloaded."
+      placeholder: "0.1.17"
+    validations:
+      required: true
+  - type: input
+    id: system
+    attributes:
+      label: System / 系统
+      description: "The macOS version, the Linux distribution and desktop, or the Haiku revision."
+      placeholder: "macOS 15.3 / Ubuntu 24.04 GNOME / Haiku R1/beta5"
+  - type: dropdown
+    id: layout
+    attributes:
+      label: Layout / 输入方案
+      options:
+        - 全拼 Full pinyin
+        - 双拼 · 拼音加加
+        - 双拼 · 小鹤
+        - 双拼 · 自然码
+        - 双拼 · 微软
+        - 双拼 · 智能ABC
+        - Doesn't matter / 无关
+    validations:
+      required: true
+  - type: textarea
+    id: typed
+    attributes:
+      label: What you typed / 输入了什么
+      description: "The keys, exactly, and the app you typed into. 按键原样写出，以及在哪个程序里输入。"
+      placeholder: "wozaixuexizhongwen, in TextEdit"
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: What you expected / 期望的结果
+      placeholder: "我在学习中文 as the first candidate"
+    validations:
+      required: true
+  - type: textarea
+    id: got
+    attributes:
+      label: What happened instead / 实际的结果
+      description: "The candidates you saw, or what went wrong. A screenshot helps. 看到的候选，或者出了什么问题；有截图更好。"
+    validations:
+      required: true
+  - type: textarea
+    id: settings
+    attributes:
+      label: Other settings / 其他设置
+      description: "Anything not at its default: 简体/繁體, 模糊音, 中英混输, 云候选, AI on or off."
+  - type: textarea
+    id: diagnostics
+    attributes:
+      label: Diagnostics (Mac) / 诊断信息（Mac）
+      description: "On a Mac: Settings → Diagnostics → Copy, then paste it here. It has the version, the Mac, the settings and the AI's and updater's state; never what you typed or the words it learned. 设置 › 诊断信息 › 拷贝，然后粘贴到这里。"
+      render: text
