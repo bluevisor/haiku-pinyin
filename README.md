@@ -117,7 +117,9 @@ Mac sits idle (**Update automatically** in the settings turns that off;
 A Shift tap switches 中/英, with a 中 or 英 (EN in English) by the text to
 say which; **Settings…** in the input menu opens the settings window. The
 menu and the window follow the system's language: English, 简体 or 繁體
-Chinese. Control-Delete forgets
+Chinese. With VoiceOver on, the highlighted candidate is read out (with its
+place on the page) as it changes, and each candidate is a button VoiceOver
+can press. Control-Delete forgets
 a learned word. What it learns is in
 `~/Library/Application Support/HaikuPinyin/user.dict`. For a bug report,
 **Diagnostics → Copy** in the settings copies the version, the Mac, the

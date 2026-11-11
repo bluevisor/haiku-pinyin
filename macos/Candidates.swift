@@ -1,7 +1,10 @@
 // 海酷拼音 Haiku Pinyin for macOS: the candidate window. A row of numbered
 // candidates on glass, the highlighted one in an accent capsule. One inset
 // all round: pills sit as far from the panel's edge as text sits from the
-// pill's, and the corners are concentric.
+// pill's, and the corners are concentric. For VoiceOver each candidate is a
+// button, the highlighted one selected, and the highlighted one is announced
+// as it changes: the window never takes focus from the app being typed in,
+// so VoiceOver wouldn't go there by itself.
 import AppKit
 import SwiftUI
 
@@ -38,12 +41,27 @@ struct CandidateBar: View {
 			}
 		}
 		.padding(candidateInset)
+		.accessibilityElement(children: .contain)
+		.accessibilityLabel(L("Candidates"))
 		let shape = Capsule()
 		if #available(macOS 26, *) {
 			row.glassEffect(.regular, in: shape)
 		} else {
 			row.background(.regularMaterial, in: shape)
 		}
+	}
+
+	// What VoiceOver says for a candidate: it, where it is on the page, and
+	// the AI's or the cloud's mark.
+	func spoken(_ index: Int) -> String {
+		var text = L("%@, %ld of %ld", candidates[index], index + 1, candidates.count)
+		if index == ai {
+			text += L(", AI pick")
+		}
+		if index == cloud {
+			text += L(", from the cloud")
+		}
+		return text
 	}
 
 	private func cell(_ index: Int, _ text: String) -> some View {
@@ -88,6 +106,10 @@ struct CandidateBar: View {
 			}
 		}
 		.onTapGesture { pickHandler?(Int32(index)) }
+		.accessibilityElement(children: .ignore)
+		.accessibilityLabel(spoken(index))
+		.accessibilityAddTraits(selected ? [.isButton, .isSelected] : .isButton)
+		.accessibilityAction { pickHandler?(Int32(index)) }
 	}
 
 	private func arrow(_ symbol: String, enabled: Bool, delta: Int32) -> some View {
@@ -100,6 +122,12 @@ struct CandidateBar: View {
 			.onTapGesture {
 				if enabled { pageHandler?(delta) }
 			}
+			.accessibilityLabel(delta < 0 ? L("Previous page") : L("Next page"))
+			.accessibilityAddTraits(.isButton)
+			.accessibilityAction {
+				if enabled { pageHandler?(delta) }
+			}
+			.accessibilityHidden(!enabled)
 	}
 }
 
@@ -119,13 +147,19 @@ private final class CandidateHostingView: NSHostingView<CandidateBar> {
 	}
 }
 
+// Never the key window: keys must go on to the app being typed in.
+private final class CandidatePanel: NSPanel {
+	override var canBecomeKey: Bool { false }
+	override var canBecomeMain: Bool { false }
+}
+
 private var panel: NSPanel?
 private var hosting: CandidateHostingView?
 // Where the page last showed: the line's bottom left, and its height.
 private var shownAt = (x: 0.0, y: 0.0, lineHeight: 0.0)
 
 private func makePanel() -> NSPanel {
-	let window = NSPanel(contentRect: NSRect(x: 0, y: 0, width: 100, height: 36),
+	let window = CandidatePanel(contentRect: NSRect(x: 0, y: 0, width: 100, height: 36),
 		styleMask: [.borderless, .nonactivatingPanel], backing: .buffered,
 		defer: true)
 	window.level = .popUpMenu
@@ -192,12 +226,31 @@ private func show(_ bar: CandidateBar, _ x: Double, _ y: Double,
 	window.orderFrontRegardless()
 	shownAt = (anchor.x, anchor.y, lineHeight)
 	invitationTyping()
+	announce(bar)
+}
+
+// What VoiceOver was last told, so it hears each change once.
+private(set) var announced = ""
+// Tests turn this on without VoiceOver.
+var announceAlways = false
+
+private func announce(_ bar: CandidateBar) {
+	guard announceAlways || NSWorkspace.shared.isVoiceOverEnabled,
+		bar.candidates.indices.contains(bar.highlight) else { return }
+	let text = bar.spoken(bar.highlight)
+	guard text != announced else { return }
+	announced = text
+	// High: a newer one cuts off the last, as the highlight moves on.
+	NSAccessibility.post(element: NSApp as Any, notification: .announcementRequested,
+		userInfo: [.announcement: text,
+			.priority: NSAccessibilityPriorityLevel.high.rawValue])
 }
 
 @_cdecl("HPHideCandidates")
 public func hideCandidates() {
 	guard let panel, panel.isVisible else { return }
 	panel.orderOut(nil)
+	announced = ""
 	invitationWordEnded(shownAt.x, shownAt.y, shownAt.lineHeight)
 }
 

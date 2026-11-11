@@ -95,3 +95,10 @@
 "Copy" = "拷貝";
 "Copied" = "已拷貝";
 "Copies the version, this Mac, the settings, and the state and log of the AI and the updates, for a bug report. Never what you type or the words it learned." = "拷貝版本、這台 Mac 的資訊、設定，以及 AI 與更新的狀態和記錄，用來回報問題。不包含你輸入的文字和學到的詞。";
+
+/* VoiceOver in the candidate window (Candidates.swift) */
+"%@, %ld of %ld" = "%@，第 %ld 個，共 %ld 個";
+", AI pick" = "，AI 推薦";
+", from the cloud" = "，雲端候選字";
+"Previous page" = "上一頁";
+"Next page" = "下一頁";
