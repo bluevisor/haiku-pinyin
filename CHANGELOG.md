@@ -7,6 +7,9 @@ to the version.
 
 ## Unreleased
 
+- **Mac: settings changed from outside take effect at once.** A
+  `defaults write`, a tool that syncs preferences or another copy's settings
+  window used to reach the running input method only after it restarted.
 - **Mac: the installers speak your language.** The disk image's questions
   and the installer package's last page come in English, 简体 or 繁體
   Chinese, as the system's language is, like the input menu; they were

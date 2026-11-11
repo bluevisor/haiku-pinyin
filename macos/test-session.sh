@@ -1,7 +1,9 @@
 #!/bin/sh
 # Dev only: types through 海酷拼音 in a test window on this Mac and prints
 # what arrived (macos/test-session.swift): full pinyin with the default
-# settings, then 拼音加加 shuangpin. Install it first (macos/install.sh).
+# settings, 拼音加加 shuangpin, a setting changed while it runs, then the AI.
+# Install it first (macos/install.sh).
+#   macos/test-session.sh [pass]    only that pass (full, shuangpin, live, ai)
 set -e
 cd "$(dirname "$0")/.."
 app=build/HPSessionTest.app
@@ -38,11 +40,13 @@ restore() {
 }
 trap restore EXIT
 
+only=$1
 failed=0
 # pass <name> <expected text> [defaults write arguments…]
 pass() {
 	name=$1 expected=$2
 	shift 2
+	[ -z "$only" ] || [ "$only" = "$name" ] || return 0
 	defaults delete $domain 2>/dev/null || true
 	# The AI's moves depend on the model: only its own pass has it on.
 	defaults write $domain aiPicks -bool NO
@@ -74,6 +78,7 @@ pass full "中国人，hello 你好。bjdx入
 pass shuangpin "中国，啥玩意儿啊为什么
 nihd输入法中国
 饿我壹拾贰" layout -string pyjj vowels -int 2
+pass live "中国中国你好中国" layout -string pyjj
 # Needs the models (macos/ai/fetch-models.sh); skipped without them.
 if [ -f "$HOME/Library/Application Support/HaikuPinyin/models/Qwen3-1.7B-Base-4bit/config.json" ]; then
 	pass ai "我妹妹说她

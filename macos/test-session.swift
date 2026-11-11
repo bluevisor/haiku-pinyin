@@ -190,6 +190,8 @@ final class Pad: NSObject, NSApplicationDelegate {
 
 		if phase == "shuangpin" {
 			shuangpin()
+		} else if phase == "live" {
+			live()
 		} else if phase == "ai" {
 			ai()
 		} else {
@@ -244,6 +246,26 @@ extension Pad {
 		k(kEscape)							// gone, never typed
 		t("beijingda"); k(kSpace)			// 北京大
 		usleep(800_000); t(",")				// typing on: the gray 学 goes
+	}
+
+	// A setting changed from outside (`defaults write`, as a sync tool would)
+	// takes effect while it runs: it starts in 拼音加加.
+	func live() {
+		t("vygo"); k(kSpace)				// 中国, in 拼音加加
+		setting("layout", "full")
+		t("zhongguo"); k(kSpace)			// 中国, in full pinyin
+		t("nihao"); k(kSpace)				// 你好
+		setting("layout", "pyjj")
+		t("vygo"); k(kSpace)				// 中国
+	}
+
+	func setting(_ key: String, _ value: String) {
+		let task = Process()
+		task.executableURL = URL(fileURLWithPath: "/usr/bin/defaults")
+		task.arguments = ["write", "com.bluevisor.inputmethod.HaikuPinyin", key, value]
+		try? task.run()
+		task.waitUntilExit()
+		usleep(500_000)
 	}
 
 	// 拼音加加, a o e one key each.
