@@ -11,8 +11,12 @@ namespace haikupinyin {
 // Costs added for guessing, in the same -log(p) units as word costs.
 static const float kUnfinishedPenalty = 1.5f;
 	// the last syllable is still being typed: "zho"
+static const float kLongerPenalty = 3.0f;
+	// a whole last syllable might still be typed on: "xian" for xiang
 static const float kAbbreviationPenalty = 3.0f;
 	// an initial standing for a whole syllable: "zgr" for 中国人
+static const float kTwoKeyInitialPenalty = 3.0f;
+	// on top, when it's zh, ch or sh: most type s for 是, not sh
 static const float kSingleVowelPenalty = 1.0f;
 	// shuangpin's single vowels: a, o or e as one key
 
@@ -195,7 +199,7 @@ FullPinyin::Parse(std::string_view keys, const Syllables& syllables,
 				if (atEnd && starting.size() > 1) {
 					// "xian" could still become "xiang".
 					graph.Add(SyllableEdge{from, to, starting, false,
-						kUnfinishedPenalty, std::string(spelling)});
+						kLongerPenalty, std::string(spelling)});
 				}
 				continue;
 			}
@@ -205,9 +209,13 @@ FullPinyin::Parse(std::string_view keys, const Syllables& syllables,
 					kUnfinishedPenalty, std::string(spelling)});
 			} else if (IsInitial(spelling) && !IsVowel(keys[to])
 				&& !(size == 1 && keys[to] == 'h'
-					&& strchr("zcs", spelling[0]) != nullptr)) {
+					&& strchr("zcs", spelling[0]) != nullptr
+					&& (to + 1 >= segmentEnd || IsVowel(keys[to + 1])))) {
+				// z, c or s before an h that is an initial of its own
+				// ("zhrmghg", "shs") can be one too.
 				graph.Add(SyllableEdge{from, to, starting, false,
-					kAbbreviationPenalty, std::string(spelling)});
+					kAbbreviationPenalty + (size > 1 ? kTwoKeyInitialPenalty : 0),
+					std::string(spelling)});
 			}
 		}
 	}

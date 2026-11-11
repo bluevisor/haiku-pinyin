@@ -3,6 +3,7 @@
 #pragma once
 
 #include <string>
+#include <unordered_map>
 #include <vector>
 
 #include "Bigram.h"
@@ -24,6 +25,15 @@ struct WordEdge {
 	Source source;
 	std::vector<SyllableId> key;
 	std::vector<int> syllables;	// the graph edges it was spelled over
+	// The first and last words of it the pairs know (to them, 我想 is 我
+	// then 想), where the last starts (bytes), and ln P(head) in their
+	// counts (0: unknown).
+	uint32_t head = 0;
+	uint32_t tail = 0;
+	size_t tailStart = 0;
+	bool headKnown = false;
+	float headLogp = 0;
+	float tailEnd = 0;	// ln(P(end | tail) / P(end))
 };
 
 struct Candidate {
@@ -54,7 +64,8 @@ public:
 
 	// The best way to spell the whole input, as word edges.
 	const std::vector<const WordEdge*>& Best() const { return fBest; }
-	// Sentence first, then words from the start, longer spans first.
+	// Sentence first (and, when it's several words, the next best few that
+	// are too), then words from the start, longer spans first.
 	std::vector<Candidate> Candidates(const SyllableGraph& graph,
 		size_t limit) const;
 	// The input split into syllables along the best sentence: "zhong'guo".
@@ -73,7 +84,21 @@ private:
 	void _Emit(int from, int to, const std::vector<Branch>& branches,
 		int depth, float penalty, const std::vector<int>& path);
 	void _FindBest(const SyllableGraph& graph);
+	Candidate _Sentence(const SyllableGraph& graph,
+		const std::vector<const WordEdge*>& path) const;
 	float _Transition(uint32_t previous, const WordEdge& word) const;
+	struct Ends {
+		uint32_t head = 0;		// 0: the word itself
+		uint32_t tail = 0;
+		size_t tailStart = 0;
+		bool headKnown = false;
+		float headLogp = 0;
+		float tailEnd = 0;
+		float penalty = 0;
+	};
+	void _Ends(WordEdge& word) const;
+	Ends _FindEnds(const std::string& text, uint32_t hash) const;
+	float _End(const WordEdge& word) const;
 
 	const Lexicon& fLexicon;
 	const UserDict& fUser;
@@ -82,7 +107,9 @@ private:
 	// fEdges[from][to]: words spanning those keys, cheapest first.
 	std::vector<std::vector<std::vector<WordEdge>>> fEdges;
 	std::vector<const WordEdge*> fBest;
+	std::vector<std::vector<const WordEdge*>> fOthers;	// next best, in order
 	std::vector<WordEdge> fRaw;
+	mutable std::unordered_map<std::string, Ends> fEnds;
 	int fLength = 0;
 };
 

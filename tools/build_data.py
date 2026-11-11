@@ -10,7 +10,10 @@ build/data/emoji.txt      word -> emoji, "<word>\t<emoji>"
 build/data/english.txt    English words, one per line
 build/data/bigram.bin     word pairs: "HPBIGR01", u32 count, then (u32 hash of
                           the first word, u32 hash of the second, f32
-                          ln P(second | first)) sorted by the hashes
+                          ln P(second | first)) sorted by the hashes; then the
+                          words alone: "HPUNIG01", u32 count, (u32 hash, f32
+                          ln P(word), f32 ln(P(end | word) / P(end))) sorted
+                          by hash
 
 Hashes are 32-bit FNV-1a of the UTF-8 word.
 
@@ -214,6 +217,7 @@ def build_emoji():
 
 
 BIGRAM_MIN_COUNT = 5		# rarer pairs say little and cost room
+END_FLOOR = 0.01			# P(the sentence ends after a word), at least
 
 
 def fnv1a(text):
@@ -224,17 +228,26 @@ def fnv1a(text):
 
 
 def build_bigram():
-	totals, pairs = {}, []
+	totals, pairs, words = {}, [], {}
 	section = None
 	with open(os.path.join(SOURCES, "libpinyin", "interpolation2.text"),
 			encoding="utf-8") as f:
 		for line in f:
+			if line.startswith("\\1-gram"):
+				section = 1
+				continue
 			if line.startswith("\\2-gram"):
 				section = 2
 				continue
-			if section != 2 or not line.startswith("\\item"):
+			if not line.startswith("\\item"):
 				continue
 			parts = line.split()
+			# \item <token> <word> count <n>
+			if section == 1 and len(parts) == 5:
+				words[parts[2]] = words.get(parts[2], 0) + int(parts[4])
+				continue
+			if section != 2:
+				continue
 			# \item <token> <word> <token> <word> count <n>
 			if len(parts) != 7:
 				continue
@@ -243,17 +256,39 @@ def build_bigram():
 			if count >= BIGRAM_MIN_COUNT:
 				pairs.append((first, second, count))
 
+	# P(second | first) over every time first occurs, including where the
+	# sentence ends after it.
 	records = {}
 	for first, second, count in pairs:
-		logp = math.log(count / totals[first])
+		seen = max(totals[first], words.get(first, 0))
 		key = (fnv1a(first), fnv1a(second))
-		records[key] = max(records.get(key, -1e9), logp)
+		records[key] = max(records.get(key, -1e9), math.log(count / seen))
+
+	# The words alone, so a pair's lift over the word's own odds comes from
+	# the same counts, and the lexicon's longer phrases can be taken apart
+	# into words the pairs know. With each, how much likelier than usual a
+	# sentence ends after it, ln(P(end | word) / P(end)): every sentence's
+	# last word has no pair after it, so that's what its pairs leave.
+	total = sum(words.values())
+	ends = 1 - sum(totals[w] for w in totals if w != "<start>") / total
+	unigrams = {}
+	for word, count in words.items():
+		seen = max(totals.get(word, 0), count)
+		end = max(END_FLOOR, 1 - totals.get(word, 0) / seen)
+		key = fnv1a(word)
+		if key not in unigrams or unigrams[key][0] < count:
+			unigrams[key] = (count, end)
 
 	with open(os.path.join(OUT, "bigram.bin"), "wb") as f:
 		f.write(struct.pack("<8sI", b"HPBIGR01", len(records)))
 		for (h1, h2) in sorted(records):
 			f.write(struct.pack("<IIf", h1, h2, records[(h1, h2)]))
-	print(f"bigram.bin: {len(records)} pairs")
+		f.write(struct.pack("<8sI", b"HPUNIG01", len(unigrams)))
+		for key in sorted(unigrams):
+			count, end = unigrams[key]
+			f.write(struct.pack("<Iff", key, math.log(count / total),
+				math.log(end / ends)))
+	print(f"bigram.bin: {len(records)} pairs, {len(unigrams)} words")
 
 
 def build_english():
