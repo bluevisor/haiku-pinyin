@@ -1,0 +1,52 @@
+# The Mac app with its AI helper (macos/ai: Swift, MLX, an Xcode build), which
+# ci.yml leaves out for time. Runs when the helper or the app's build changes,
+# on pushes to main that touch macos/, weekly (a new Xcode image, a package
+# gone), and by hand.
+name: Mac AI helper
+
+on:
+  pull_request:
+    paths:
+      - macos/ai/**
+      - macos/build.sh
+      - .github/workflows/mac-ai.yml
+      - .github/actions/sources/**
+  push:
+    branches: [main]
+    paths:
+      - macos/**
+      - .github/workflows/mac-ai.yml
+  schedule:
+    - cron: "17 6 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: mac-ai-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  mac-ai:
+    name: macOS (app with the AI helper)
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: ./.github/actions/sources
+      # The Swift packages, by their resolved versions.
+      - uses: actions/cache@v4
+        with:
+          path: build/ai-derived/SourcePackages
+          key: spm-${{ runner.os }}-${{ hashFiles('macos/ai/Package.resolved') }}
+      # macos/build.sh builds the helper with xcodebuild, puts it, its
+      # resource bundles and MLX's kernels in the app, and signs ad hoc.
+      - name: Build the app with the helper
+        run: macos/build.sh || { tail -80 build/ai-build.log; exit 1; }
+      - name: Check the helper is in the app
+        run: |
+          app=build/HaikuPinyin.app/Contents
+          lipo -archs "$app/MacOS/HaikuPinyinAI"
+          test -s "$app/Resources/mlx.metallib"
+          ls -d "$app"/Resources/*.bundle
+          codesign --verify --deep --strict build/HaikuPinyin.app
