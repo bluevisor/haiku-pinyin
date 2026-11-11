@@ -1,6 +1,7 @@
 # 海酷拼音 Haiku Pinyin
 
-**English** · [简体中文](README.zh-CN.md) · [繁體中文](README.zh-TW.md)
+**English** · [简体中文](README.zh-CN.md) · [繁體中文](README.zh-TW.md) ·
+[Privacy](PRIVACY.md)
 
 A modern Chinese input method for Haiku, Linux and macOS, in the spirit of
 搜狗拼音 and the macOS pinyin input: whole-sentence conversion, abbreviations
@@ -268,7 +269,8 @@ pinyin inline; everywhere else the committed text arrives as typing.
 
 **Cloud candidates** send the pinyin of each composition, but nothing you've
 committed, to Google Input Tools. They're off until you turn on 云候选, so
-by default nothing you type leaves the machine.
+by default nothing you type leaves the machine. [PRIVACY.md](PRIVACY.md)
+lists everything that can reach the network.
 
 ## Layout
 
