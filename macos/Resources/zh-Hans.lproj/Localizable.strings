@@ -94,7 +94,7 @@
 "Diagnostics" = "诊断信息";
 "Copy" = "拷贝";
 "Copied" = "已拷贝";
-"Copies the version, this Mac, the settings, and the state and log of the AI and the updates, for a bug report. Never what you type or the words it learned." = "拷贝版本、这台 Mac 的信息、设置，以及 AI 和更新的状态与日志，用来报告问题。不含你输入的文字和学到的词。";
+"Copy copies the version, this Mac, the settings, and the state and log of the AI and the updates. Report a Problem adds any crash reports, shows you all of it, and opens a GitHub issue for you to send. Never what you type or the words it learned." = "拷贝：复制版本、这台 Mac 的信息、设置，以及 AI 和更新的状态与日志。报告问题：再加上崩溃报告，全部给你过目，然后打开一个 GitHub 问题由你提交。都不含你打的字和学到的词。";
 
 /* VoiceOver in the candidate window (Candidates.swift) */
 "%@, %ld of %ld" = "%@，第 %ld 个，共 %ld 个";
@@ -135,3 +135,38 @@
 "Imported %ld words (%@)." = "导入了 %ld 个词（%@）。";
 "Imported %ld phrases (%@)." = "导入了 %ld 条短语（%@）。";
 "Skipped %ld." = "跳过 %ld 条。";
+
+/* Uninstall (Uninstall.swift) */
+"Uninstall…" = "卸载…";
+"Uninstall Haiku Pinyin" = "卸载海酷拼音";
+"Uninstall Haiku Pinyin?" = "要卸载海酷拼音吗？";
+"This removes:" = "将移除：";
+"Haiku Pinyin, from ~/Library/Input Methods" = "输入法本身，在 ~/Library/Input Methods 里";
+"Its input source, from the input menu. It switches you to %@ first." = "输入法菜单里的这一项；会先切换到“%@”。";
+"Also delete my data:" = "同时删除我的数据：";
+"Learned words and custom phrases" = "学到的词和自定义短语";
+"AI models (%@)" = "AI 模型（%@）";
+"AI models (%@; models linked from elsewhere stay)" = "AI 模型（%@；从别处链接来的模型会保留）";
+"Settings and logs" = "设置和日志";
+"This can't be undone. Export your learned words first if you might want them." = "删除后无法恢复。以后可能还要用学到的词的话，请先导出。";
+"Your data stays on this Mac, so installing again picks up where you left off." = "数据会留在这台 Mac 上，重新安装后一切照旧。";
+"Couldn't uninstall: this copy isn't in Input Methods." = "无法卸载：这一份不在“输入法”文件夹里。";
+"Uninstall" = "卸载";
+
+/* Report a Problem (Report.swift) */
+"Report a Problem…" = "报告问题…";
+"Problems" = "问题反馈";
+"The AI helper quit unexpectedly" = "AI 辅助进程意外退出";
+"Haiku Pinyin quit unexpectedly" = "海酷拼音意外退出";
+"Report…" = "报告…";
+"Dismiss" = "关闭";
+"Report a Problem" = "报告问题";
+"This opens a new issue on GitHub in your browser, filled in with what's below. Nothing is sent from here: edit or delete anything, then submit it there or don't." = "会在浏览器里打开一个 GitHub 新问题，填好下面的内容。这里什么也不发送：可以随意修改或删掉，再决定要不要在那里提交。";
+"Title" = "标题";
+"What happened" = "出了什么问题";
+"In the issue: the diagnostics" = "问题里附上：诊断信息";
+"In the issue: the diagnostics and crash reports (%ld)" = "问题里附上：诊断信息和崩溃报告（%ld 份）";
+"Never what you type or the words it learned. Your home folder shows as ~." = "不含你打的字和学到的词；个人文件夹显示为 ~。";
+"Done" = "完成";
+"Open on GitHub" = "在 GitHub 上打开";
+"That's too long for a link, so it's on the clipboard: paste it into the issue that opened, under Diagnostics." = "内容太长，放不进链接，已拷贝到剪贴板：请粘贴到刚打开的问题页的“诊断信息”里。";
