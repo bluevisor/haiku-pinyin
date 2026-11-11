@@ -246,6 +246,14 @@ make install                # add-on + data into ~/config/non-packaged
 haiku/package.sh            # or: dist/haiku_pinyin-<v>-1-<arch>.hpkg
 ```
 
+`make bench` measures conversion: about 300 everyday sentences in full
+pinyin, 50 abbreviations and some shuangpin (`tests/bench/`), typed with no
+user dictionary. It prints how often the first candidate is the whole
+sentence, how many characters are right, how often the sentence is among
+the first five, and the worst misses, and fails when the first drops more
+than a point below `tests/bench/baseline.txt`. After a change that improves
+the scores, `make bench-update` records them; commit the baseline with it.
+
 `haiku/cross.sh` cross-compiles the x86_64 add-on on a Mac (Haiku's
 cross-compiler image in Docker) and packages it on a Haiku machine.
 

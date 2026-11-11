@@ -1,0 +1,11 @@
+# Scores (%) from tests/bench.py, which make bench checks.
+# After a change that improves them: make bench-update
+sentences.exact 85.3
+sentences.chars 97.2
+sentences.top5 85.3
+abbrev.exact 82.7
+abbrev.chars 84.1
+abbrev.top5 90.4
+shuangpin.exact 80.0
+shuangpin.chars 95.2
+shuangpin.top5 80.0
