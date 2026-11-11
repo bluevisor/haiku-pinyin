@@ -25,16 +25,21 @@ fi
 Xvfb :99 -screen 0 1024x600x24 >/tmp/hp-xvfb.log 2>&1 &
 for i in $(seq 50); do xdpyinfo >/dev/null 2>&1 && break; sleep 0.1; done
 
-# The settings everyone starts with; an input method group of the keyboard,
-# then haiku-pinyin ($1: "alone" leaves the keyboard out).
+# Every setting written out, with the layout to type in ($1: full, or a
+# shuangpin layout such as xiaohe), never left to a default; an input method
+# group of the keyboard, then haiku-pinyin ($2: "alone" leaves the keyboard
+# out).
 setup() {
 	rm -rf "$config/haiku-pinyin" "$config/fcitx5"
-	mkdir -p "$config/fcitx5"
+	mkdir -p "$config/haiku-pinyin" "$config/fcitx5"
+	printf '%s\n' "layout=$1" script=0 page_size=7 fullwidth=1 emoji=1 \
+		english=1 cloud=0 fuzzy=0 vowels=0 chinese=1 \
+		> "$config/haiku-pinyin/settings"
 	{
 		echo "[Groups/0]"; echo "Name=Default"; echo "Default Layout=us"
 		echo "DefaultIM=haiku-pinyin"; echo
 		n=0
-		if [ "$1" != alone ]; then
+		if [ "$2" != alone ]; then
 			echo "[Groups/0/Items/0]"; echo "Name=keyboard-us"; echo "Layout="; echo
 			n=1
 		fi
@@ -93,8 +98,8 @@ config_set() {	# Fcitx5's configuration tool does the same over D-Bus
 	sleep 0.3
 }
 
-echo "== typing, keyboard first in the group"
-setup
+echo "== 全拼, keyboard first in the group"
+setup full
 start
 t nihao; shot candidates
 check "inline composition" "$file.preedit" "ni'hao"
@@ -115,26 +120,41 @@ t xiexie; k equal; shot page2; k minus 1	# page on and back, then 谢谢
 t nihaoma; k BackSpace BackSpace space	# 你好
 k Return
 t "nihao1."					# 你好。 (period after a digit pick)
-check "typing" "$file" "中国人，hello 你好。bjdx入
+check "全拼" "$file" "中国人，hello 你好。bjdx入
 我在学习中文生日快乐
 谢谢你好
 你好。"
 stop
 
+echo "== 双拼 · 小鹤, from the settings file"
+setup xiaohe
+start
+gdbus call --session --dest org.fcitx.Fcitx5 --object-path /controller \
+	--method org.fcitx.Fcitx.Controller1.GetConfig \
+	fcitx://config/inputmethod/haiku-pinyin | grep -q "'Layout': <'双拼 · 小鹤'>" \
+	&& echo "ok   the settings page shows 小鹤" \
+	|| { echo "FAIL the settings page doesn't show 小鹤"; failed=1; }
+t nihc; shot xiaohe; k space		# 你好: ni hao
+t wozdxtxivswf; k space		# 我在学习中文
+t vsgo; k 1					# 中国: zhong guo
+t nihao; k space			# 小鹤 reads ni ha o: 尼哈哦
+check "小鹤" "$file" "你好我在学习中文中国尼哈哦"
+stop
+
 echo "== 中/英 and settings, haiku-pinyin alone in the group"
-setup alone
+setup full alone
 start alone
 shift_tap; t "hello "; shift_tap Shift_R; t nihao; k space	# its own 中/英
 check "Shift tap" "$file" "hello 你好"
 grep -q '^chinese=1$' "$config/haiku-pinyin/settings" && echo "ok   中/英 saved" \
 	|| { echo "FAIL 中/英 not saved"; failed=1; }
-grep -q '^cloud=0$' "$config/haiku-pinyin/settings" && echo "ok   cloud off by default" \
-	|| { echo "FAIL cloud on by default"; failed=1; }
 gdbus call --session --dest org.fcitx.Fcitx5 --object-path /controller \
 	--method org.fcitx.Fcitx.Controller1.GetConfig \
 	fcitx://config/inputmethod/haiku-pinyin > /tmp/hp-fcitx5-config.txt
 grep -q "双拼 a o e" /tmp/hp-fcitx5-config.txt && echo "ok   the settings page lists the options" \
 	|| { echo "FAIL no settings page"; failed=1; }
+grep -q "('Cloud', 'Boolean', '云候选 (Google)', <'False'>" /tmp/hp-fcitx5-config.txt \
+	&& echo "ok   cloud off by default" || { echo "FAIL cloud on by default"; failed=1; }
 config_set "'Script': <'繁體中文'>"
 k Return; t xuexi; k space					# 學習
 config_set "'Script': <'简体中文'>, 'Layout': <'双拼 · 小鹤'>"
@@ -162,7 +182,7 @@ grep -q "	时	shi$" "$config/haiku-pinyin/user.dict" \
 	|| { echo "FAIL nothing learned"; failed=1; }
 
 echo "== cloud: off, then turned on"
-setup alone
+setup full alone
 start alone
 t yuanshenqidong; sleep 2.5; shot cloud-off; k Escape	# off by default
 config_set "'Cloud': <'True'>"
