@@ -7,6 +7,11 @@ to the version.
 
 ## Unreleased
 
+- **Mac: Report a Problem…** in the settings gathers the diagnostics and a
+  summary of any crash reports from the last 30 days, shows it all for you to
+  edit, and opens a filled-in GitHub issue in your browser. Nothing is sent
+  unless you submit it there. After a crash, the settings window offers this
+  at the top.
 - **Mac: Uninstall…** at the bottom of the settings window removes 海酷拼音.
   It switches you to your English keyboard layout first, takes it off the
   input menu and deletes the app once it has quit. Your learned words, custom

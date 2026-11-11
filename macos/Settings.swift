@@ -96,6 +96,8 @@ struct SettingsView: View {
 	@ObservedObject private var updater = Updater.shared
 	@State private var aiState = 0		// bumped on HPAIStateChanged, to redraw
 	@State private var copied = false		// the diagnostics, a moment ago
+	@ObservedObject private var crashNotice = CrashNotice.shared
+	@State private var reporting = false		// Report a Problem…'s sheet
 	@State private var uninstalling = false
 
 	private var aiInstalled: Bool { !models.isEmpty && aiSupported }
@@ -153,6 +155,16 @@ struct SettingsView: View {
 						.foregroundStyle(.tertiary)
 				}
 				.padding(.vertical, 4)
+			}
+
+			// A crash report kept since settings last opened (Report.swift).
+			if let crash = crashNotice.newest {
+				Section {
+					CrashNoticeRow(crash: crash, report: {
+						crashNotice.newest = nil
+						reporting = true
+					}, dismiss: { crashNotice.newest = nil })
+				}
 			}
 
 			Section(L("Input")) {
@@ -321,8 +333,14 @@ struct SettingsView: View {
 				} label: {
 					Row(title: L("Diagnostics"), symbol: "stethoscope", color: .gray)
 				}
+				LabeledContent {
+					Button(L("Report a Problem…")) { reporting = true }
+						.glassButton()
+				} label: {
+					Row(title: L("Problems"), symbol: "ladybug.fill", color: .orange)
+				}
 			} footer: {
-				Text(L("Copies the version, this Mac, the settings, and the state and log of the AI and the updates, for a bug report. Never what you type or the words it learned."))
+				Text(L("Copy copies the version, this Mac, the settings, and the state and log of the AI and the updates. Report a Problem adds any crash reports, shows you all of it, and opens a GitHub issue for you to send. Never what you type or the words it learned."))
 					.foregroundStyle(.secondary)
 			}
 
@@ -337,6 +355,9 @@ struct SettingsView: View {
 			}
 		}
 		.formStyle(.grouped)
+		.sheet(isPresented: $reporting) {
+			ReportSheet { reporting = false }
+		}
 		.sheet(isPresented: $uninstalling) {
 			UninstallSheet { uninstalling = false }
 		}
@@ -478,6 +499,7 @@ public func showSettings() {
 
 func showSettings(at section: String?) {
 	SettingsTarget.shared.section = section
+	CrashNotice.shared.settingsOpened()
 	if settingsWindow == nil {
 		let window = NSWindow(contentViewController:
 			NSHostingController(rootView: SettingsView()))

@@ -166,7 +166,12 @@ a learned word. What it learns is in
 `~/Library/Application Support/HaikuPinyin/user.dict`. For a bug report,
 **Diagnostics → Copy** in the settings copies the version, the Mac, the
 settings, the AI's and the updater's state and the end of the AI's log;
-never what you type or the words it learned.
+never what you type or the words it learned. **Report a Problem…** adds a
+summary of any crash reports macOS kept for the method or the AI helper in
+the last 30 days, shows it all for you to edit, and opens a new GitHub issue
+in your browser with it filled in. Nothing is sent until you submit the
+issue there. When macOS has kept a new crash report since you last opened
+the settings, a notice at the top offers to report it.
 
 **AI** needs Apple silicon and a model: **Download** in the settings window
 fetches Qwen3-1.7B-Base and Qwen3.5-0.8B-Base, converted to 4-bit MLX (about
