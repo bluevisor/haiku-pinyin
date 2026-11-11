@@ -129,7 +129,7 @@ struct UninstallPlan {
 				descriptor == 0 ? O_RDONLY : O_WRONLY, 0)
 		}
 		var pid: pid_t = 0
-		let arguments = ["/bin/sh", file.path].map { strdup($0) } + [nil]
+		let arguments: [UnsafeMutablePointer<CChar>?] = [strdup("/bin/sh"), strdup(file.path), nil]
 		defer { arguments.forEach { free($0) } }
 		let status = posix_spawn(&pid, "/bin/sh", &actions, &attributes, arguments, environ)
 		posix_spawn_file_actions_destroy(&actions)
