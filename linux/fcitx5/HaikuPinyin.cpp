@@ -204,12 +204,36 @@ ModeAction::activate(fcitx::InputContext* context)
 HaikuPinyinEngine::HaikuPinyinEngine(fcitx::Instance* instance)
 	:
 	fInstance(instance),
-	fModeAction(this)
+	fModeAction(this),
+	fWords([this](std::function<void()> work) {
+		fDispatcher.schedule(std::move(work));
+	}, [this]() -> haikupinyin::Engine* {
+		if (!_EnsureLoaded())
+			return nullptr;
+		if (fcitx::InputContext* context = fLast.get())
+			_Cancel(context);
+		return &fEngine;
+	})
 {
 	ReadSettings(&fSavedOptions, &fSavedChinese);
 	ConfigFromOptions(fSavedOptions, &fConfig);
-	fInstance->userInterfaceManager().registerAction("haiku-pinyin-mode",
-		&fModeAction);
+	fcitx::UserInterfaceManager& ui = fInstance->userInterfaceManager();
+	ui.registerAction("haiku-pinyin-mode", &fModeAction);
+	for (const WordsItem& item : kWordsItems) {
+		auto action = std::make_unique<fcitx::SimpleAction>();
+		action->setShortText(item.label);
+		std::string key = item.key;
+		action->connect<fcitx::SimpleAction::Activated>(
+			[this, key](fcitx::InputContext*) { fWords.Activate(key); });
+		ui.registerAction("haiku-pinyin-" + key, action.get());
+		fWordsMenu.addAction(action.get());
+		fWordsItems.push_back(std::move(action));
+	}
+	fWordsAction.setShortText(kWordsLabel);
+	fWordsAction.setLongText("词库：自定义短语、导入、导出");
+	fWordsAction.setIcon("accessories-dictionary");
+	fWordsAction.setMenu(&fWordsMenu);
+	ui.registerAction("haiku-pinyin-words", &fWordsAction);
 	fDispatcher.attach(&fInstance->eventLoop());
 	// Load the dictionaries now rather than on the first key.
 	_EnsureLoaded();
@@ -503,6 +527,8 @@ HaikuPinyinEngine::activate(const fcitx::InputMethodEntry&,
 	_Claim(context);
 	context->statusArea().addAction(fcitx::StatusGroup::InputMethod,
 		&fModeAction);
+	context->statusArea().addAction(fcitx::StatusGroup::InputMethod,
+		&fWordsAction);
 }
 
 

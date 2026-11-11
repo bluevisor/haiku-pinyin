@@ -24,7 +24,7 @@ docker run --rm --platform linux/amd64 -v "$PWD":/src -w /src \
 		done
 		wait
 		# BInputServerMethod resolves against the input_server at load time.
-		$cxx -shared -o $out/HaikuPinyin $out/*.o -lbe
+		$cxx -shared -o $out/HaikuPinyin $out/*.o -lbe -ltracker
 		rm -f $out/*.o"
 
 echo ">> packaging for x86_64 on $host"

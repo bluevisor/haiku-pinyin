@@ -2,14 +2,19 @@
 
 #include <Autolock.h>
 #include <Bitmap.h>
+#include <Entry.h>
 #include <File.h>
+#include <FilePanel.h>
 #include <FindDirectory.h>
 #include <Input.h>
 #include <InterfaceDefs.h>
 #include <Menu.h>
 #include <MenuItem.h>
 #include <Message.h>
+#include <NodeInfo.h>
+#include <Notification.h>
 #include <Path.h>
+#include <Roster.h>
 #include <Screen.h>
 #include <View.h>
 
@@ -37,6 +42,12 @@ enum {
 	kMsgToggleFuzzy		= 'hpFz',	// "mask" int32
 	kMsgSetVowels		= 'hpVw',	// "vowels" int32, a haikupinyin::Vowels
 	kMsgCloudResult		= 'hpCl',	// "query", "text"
+	kMsgEditPhrases		= 'hpPh',
+	kMsgShowImport		= 'hpSI',
+	kMsgShowExport		= 'hpSE',
+	kMsgImport			= 'hpIm',	// "refs", from the open panel
+	kMsgExport			= 'hpEx',	// "directory", "name", from the save panel
+	kMsgOpenFolder		= 'hpFo',
 };
 
 static const struct {
@@ -133,8 +144,15 @@ MethodLooper::MessageReceived(BMessage* message)
 		case kMsgToggleEmoji:
 		case kMsgToggleOption:
 		case kMsgToggleFuzzy:
+		case kMsgSetVowels:
 		case kMsgCloudResult:
 		case kMsgTurnPage:
+		case kMsgEditPhrases:
+		case kMsgShowImport:
+		case kMsgShowExport:
+		case kMsgImport:
+		case kMsgExport:
+		case kMsgOpenFolder:
 			fMethod->LooperMessage(message);
 			break;
 		default:
@@ -161,7 +179,9 @@ PinyinMethod::PinyinMethod()
 	fShownPicked(0),
 	fMouse(100, 100),
 	fShiftAlone(false),
-	fShiftDown(0)
+	fShiftDown(0),
+	fImportPanel(NULL),
+	fExportPanel(NULL)
 {
 	fLooper = new MethodLooper(this);
 	fLooper->Run();
@@ -179,6 +199,8 @@ PinyinMethod::~PinyinMethod()
 		fEngine.SaveUserDictionary();
 	if (fWindow != NULL && fWindow->Lock())
 		fWindow->Quit();
+	delete fImportPanel;
+	delete fExportPanel;
 	if (fLooper->Lock())
 		fLooper->Quit();
 }
@@ -622,6 +644,48 @@ PinyinMethod::LooperMessage(BMessage* message)
 					0, 0);
 				_ShowCandidates();
 				return;
+			case kMsgEditPhrases:
+				fEngine.CustomPhrases().CreateFile();
+				_Open(fEngine.PhrasesFile().c_str(), "text/plain");
+				return;
+			case kMsgOpenFolder:
+				_Open(SettingsDirectory().Path(), NULL);
+				return;
+			case kMsgShowImport:
+			case kMsgShowExport:
+				_ShowPanel(message->what == kMsgShowExport);
+				return;
+			case kMsgImport:
+			{
+				entry_ref ref;
+				if (message->FindRef("refs", &ref) != B_OK)
+					return;
+				_Cancel(&events);
+				BPath path(&ref);
+				_Notify(fEngine.ImportWords(path.Path()).Summary().c_str());
+				break;
+			}
+			case kMsgExport:
+			{
+				entry_ref directory;
+				const char* name;
+				if (message->FindRef("directory", &directory) != B_OK
+					|| message->FindString("name", &name) != B_OK) {
+					return;
+				}
+				BPath path(&directory);
+				path.Append(name);
+				int count = 0;
+				BString text;
+				if (fEngine.ExportWords(path.Path(), &count)) {
+					BNode node(path.Path());
+					BNodeInfo(&node).SetType("text/plain");
+					text << "导出了 " << count << " 个学到的词：" << name;
+				} else
+					text << "没能写入 " << path.Path();
+				_Notify(text.String());
+				return;
+			}
 		}
 		_UpdateMenu();
 		_SaveSettings();
@@ -720,6 +784,14 @@ PinyinMethod::_UpdateMenu()
 		item->SetMarked(options.pageSize == size);
 		menu->AddItem(item);
 	}
+
+	menu->AddSeparatorItem();
+
+	// The custom phrases file, and the words it learned out and in.
+	menu->AddItem(new BMenuItem("自定义短语…", new BMessage(kMsgEditPhrases)));
+	menu->AddItem(new BMenuItem("导入词库…", new BMessage(kMsgShowImport)));
+	menu->AddItem(new BMenuItem("导出学到的词…", new BMessage(kMsgShowExport)));
+	menu->AddItem(new BMenuItem("打开词库文件夹", new BMessage(kMsgOpenFolder)));
 
 	// The add-on only keeps (and finally deletes) the latest menu.
 	SetMenu(menu, BMessenger(fLooper));
@@ -840,6 +912,63 @@ PinyinMethod::_SaveSettings()
 	BFile file(path.Path(), B_WRITE_ONLY | B_CREATE_FILE | B_ERASE_FILE);
 	if (file.InitCheck() == B_OK)
 		settings.Flatten(&file);
+}
+
+
+// Opens a file in its preferred application (typed first: a file the engine
+// wrote has no type), or a folder in Tracker.
+void
+PinyinMethod::_Open(const char* path, const char* type)
+{
+	if (type != NULL) {
+		BNode node(path);
+		BNodeInfo info(&node);
+		char current[B_MIME_TYPE_LENGTH];
+		if (info.GetType(current) != B_OK)
+			info.SetType(type);
+	}
+	entry_ref ref;
+	if (get_ref_for_path(path, &ref) == B_OK)
+		be_roster->Launch(&ref);
+}
+
+
+// Import and export ask for a file with Tracker's panels; their answers come
+// to the looper.
+void
+PinyinMethod::_ShowPanel(bool save)
+{
+	BFilePanel*& panel = save ? fExportPanel : fImportPanel;
+	if (panel == NULL) {
+		BMessenger target(fLooper);
+		panel = new BFilePanel(save ? B_SAVE_PANEL : B_OPEN_PANEL, &target,
+			NULL, B_FILE_NODE, false,
+			new BMessage(save ? kMsgExport : kMsgImport));
+		if (panel->Window()->Lock()) {
+			panel->Window()->SetTitle(save
+				? "海酷拼音：导出学到的词" : "海酷拼音：导入词库");
+			panel->Window()->Unlock();
+		}
+		if (save)
+			panel->SetSaveText("海酷拼音词库.txt");
+	}
+	panel->Show();
+	// In front of the application that had the focus, not behind it.
+	if (panel->Window()->Lock()) {
+		panel->Window()->Activate();
+		panel->Window()->Unlock();
+	}
+}
+
+
+void
+PinyinMethod::_Notify(const char* text)
+{
+	BNotification notification(B_INFORMATION_NOTIFICATION);
+	notification.SetGroup("海酷拼音");
+	notification.SetTitle("词库");
+	notification.SetContent(text);
+	notification.Send();
 }
 
 

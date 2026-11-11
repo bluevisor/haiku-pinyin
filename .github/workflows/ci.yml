@@ -17,17 +17,21 @@ concurrency:
 
 jobs:
   linux:
-    name: Linux (data, tests, bench, IBus)
+    name: Linux (data, tests, bench, IBus, Fcitx5)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
-      - name: IBus headers
-        run: sudo apt-get update && sudo apt-get install -y libibus-1.0-dev
+      - name: IBus and Fcitx5 headers
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libibus-1.0-dev fcitx5-modules-dev \
+            libfcitx5core-dev libfcitx5config-dev libfcitx5utils-dev
       - uses: ./.github/actions/sources
       - run: make -j"$(nproc)" all
       - run: make test
       - run: make bench
       - run: make ibus
+      - run: make fcitx5
 
   # linux/deb.sh as for a release (it needs only the public key), on each
   # architecture natively, then installed in clean containers of the oldest
@@ -98,5 +102,5 @@ jobs:
                 $cxx -O2 -std=c++17 -fPIC -Wall -Wno-multichar \
                   -c $f -o $out/$(basename $f .cpp).o
               done
-              $cxx -shared -o $out/HaikuPinyin $out/*.o -lbe
+              $cxx -shared -o $out/HaikuPinyin $out/*.o -lbe -ltracker
               ls -l $out/HaikuPinyin'

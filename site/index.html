@@ -1,0 +1,841 @@
+<!doctype html>
+<!--
+	海酷拼音 Haiku Pinyin: the download page, bluevisor.github.io/haiku-pinyin.
+	One static file: no build, no trackers, no outside fonts or scripts. It
+	asks GitHub's API for the latest release's downloads as it loads, and
+	links to the releases page when it can't. The Pages workflow
+	(.github/workflows/pages.yml) copies docs/screenshot.png and
+	linux/icon.svg in beside it.
+	For testing: ?lang=en|zh, ?os=mac|linux|haiku|other, ?theme=light|dark.
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>海酷拼音 Haiku Pinyin</title>
+<meta name="description" content="A Chinese pinyin input method for macOS, Linux and Haiku: whole sentences, shuangpin, on-device AI on the Mac, and no cloud unless you turn it on.">
+<meta name="color-scheme" content="light dark">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<style>
+:root {
+	--bg: #f7f7f5;
+	--surface: #ffffff;
+	--surface-2: #f0f1f3;
+	--text: #1a1d24;
+	--muted: #5c6370;
+	--faint: #8a919c;
+	--border: #e3e5e9;
+	--accent: #2f6fd6;
+	--accent-text: #ffffff;
+	--accent-soft: #e8f0fc;
+	--accent-ink: #1f56b3;
+	--code-bg: #f3f4f6;
+	--shadow: 0 1px 2px rgba(20, 24, 32, .04), 0 8px 28px rgba(20, 24, 32, .07);
+	--radius: 14px;
+	color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+	:root:not([data-theme="light"]) {
+		--bg: #0f1116;
+		--surface: #161920;
+		--surface-2: #1d2129;
+		--text: #e7e9ee;
+		--muted: #a0a7b4;
+		--faint: #757d8b;
+		--border: #262b35;
+		--accent: #5c95f2;
+		--accent-text: #0b1220;
+		--accent-soft: #18233a;
+		--accent-ink: #8fb6f7;
+		--code-bg: #11141a;
+		--shadow: 0 1px 2px rgba(0, 0, 0, .3), 0 8px 28px rgba(0, 0, 0, .35);
+		color-scheme: dark;
+	}
+}
+:root[data-theme="dark"] {
+	--bg: #0f1116;
+	--surface: #161920;
+	--surface-2: #1d2129;
+	--text: #e7e9ee;
+	--muted: #a0a7b4;
+	--faint: #757d8b;
+	--border: #262b35;
+	--accent: #5c95f2;
+	--accent-text: #0b1220;
+	--accent-soft: #18233a;
+	--accent-ink: #8fb6f7;
+	--code-bg: #11141a;
+	--shadow: 0 1px 2px rgba(0, 0, 0, .3), 0 8px 28px rgba(0, 0, 0, .35);
+	color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; scroll-behavior: smooth; }
+body {
+	margin: 0;
+	background: var(--bg);
+	color: var(--text);
+	font: 16px/1.6 -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui,
+		"PingFang SC", "Hiragino Sans GB", "Noto Sans CJK SC", "Noto Sans SC",
+		"Microsoft YaHei", "Source Han Sans SC", sans-serif;
+	-webkit-font-smoothing: antialiased;
+}
+:lang(zh) body, html:lang(zh) { letter-spacing: .01em; }
+a { color: var(--accent-ink); text-decoration: none; }
+a:hover { text-decoration: underline; }
+code, pre, kbd {
+	font: .875em/1.55 ui-monospace, SFMono-Regular, Menlo, Consolas,
+		"Liberation Mono", monospace;
+}
+code { background: var(--code-bg); border: 1px solid var(--border);
+	border-radius: 6px; padding: .05em .35em; }
+kbd { background: var(--surface); border: 1px solid var(--border);
+	border-bottom-width: 2px; border-radius: 5px; padding: 0 .35em; font-size: .82em; }
+.wrap { max-width: 1040px; margin: 0 auto; padding: 0 24px; }
+
+/* Top bar */
+.top { position: sticky; top: 0; z-index: 10;
+	background: color-mix(in srgb, var(--bg) 85%, transparent);
+	backdrop-filter: saturate(1.4) blur(12px);
+	-webkit-backdrop-filter: saturate(1.4) blur(12px);
+	border-bottom: 1px solid transparent; }
+.top.scrolled { border-bottom-color: var(--border); }
+.top .wrap { display: flex; align-items: center; gap: 16px; height: 60px; }
+.brand { display: flex; align-items: center; gap: 10px; color: var(--text);
+	font-weight: 650; white-space: nowrap; }
+.brand:hover { text-decoration: none; }
+.brand img { width: 28px; height: 28px; border-radius: 7px; }
+.brand span { color: var(--muted); font-weight: 500; }
+.top nav { margin-left: auto; display: flex; align-items: center; gap: 4px; }
+.top nav a { color: var(--muted); padding: 6px 10px; border-radius: 8px;
+	font-size: 15px; }
+.top nav a:hover { color: var(--text); background: var(--surface-2);
+	text-decoration: none; }
+.lang { display: inline-flex; border: 1px solid var(--border);
+	border-radius: 9px; padding: 2px; margin-left: 6px; background: var(--surface); }
+.lang button { font: inherit; font-size: 13px; border: 0; background: none;
+	color: var(--muted); padding: 3px 9px; border-radius: 7px; cursor: pointer; }
+.lang button[aria-pressed="true"] { background: var(--surface-2); color: var(--text);
+	font-weight: 600; }
+
+/* Hero */
+.hero { padding-top: 72px; padding-bottom: 40px; text-align: center; }
+.eyebrow { display: inline-flex; align-items: center; gap: 8px; font-size: 13px;
+	color: var(--muted); background: var(--surface); border: 1px solid var(--border);
+	border-radius: 999px; padding: 4px 12px; margin: 0 0 22px; }
+.eyebrow .dot { width: 6px; height: 6px; border-radius: 50%; background: #3fb26b; }
+h1 { font-size: clamp(32px, 5.4vw, 54px); line-height: 1.12; margin: 0 auto 18px;
+	letter-spacing: -.02em; font-weight: 700; max-width: 16em; text-wrap: balance; }
+html:lang(zh) h1 { letter-spacing: 0; }
+.lede { font-size: clamp(17px, 2.2vw, 20px); color: var(--muted);
+	max-width: 36em; margin: 0 auto 32px; }
+.cta { display: flex; flex-direction: column; align-items: center; gap: 10px; }
+.cta-row { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; }
+.btn { display: inline-flex; align-items: center; justify-content: center; gap: 9px;
+	padding: 12px 20px; border-radius: 11px; font-weight: 600; font-size: 16px;
+	border: 1px solid var(--border); background: var(--surface); color: var(--text);
+	box-shadow: 0 1px 2px rgba(0,0,0,.04); transition: transform .12s ease,
+	background-color .12s ease; }
+.btn:hover { text-decoration: none; background: var(--surface-2); }
+.btn:active { transform: translateY(1px); }
+.btn.primary { background: var(--accent); color: var(--accent-text);
+	border-color: transparent; }
+.btn.primary:hover { background: color-mix(in srgb, var(--accent) 88%, #000); }
+.btn svg { width: 18px; height: 18px; flex: none; }
+.btn small { font-weight: 500; opacity: .8; font-size: 13px; }
+.meta { font-size: 14px; color: var(--faint); }
+.meta a { color: var(--muted); text-decoration: underline;
+	text-decoration-color: var(--border); text-underline-offset: 3px; }
+
+/* Screenshot */
+.shot { margin: 28px auto 0; max-width: 980px; }
+.shot img { display: block; width: 100%; height: auto; border-radius: var(--radius);
+	border: 1px solid var(--border); box-shadow: var(--shadow); background: #40679a; }
+.shot figcaption { text-align: center; font-size: 13px; color: var(--faint);
+	margin-top: 12px; }
+
+section { padding: 72px 0 8px; }
+h2 { font-size: clamp(24px, 3.4vw, 32px); line-height: 1.2; margin: 0 0 8px;
+	letter-spacing: -.01em; }
+.sub { color: var(--muted); margin: 0 0 28px; max-width: 40em; }
+
+/* Install */
+.tabs { display: inline-flex; gap: 4px; padding: 4px; border-radius: 12px;
+	background: var(--surface-2); border: 1px solid var(--border); margin-bottom: 18px;
+	max-width: 100%; overflow-x: auto; }
+.tabs button { font: inherit; font-size: 15px; border: 0; background: none;
+	color: var(--muted); padding: 7px 16px; border-radius: 9px; cursor: pointer;
+	white-space: nowrap; }
+.tabs button[aria-selected="true"] { background: var(--surface); color: var(--text);
+	font-weight: 600; box-shadow: 0 1px 3px rgba(0,0,0,.08); }
+.panel { background: var(--surface); border: 1px solid var(--border);
+	border-radius: var(--radius); padding: 28px; box-shadow: var(--shadow); }
+.panel[hidden] { display: none; }
+.panel h3 { margin: 0 0 4px; font-size: 19px; }
+.panel .req { color: var(--muted); margin: 0 0 20px; font-size: 15px; }
+.downloads { display: flex; flex-wrap: wrap; gap: 10px; margin: 0 0 22px; }
+.steps { margin: 0; padding-left: 1.3em; color: var(--text); }
+.steps li { margin: 6px 0; }
+.steps li::marker { color: var(--faint); }
+.note { font-size: 14.5px; color: var(--muted); margin: 18px 0 0; }
+.seg { display: inline-flex; gap: 4px; margin: 0 0 14px; }
+.seg button { font: inherit; font-size: 14px; border: 1px solid var(--border);
+	background: var(--surface); color: var(--muted); padding: 5px 12px;
+	border-radius: 8px; cursor: pointer; }
+.seg button[aria-pressed="true"] { border-color: var(--accent); color: var(--accent-ink);
+	background: var(--accent-soft); font-weight: 600; }
+.code { position: relative; margin: 0 0 14px; }
+.code pre { margin: 0; background: var(--code-bg); border: 1px solid var(--border);
+	border-radius: 11px; padding: 14px 16px; padding-right: 76px;
+	white-space: pre-wrap; overflow-wrap: anywhere; color: var(--text); }
+.code pre .c { color: var(--faint); }
+.copy { position: absolute; top: 9px; right: 9px; font: inherit; font-size: 13px;
+	border: 1px solid var(--border); background: var(--surface); color: var(--muted);
+	padding: 3px 10px; border-radius: 7px; cursor: pointer; }
+.copy:hover { color: var(--text); }
+.files { list-style: none; margin: 18px 0 0; padding: 0; font-size: 14.5px;
+	display: flex; flex-wrap: wrap; gap: 8px; }
+.files li { display: flex; gap: 8px; align-items: baseline; padding: 6px 12px;
+	border: 1px solid var(--border); border-radius: 9px; background: var(--surface-2);
+	max-width: 100%; }
+.files .sz { color: var(--faint); white-space: nowrap; font-size: 13px; }
+.files a { overflow-wrap: anywhere; }
+
+/* Features */
+.grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
+.card { background: var(--surface); border: 1px solid var(--border);
+	border-radius: var(--radius); padding: 22px; }
+.card .ic { width: 36px; height: 36px; border-radius: 10px; display: grid;
+	place-items: center; background: var(--accent-soft); color: var(--accent-ink);
+	font-weight: 700; font-size: 17px; margin-bottom: 14px; }
+.card h3 { margin: 0 0 6px; font-size: 17px; }
+.card p { margin: 0; color: var(--muted); font-size: 15px; }
+.card .tag { display: inline-block; font-size: 11.5px; font-weight: 600;
+	color: var(--accent-ink); background: var(--accent-soft); border-radius: 6px;
+	padding: 1px 7px; margin-left: 6px; vertical-align: 2px; }
+
+/* Privacy */
+.privacy { background: var(--surface); border: 1px solid var(--border);
+	border-radius: 20px; padding: 40px; display: grid;
+	grid-template-columns: 1.1fr 1fr; gap: 40px; align-items: start; }
+.privacy .big { font-size: clamp(22px, 3vw, 30px); line-height: 1.25; font-weight: 700;
+	margin: 0 0 12px; letter-spacing: -.01em; }
+.privacy p { color: var(--muted); margin: 0 0 12px; }
+.privacy ul { list-style: none; margin: 0; padding: 0; }
+.privacy li { padding: 12px 0; border-bottom: 1px solid var(--border); font-size: 15px; }
+.privacy li:first-child { padding-top: 0; }
+.privacy li:last-child { border-bottom: 0; }
+.privacy li b { display: block; color: var(--text); }
+.privacy li span { color: var(--muted); }
+
+.verify { font-size: 15px; color: var(--muted); }
+.verify h2 { color: var(--text); }
+.verify .fp { font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+	font-size: 13.5px; color: var(--text); overflow-wrap: anywhere; }
+
+footer { margin-top: 80px; border-top: 1px solid var(--border); padding: 28px 0 48px;
+	font-size: 14px; color: var(--faint); }
+footer .wrap { display: flex; flex-wrap: wrap; gap: 8px 22px; align-items: center; }
+footer a { color: var(--muted); }
+footer .right { margin-left: auto; }
+
+@media (max-width: 860px) {
+	.grid { grid-template-columns: 1fr 1fr; }
+	.privacy { grid-template-columns: 1fr; gap: 24px; }
+	.privacy { padding: 28px; }
+}
+@media (max-width: 600px) {
+	.wrap { padding: 0 16px; }
+	.top nav a.hide-sm { display: none; }
+	.brand span { display: none; }
+	.hero { padding-top: 44px; padding-bottom: 24px; }
+	.grid { grid-template-columns: 1fr; }
+	.panel { padding: 20px; }
+	.code pre { font-size: 12.5px; padding: 42px 14px 14px; }
+	.privacy { padding: 22px; border-radius: 16px; }
+	section { padding-top: 56px; }
+	.btn { width: 100%; }
+	.cta-row { width: 100%; flex-direction: column; }
+	.downloads .btn { width: auto; flex: 1 1 100%; }
+	footer .right { margin-left: 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+	html { scroll-behavior: auto; }
+	.btn { transition: none; }
+}
+</style>
+</head>
+<body>
+
+<header class="top" id="top">
+	<div class="wrap">
+		<a class="brand" href="#">
+			<img src="icon.svg" alt="" width="28" height="28">
+			海酷拼音<span>Haiku Pinyin</span>
+		</a>
+		<nav>
+			<a class="hide-sm" href="#install" data-t="navInstall">Install</a>
+			<a class="hide-sm" href="#features" data-t="navFeatures">Features</a>
+			<a class="hide-sm" href="#privacy" data-t="navPrivacy">Privacy</a>
+			<a href="https://github.com/bluevisor/haiku-pinyin">GitHub</a>
+			<div class="lang" role="group" aria-label="Language / 语言">
+				<button type="button" data-lang="zh" lang="zh-CN">中文</button>
+				<button type="button" data-lang="en" lang="en">EN</button>
+			</div>
+		</nav>
+	</div>
+</header>
+
+<main>
+	<div class="wrap hero">
+		<p class="eyebrow"><span class="dot"></span><span id="eyebrow" data-t="eyebrow">New, free and open source</span></p>
+		<h1 data-t="h1">Chinese pinyin input for macOS, Linux and Haiku</h1>
+		<p class="lede" data-t="lede">Whole sentences, shuangpin, and on-device AI on the Mac. What you type stays on your computer unless you turn on cloud candidates.</p>
+		<div class="cta">
+			<div class="cta-row" id="cta"></div>
+			<p class="meta" id="cta-meta"></p>
+		</div>
+		<figure class="shot">
+			<img src="screenshot.png" width="2000" height="1247" data-t-alt="shotAlt"
+				alt="海酷拼音 typing in a text view and in the Temino terminal on Haiku">
+			<figcaption data-t="shotCaption">On Haiku: inline composition in a text view and in Temino.</figcaption>
+		</figure>
+	</div>
+
+	<section id="install">
+		<div class="wrap">
+			<h2 data-t="installTitle">Install</h2>
+			<p class="sub" data-t="installSub">Pick your system. Every download is signed; the Mac's is notarized by Apple.</p>
+			<div class="tabs" role="tablist" aria-label="Platform">
+				<button type="button" role="tab" id="tab-mac" aria-controls="panel-mac" data-os="mac">macOS</button>
+				<button type="button" role="tab" id="tab-linux" aria-controls="panel-linux" data-os="linux">Linux</button>
+				<button type="button" role="tab" id="tab-haiku" aria-controls="panel-haiku" data-os="haiku">Haiku</button>
+			</div>
+
+			<div class="panel" role="tabpanel" id="panel-mac" aria-labelledby="tab-mac">
+				<h3 data-t="macTitle">macOS</h3>
+				<p class="req" data-t="macReq">macOS 13 or later, Apple silicon or Intel.</p>
+				<div class="downloads" id="mac-downloads"></div>
+				<ol class="steps">
+					<li data-t="mac1">Open the .pkg. It installs for you alone, with no admin password, and switches to it.</li>
+					<li data-t-html="mac2">Switch input methods with <kbd>Control</kbd>-<kbd>Space</kbd> or 🌐. A Shift tap switches 中 / 英.</li>
+					<li data-t-html="mac3">For the AI (Apple silicon): <b>Settings…</b> in the input menu → <b>Download</b> (about 1.4 GB, once).</li>
+				</ol>
+				<p class="note" data-t="macNote">It checks GitHub once a day for a new release and installs it while the Mac is idle; you can turn that off.</p>
+			</div>
+
+			<div class="panel" role="tabpanel" id="panel-linux" aria-labelledby="tab-linux" hidden>
+				<h3 data-t="linuxTitle">Debian and Ubuntu</h3>
+				<p class="req" data-t="linuxReq">Ubuntu 22.04+ or Debian 12+, amd64 or arm64.</p>
+				<div class="seg" role="group" aria-label="Framework" id="fw">
+					<button type="button" data-fw="ibus" aria-pressed="true">IBus · GNOME</button>
+					<button type="button" data-fw="fcitx5" aria-pressed="false">Fcitx5 · KDE</button>
+				</div>
+				<div class="code"><pre id="apt-cmd"></pre><button type="button" class="copy" data-copy="apt-cmd" data-t="copy">Copy</button></div>
+				<p class="note" id="apt-note" style="margin-top:0"></p>
+				<ul class="files" id="linux-files"></ul>
+				<p class="note" data-t-html="linuxOther"><b>Arch</b> and <b>Fedora</b>: a PKGBUILD and an rpm spec build from the release; see <a href="https://github.com/bluevisor/haiku-pinyin#install-on-linux">Install on Linux</a>. Not in the AUR or Copr yet.</p>
+			</div>
+
+			<div class="panel" role="tabpanel" id="panel-haiku" aria-labelledby="tab-haiku" hidden>
+				<h3 data-t="haikuTitle">Haiku</h3>
+				<p class="req" data-t="haikuReq">64-bit Haiku, x86_64 or arm64.</p>
+				<div class="downloads" id="haiku-downloads"></div>
+				<ol class="steps">
+					<li data-t-html="haiku1">Copy the <code>.hpkg</code> into <code>~/config/packages</code>.</li>
+					<li data-t-html="haiku2">Run <code>haiku_pinyin_restart</code> in Terminal, with no Deskbar menu open (or log out and in).</li>
+					<li data-t-html="haiku3">Switch with <kbd>Alt</kbd>-<kbd>Space</kbd> or the keyboard menu in Deskbar. The candidate window needs a CJK font such as Noto Sans CJK.</li>
+				</ol>
+			</div>
+		</div>
+	</section>
+
+	<section id="features">
+		<div class="wrap">
+			<h2 data-t="featTitle">What it does</h2>
+			<p class="sub" data-t="featSub">One engine with a native front end on each system, in the spirit of 搜狗拼音 and the macOS pinyin input.</p>
+			<div class="grid">
+				<div class="card"><div class="ic">句</div><h3 data-t="f1t">Whole sentences</h3><p data-t-html="f1">Type <code>wozaixuexizhongwen</code>, get 我在学习中文: scored with word pairs and the word you typed before.</p></div>
+				<div class="card"><div class="ic">✦</div><h3><span data-t="f2t">On-device AI</span><span class="tag">Mac</span></h3><p data-t="f2">On Apple silicon, a small model on your Mac puts the candidate that reads best first, and suggests what comes next in gray; Tab takes it.</p></div>
+				<div class="card"><div class="ic">双</div><h3 data-t="f3t">Full pinyin and shuangpin</h3><p data-t-html="f3">拼音加加, 小鹤, 自然码, 微软 and 智能ABC. Abbreviations too: <code>zgr</code> → 中国人.</p></div>
+				<div class="card"><div class="ic">v</div><h3 data-t="f4t">v-mode</h3><p data-t-html="f4"><code>v123</code> → 壹佰贰拾叁, <code>v1+2*3</code> → 7, <code>v2026.11.7</code> → 2026年11月7日, today's date, and symbols by code.</p></div>
+				<div class="card"><div class="ic">学</div><h3 data-t="f5t">Learns from you</h3><p data-t="f5">It remembers what you pick, offers what usually follows (联想), and forgets a word with Ctrl+Delete.</p></div>
+				<div class="card"><div class="ic">繁</div><h3 data-t="f6t">The details</h3><p data-t="f6">简体 or 繁體, 模糊音, 中英混输, emoji, full-width punctuation, and Shift for 中 / 英.</p></div>
+			</div>
+		</div>
+	</section>
+
+	<section id="privacy">
+		<div class="wrap">
+			<div class="privacy">
+				<div>
+					<p class="big" data-t="privBig">Nothing you type leaves your computer by default.</p>
+					<p data-t="privP">No accounts, no analytics, no telemetry. Your learned words and settings stay on your machine. This page has no trackers either.</p>
+					<p><a href="https://github.com/bluevisor/haiku-pinyin/blob/main/PRIVACY.md" data-t="privLink">Everything that can reach the network →</a></p>
+				</div>
+				<ul>
+					<li><b data-t="priv1t">Cloud candidates: off until you turn them on</b><span data-t="priv1">When on, only the pinyin you're composing goes to Google Input Tools, never text you've committed.</span></li>
+					<li><b data-t="priv2t">AI runs on the Mac</b><span data-t="priv2">The model downloads only when you click Download, then reads the text before the cursor on your Mac alone.</span></li>
+					<li><b data-t="priv3t">Updates</b><span data-t="priv3">The Mac asks GitHub once a day for the latest version; Debian and Ubuntu update through apt.</span></li>
+				</ul>
+			</div>
+		</div>
+	</section>
+
+	<section id="verify">
+		<div class="wrap verify">
+			<h2 data-t="verTitle">Check a download</h2>
+			<p data-t-html="verP">Each release has <code>SHA256SUMS</code>, signed with the project's release key in <code>SHA256SUMS.asc</code>. Key fingerprint:</p>
+			<p class="fp">1016 60C1 F375 2B00 10E7 25F6 E34D C770 E462 7F58</p>
+			<p data-t-html="verHow">How to check it: <a href="https://github.com/bluevisor/haiku-pinyin#checking-a-download">Checking a download</a>.</p>
+		</div>
+	</section>
+</main>
+
+<footer>
+	<div class="wrap">
+		<span>海酷拼音 Haiku Pinyin · GPL-3.0</span>
+		<a href="https://github.com/bluevisor/haiku-pinyin">GitHub</a>
+		<a href="https://github.com/bluevisor/haiku-pinyin/releases" data-t="footReleases">Releases</a>
+		<a href="https://github.com/bluevisor/haiku-pinyin/blob/main/PRIVACY.md" data-t="navPrivacy">Privacy</a>
+		<a href="https://github.com/bluevisor/haiku-pinyin/blob/main/SECURITY.md" data-t="footSecurity">Security</a>
+		<a href="https://github.com/bluevisor/haiku-pinyin/issues" data-t="footIssues">Report a problem</a>
+		<span class="right" data-t="footNote">Made by one person, in the open.</span>
+	</div>
+</footer>
+
+<script>
+(function () {
+	"use strict";
+
+	var REPO = "bluevisor/haiku-pinyin";
+	var RELEASES = "https://github.com/" + REPO + "/releases/latest";
+
+	var T = {
+		en: {
+			navInstall: "Install", navFeatures: "Features", navPrivacy: "Privacy",
+			eyebrow: "New, free and open source",
+			eyebrowV: "New · {v} · free and open source",
+			h1: "Chinese pinyin input for macOS, Linux and Haiku",
+			lede: "Whole sentences, shuangpin, and on-device AI on the Mac. What you type stays on your computer unless you turn on cloud candidates.",
+			shotAlt: "海酷拼音 typing in a text view and in the Temino terminal on Haiku",
+			shotCaption: "On Haiku: inline composition in a text view and in Temino.",
+			dlFor: "Download for {os}",
+			dlAll: "All downloads",
+			otherPlatforms: "Other systems",
+			released: "{v} · released {d}",
+			fallback: "The download list couldn't load. Everything is on the {link}.",
+			releasesPage: "releases page",
+			notHere: "For macOS, Linux and Haiku; there's no Windows, iOS or Android version.",
+			installTitle: "Install",
+			installSub: "Pick your system. Every download is signed; the Mac's is notarized by Apple.",
+			macTitle: "macOS", macReq: "macOS 13 or later, Apple silicon or Intel.",
+			mac1: "Open the .pkg. It installs for you alone, with no admin password, and switches to it.",
+			mac2: "Switch input methods with <kbd>Control</kbd>-<kbd>Space</kbd> or 🌐. A Shift tap switches 中 / 英.",
+			mac3: "For the AI (Apple silicon): <b>Settings…</b> in the input menu → <b>Download</b> (about 1.4 GB, once).",
+			macNote: "It checks GitHub once a day for a new release and installs it while the Mac is idle; you can turn that off.",
+			pkg: "Installer (.pkg)", dmg: "Disk image (.dmg)",
+			linuxTitle: "Debian and Ubuntu", linuxReq: "Ubuntu 22.04+ or Debian 12+, amd64 or arm64.",
+			copy: "Copy", copied: "Copied",
+			aptIbus: "In a terminal. It downloads the packages, installs them, and adds 海酷拼音 to GNOME's input sources; switch with Super+Space.",
+			aptFcitx: "In a terminal. Then add 海酷拼音 in fcitx5-configtool (KDE: System Settings → Input Method); switch with Ctrl+Space.",
+			aptAfter: "After that, sudo apt upgrade brings each new release, signed with the project's key.",
+			noFcitx: "Fcitx5 isn't in this release yet; build it from source as the README says, or use IBus.",
+			aptFallback: "Download the .deb for your machine from the releases page, then:",
+			linuxOther: "<b>Arch</b> and <b>Fedora</b>: a PKGBUILD and an rpm spec build from the release; see <a href=\"https://github.com/bluevisor/haiku-pinyin#install-on-linux\">Install on Linux</a>. Not in the AUR or Copr yet.",
+			haikuTitle: "Haiku", haikuReq: "64-bit Haiku, x86_64 or arm64.",
+			haiku1: "Copy the <code>.hpkg</code> into <code>~/config/packages</code>.",
+			haiku2: "Run <code>haiku_pinyin_restart</code> in Terminal, with no Deskbar menu open (or log out and in).",
+			haiku3: "Switch with <kbd>Alt</kbd>-<kbd>Space</kbd> or the keyboard menu in Deskbar. The candidate window needs a CJK font such as Noto Sans CJK.",
+			featTitle: "What it does",
+			featSub: "One engine with a native front end on each system, in the spirit of 搜狗拼音 and the macOS pinyin input.",
+			f1t: "Whole sentences", f1: "Type <code>wozaixuexizhongwen</code>, get 我在学习中文: scored with word pairs and the word you typed before.",
+			f2t: "On-device AI", f2: "On Apple silicon, a small model on your Mac puts the candidate that reads best first, and suggests what comes next in gray; Tab takes it.",
+			f3t: "Full pinyin and shuangpin", f3: "拼音加加, 小鹤, 自然码, 微软 and 智能ABC. Abbreviations too: <code>zgr</code> → 中国人.",
+			f4t: "v-mode", f4: "<code>v123</code> → 壹佰贰拾叁, <code>v1+2*3</code> → 7, <code>v2026.11.7</code> → 2026年11月7日, today's date, and symbols by code.",
+			f5t: "Learns from you", f5: "It remembers what you pick, offers what usually follows (联想), and forgets a word with Ctrl+Delete.",
+			f6t: "The details", f6: "简体 or 繁體, 模糊音, 中英混输, emoji, full-width punctuation, and Shift for 中 / 英.",
+			privBig: "Nothing you type leaves your computer by default.",
+			privP: "No accounts, no analytics, no telemetry. Your learned words and settings stay on your machine. This page has no trackers either.",
+			privLink: "Everything that can reach the network →",
+			priv1t: "Cloud candidates: off until you turn them on",
+			priv1: "When on, only the pinyin you're composing goes to Google Input Tools, never text you've committed.",
+			priv2t: "AI runs on the Mac",
+			priv2: "The model downloads only when you click Download, then reads the text before the cursor on your Mac alone.",
+			priv3t: "Updates",
+			priv3: "The Mac asks GitHub once a day for the latest version; Debian and Ubuntu update through apt.",
+			verTitle: "Check a download",
+			verP: "Each release has <code>SHA256SUMS</code>, signed with the project's release key in <code>SHA256SUMS.asc</code>. Key fingerprint:",
+			verHow: "How to check it: <a href=\"https://github.com/bluevisor/haiku-pinyin#checking-a-download\">Checking a download</a>.",
+			footReleases: "Releases", footSecurity: "Security", footIssues: "Report a problem",
+			footNote: "Made by one person, in the open."
+		},
+		zh: {
+			navInstall: "安装", navFeatures: "功能", navPrivacy: "隐私",
+			eyebrow: "新发布 · 免费开源",
+			eyebrowV: "新发布 · {v} · 免费开源",
+			h1: "给 macOS、Linux 和 Haiku 的拼音输入法",
+			lede: "整句输入、双拼，Mac 上还有本机运行的 AI。除非你打开云候选，你打的字不会离开你的电脑。",
+			shotAlt: "海酷拼音在 Haiku 的文本框和 Temino 终端里输入",
+			shotCaption: "Haiku 上：在文本框和 Temino 终端里内嵌输入。",
+			dlFor: "下载 {os} 版",
+			dlAll: "全部下载",
+			otherPlatforms: "其他系统",
+			released: "{v} · {d} 发布",
+			fallback: "下载列表没能加载，所有文件都在 {link}。",
+			releasesPage: "Releases 页面",
+			notHere: "支持 macOS、Linux 和 Haiku；没有 Windows、iOS 或 Android 版。",
+			installTitle: "安装",
+			installSub: "选择你的系统。所有下载都有签名，Mac 版还经过 Apple 公证。",
+			macTitle: "macOS", macReq: "macOS 13 或更新版本，Apple 芯片和 Intel 都可以。",
+			mac1: "打开 .pkg。只为当前用户安装，不需要管理员密码，装好自动切换过去。",
+			mac2: "用 <kbd>Control</kbd>-<kbd>空格</kbd> 或 🌐 键切换输入法，轻按 Shift 切换中 / 英。",
+			mac3: "要用 AI（Apple 芯片）：输入法菜单里的<b>设置…</b> → <b>下载模型</b>（约 1.4 GB，只需一次）。",
+			macNote: "它每天向 GitHub 查一次新版本，在 Mac 空闲时安装；可以在设置里关掉。",
+			pkg: "安装包 (.pkg)", dmg: "磁盘映像 (.dmg)",
+			linuxTitle: "Debian 和 Ubuntu", linuxReq: "Ubuntu 22.04+ 或 Debian 12+，amd64 或 arm64。",
+			copy: "复制", copied: "已复制",
+			aptIbus: "在终端里运行。它会下载并安装软件包，再把海酷拼音加进 GNOME 的输入源；用 Super+空格 切换。",
+			aptFcitx: "在终端里运行。然后在 fcitx5-configtool 里添加海酷拼音（KDE：系统设置 › 输入法）；用 Ctrl+空格 切换。",
+			aptAfter: "之后 sudo apt upgrade 就能升级到每个新版本，都用本项目的密钥签名。",
+			noFcitx: "这个版本还没有 Fcitx5 包；可以按 README 从源码构建，或者先用 IBus。",
+			aptFallback: "从 Releases 页面下载适合你机器的 .deb，然后：",
+			linuxOther: "<b>Arch</b> 和 <b>Fedora</b>：用 PKGBUILD 和 rpm spec 从 Release 构建，见 <a href=\"https://github.com/bluevisor/haiku-pinyin/blob/main/README.zh-CN.md#linux\">Linux 安装说明</a>。还没有上架 AUR 或 Copr。",
+			haikuTitle: "Haiku", haikuReq: "64 位 Haiku，x86_64 或 arm64。",
+			haiku1: "把 <code>.hpkg</code> 复制到 <code>~/config/packages</code>。",
+			haiku2: "在终端里运行 <code>haiku_pinyin_restart</code>，运行时不要打开 Deskbar 菜单（或者注销再登录）。",
+			haiku3: "用 <kbd>Alt</kbd>-<kbd>空格</kbd> 或 Deskbar 的键盘菜单切换。候选窗口需要中文字体，比如 Noto Sans CJK。",
+			featTitle: "功能",
+			featSub: "同一个引擎，每个系统上都是原生前端，手感向搜狗拼音和 macOS 自带拼音看齐。",
+			f1t: "整句输入", f1: "打 <code>wozaixuexizhongwen</code>，出 我在学习中文：用词对打分，还参考你上一个打的词。",
+			f2t: "本机 AI", f2: "在 Apple 芯片的 Mac 上，本机的小模型把读起来最通顺的候选排到第一，并用灰字补全下文，按 Tab 采用。",
+			f3t: "全拼和双拼", f3: "拼音加加、小鹤、自然码、微软、智能ABC。也支持简拼：<code>zgr</code> → 中国人。",
+			f4t: "v 模式", f4: "<code>v123</code> → 壹佰贰拾叁，<code>v1+2*3</code> → 7，<code>v2026.11.7</code> → 2026年11月7日，还有今天的日期和按编码输入的符号。",
+			f5t: "越用越懂你", f5: "记住你选的词，上屏后给出常跟的词（联想），Ctrl+Delete 删掉学错的词。",
+			f6t: "细节", f6: "简体或繁體、模糊音、中英混输、emoji、全角标点，轻按 Shift 切换中 / 英。",
+			privBig: "默认情况下，你打的字不会离开你的电脑。",
+			privP: "没有账号，没有统计，没有遥测。学到的词和设置都只在你的机器上。这个页面也没有任何追踪。",
+			privLink: "查看所有会联网的情况 →",
+			priv1t: "云候选：默认关闭",
+			priv1: "打开后，只把正在输入的拼音发给 Google Input Tools，从不发送已经上屏的文字。",
+			priv2t: "AI 在 Mac 本机运行",
+			priv2: "只有你点“下载模型”时才下载模型；之后它只在你的 Mac 上读取光标前的文字。",
+			priv3t: "更新",
+			priv3: "Mac 每天向 GitHub 查一次最新版本；Debian 和 Ubuntu 通过 apt 更新。",
+			verTitle: "校验下载",
+			verP: "每个版本都有 <code>SHA256SUMS</code>，并用本项目的发布密钥签名为 <code>SHA256SUMS.asc</code>。密钥指纹：",
+			verHow: "校验方法见 <a href=\"https://github.com/bluevisor/haiku-pinyin/blob/main/README.zh-CN.md#校验下载\">校验下载</a>。",
+			footReleases: "所有版本", footSecurity: "安全", footIssues: "反馈问题",
+			footNote: "一个人做的，完全开源。"
+		}
+	};
+
+	var params = new URLSearchParams(location.search);
+	var store = {
+		get: function (k) { try { return localStorage.getItem(k); } catch (e) { return null; } },
+		set: function (k, v) { try { localStorage.setItem(k, v); } catch (e) {} }
+	};
+
+	// Theme override, for testing.
+	var theme = params.get("theme");
+	if (theme === "light" || theme === "dark")
+		document.documentElement.setAttribute("data-theme", theme);
+
+	// Language: ?lang=, then what was chosen here, then the browser's.
+	function browserLang() {
+		var list = navigator.languages || [navigator.language || "en"];
+		for (var i = 0; i < list.length; i++) {
+			var l = (list[i] || "").toLowerCase();
+			if (l.indexOf("zh") === 0) return "zh";
+			if (l.indexOf("en") === 0) return "en";
+		}
+		return "en";
+	}
+	var lang = params.get("lang");
+	if (lang !== "zh" && lang !== "en") lang = store.get("hp-lang");
+	if (lang !== "zh" && lang !== "en") lang = browserLang();
+
+	// The visitor's system.
+	function detectOS() {
+		var forced = params.get("os");
+		if (["mac", "linux", "haiku", "other"].indexOf(forced) >= 0) return forced;
+		var ua = navigator.userAgent || "";
+		var platform = (navigator.userAgentData && navigator.userAgentData.platform)
+			|| navigator.platform || "";
+		if (/Haiku/i.test(ua)) return "haiku";
+		if (/Android|iPhone|iPad|iPod|CrOS/i.test(ua)) return "other";
+		if (/Mac/i.test(platform) || /Macintosh/.test(ua))
+			return navigator.maxTouchPoints > 1 ? "other" : "mac";	// iPadOS says Mac
+		if (/Linux/i.test(platform) || /Linux|X11/.test(ua)) return "linux";
+		return "other";
+	}
+	var os = detectOS();
+	var OS_NAME = { mac: "macOS", linux: "Linux", haiku: "Haiku" };
+
+	var release = null;		// the latest release, once it's here
+	var failed = false;
+	var framework = "ibus";
+
+	function t(key, vars) {
+		var s = (T[lang] && T[lang][key]) || T.en[key] || "";
+		if (vars) for (var k in vars) s = s.split("{" + k + "}").join(vars[k]);
+		return s;
+	}
+	function el(tag, attrs, children) {
+		var e = document.createElement(tag);
+		if (attrs) for (var k in attrs) {
+			if (k === "text") e.textContent = attrs[k];
+			else if (k === "html") e.innerHTML = attrs[k];
+			else e.setAttribute(k, attrs[k]);
+		}
+		(children || []).forEach(function (c) { if (c) e.appendChild(c); });
+		return e;
+	}
+	function size(bytes) {
+		var mb = bytes / 1048576;
+		return mb >= 10 ? Math.round(mb) + " MB" : mb.toFixed(1) + " MB";
+	}
+	function asset(re) {
+		if (!release) return null;
+		for (var i = 0; i < release.assets.length; i++)
+			if (re.test(release.assets[i].name)) return release.assets[i];
+		return null;
+	}
+	var ICON_DOWN = '<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 3v10M5.5 8.5 10 13l4.5-4.5M4 16.5h12"/></svg>';
+
+	function button(a, label, primary) {
+		var b = el("a", {
+			"class": "btn" + (primary ? " primary" : ""),
+			href: a ? a.browser_download_url : RELEASES
+		});
+		b.innerHTML = ICON_DOWN;
+		b.appendChild(document.createTextNode(label));
+		if (a) b.appendChild(el("small", { text: size(a.size) }));
+		return b;
+	}
+
+	// The download for this system, at the top.
+	function renderHero() {
+		var row = document.getElementById("cta");
+		var meta = document.getElementById("cta-meta");
+		row.textContent = "";
+		meta.textContent = "";
+		var primary = {
+			mac: asset(/^HaikuPinyin-.*\.pkg$/),
+			haiku: asset(/x86_64\.hpkg$/)
+		}[os];
+		if (os === "mac" || os === "haiku") {
+			var b = button(primary, t("dlFor", { os: OS_NAME[os] }), true);
+			row.appendChild(b);
+			row.appendChild(el("a", { "class": "btn", href: "#install", text: t("otherPlatforms") }));
+		} else if (os === "linux") {
+			row.appendChild(el("a", { "class": "btn primary", href: "#install",
+				html: ICON_DOWN + t("dlFor", { os: "Linux" }) }));
+			row.appendChild(el("a", { "class": "btn", href: "#install", text: t("otherPlatforms") }));
+		} else {
+			["mac", "linux", "haiku"].forEach(function (o, i) {
+				var a = el("a", { "class": "btn" + (i === 0 ? " primary" : ""), href: "#install",
+					"data-os": o, html: ICON_DOWN + OS_NAME[o] });
+				a.addEventListener("click", function () { select(o); });
+				row.appendChild(a);
+			});
+			meta.appendChild(document.createTextNode(t("notHere") + " "));
+		}
+		if (release) {
+			var d = new Date(release.published_at);
+			var when = isNaN(d) ? "" : new Intl.DateTimeFormat(lang === "zh" ? "zh-CN" : "en-US",
+				{ year: "numeric", month: lang === "zh" ? "long" : "short", day: "numeric" }).format(d);
+			meta.appendChild(document.createTextNode(t("released", { v: release.tag_name, d: when }) + " · "));
+			meta.appendChild(el("a", { href: release.html_url, text: t("dlAll") }));
+		} else if (failed) {
+			appendFallback(meta);
+		}
+		document.getElementById("eyebrow").textContent = release
+			? t("eyebrowV", { v: release.tag_name }) : t("eyebrow");
+	}
+	function appendFallback(node) {
+		var parts = t("fallback").split("{link}");
+		node.appendChild(document.createTextNode(parts[0]));
+		node.appendChild(el("a", { href: RELEASES, text: t("releasesPage") }));
+		node.appendChild(document.createTextNode(parts[1] || ""));
+	}
+
+	function renderMac() {
+		var box = document.getElementById("mac-downloads");
+		box.textContent = "";
+		box.appendChild(button(asset(/^HaikuPinyin-.*\.pkg$/), t("pkg"), true));
+		var dmg = asset(/^HaikuPinyin-.*\.dmg$/);
+		if (dmg || !release) box.appendChild(button(dmg, t("dmg"), false));
+	}
+
+	function renderHaiku() {
+		var box = document.getElementById("haiku-downloads");
+		box.textContent = "";
+		box.appendChild(button(asset(/x86_64\.hpkg$/), "x86_64", true));
+		box.appendChild(button(asset(/arm64\.hpkg$/), "arm64", false));
+	}
+
+	// The apt one-liner, from this release's file names; the shell picks
+	// the architecture.
+	function renderLinux() {
+		var fcitx = asset(/^fcitx5-haiku-pinyin_.*_amd64\.deb$/);
+		var ibus = asset(/^haiku-pinyin_.*_amd64\.deb$/);
+		var data = asset(/^haiku-pinyin-data_.*_all\.deb$/);
+		var fwBox = document.getElementById("fw");
+		fwBox.querySelectorAll("button").forEach(function (b) {
+			b.setAttribute("aria-pressed", String(b.getAttribute("data-fw") === framework));
+		});
+		var pre = document.getElementById("apt-cmd");
+		var note = document.getElementById("apt-note");
+		var copy = document.querySelector('[data-copy="apt-cmd"]');
+		note.textContent = "";
+		var main = framework === "fcitx5" ? fcitx : ibus;
+		if (!release || !main) {
+			pre.innerHTML = '<span class="c"># ' + (release && framework === "fcitx5"
+				? t("noFcitx") : t("aptFallback")) + "</span>\n" +
+				(framework === "fcitx5"
+					? "sudo apt install ./haiku-pinyin-data_*.deb ./fcitx5-haiku-pinyin_*.deb\nfcitx5 -rd"
+					: "sudo apt install ./haiku-pinyin*.deb\nhaiku-pinyin-enable");
+			if (!release) {
+				note.textContent = "";
+				appendFallback(note);
+			}
+		} else {
+			// A release's files are all in one folder: $u.
+			var base = main.browser_download_url.replace(/\/[^\/]*$/, "");
+			var names = [];
+			if (data) names.push(data.name);
+			names.push(main.name.replace(/_amd64\.deb$/, "_$a.deb"));
+			var lines = [
+				"cd /tmp && a=$(dpkg --print-architecture)",
+				"u=" + base,
+				"curl -fL " + names.map(function (n) { return "-O $u/" + n; }).join(" "),
+				"sudo apt install " + names.map(function (n) { return "./" + n; }).join(" "),
+				framework === "fcitx5" ? "fcitx5 -rd" : "haiku-pinyin-enable"
+			];
+			pre.textContent = lines.join(" &&\n");
+			note.textContent = (framework === "fcitx5" ? t("aptFcitx") : t("aptIbus")) + " " + t("aptAfter");
+		}
+		copy.textContent = t("copy");
+
+		var list = document.getElementById("linux-files");
+		list.textContent = "";
+		if (release) {
+			release.assets.filter(function (a) { return /\.deb$/.test(a.name); })
+				.forEach(function (a) {
+					list.appendChild(el("li", null, [
+						el("a", { href: a.browser_download_url, text: a.name }),
+						el("span", { "class": "sz", text: size(a.size) })
+					]));
+				});
+		}
+		if (!list.childNodes.length) {
+			list.appendChild(el("li", null, [el("a", { href: RELEASES, text: t("releasesPage") })]));
+		}
+	}
+
+	function select(o) {
+		if (!OS_NAME[o]) o = "mac";
+		document.querySelectorAll('[role="tab"]').forEach(function (b) {
+			var on = b.getAttribute("data-os") === o;
+			b.setAttribute("aria-selected", String(on));
+			b.tabIndex = on ? 0 : -1;
+			document.getElementById("panel-" + b.getAttribute("data-os")).hidden = !on;
+		});
+	}
+
+	function applyLang() {
+		document.documentElement.lang = lang === "zh" ? "zh-CN" : "en";
+		document.querySelectorAll("[data-t]").forEach(function (n) {
+			n.textContent = t(n.getAttribute("data-t"));
+		});
+		document.querySelectorAll("[data-t-html]").forEach(function (n) {
+			n.innerHTML = t(n.getAttribute("data-t-html"));
+		});
+		document.querySelectorAll("[data-t-alt]").forEach(function (n) {
+			n.alt = t(n.getAttribute("data-t-alt"));
+		});
+		document.querySelectorAll(".lang button").forEach(function (b) {
+			b.setAttribute("aria-pressed", String(b.getAttribute("data-lang") === lang));
+		});
+		renderAll();
+	}
+	function renderAll() {
+		renderHero();
+		renderMac();
+		renderLinux();
+		renderHaiku();
+	}
+
+	// Events.
+	document.querySelectorAll(".lang button").forEach(function (b) {
+		b.addEventListener("click", function () {
+			lang = b.getAttribute("data-lang");
+			store.set("hp-lang", lang);
+			applyLang();
+		});
+	});
+	var tabs = Array.prototype.slice.call(document.querySelectorAll('[role="tab"]'));
+	tabs.forEach(function (b, i) {
+		b.addEventListener("click", function () { select(b.getAttribute("data-os")); });
+		b.addEventListener("keydown", function (e) {
+			var d = e.key === "ArrowRight" ? 1 : e.key === "ArrowLeft" ? -1 : 0;
+			if (!d) return;
+			var next = tabs[(i + d + tabs.length) % tabs.length];
+			select(next.getAttribute("data-os"));
+			next.focus();
+		});
+	});
+	document.querySelectorAll("#fw button").forEach(function (b) {
+		b.addEventListener("click", function () {
+			framework = b.getAttribute("data-fw");
+			renderLinux();
+		});
+	});
+	document.querySelectorAll(".copy").forEach(function (b) {
+		b.addEventListener("click", function () {
+			var text = document.getElementById(b.getAttribute("data-copy")).textContent;
+			var done = function () {
+				b.textContent = t("copied");
+				setTimeout(function () { b.textContent = t("copy"); }, 1600);
+			};
+			if (navigator.clipboard) navigator.clipboard.writeText(text).then(done, function () {});
+		});
+	});
+	var top = document.getElementById("top");
+	window.addEventListener("scroll", function () {
+		top.classList.toggle("scrolled", window.scrollY > 8);
+	}, { passive: true });
+
+	// Start: the page works before (and without) the release list.
+	select(os === "other" ? "mac" : os);
+	applyLang();
+
+	function got(data) {
+		if (!data || !data.assets || !data.tag_name) throw new Error("no release");
+		release = data;
+		renderAll();
+	}
+	var cached = null;
+	try { cached = JSON.parse(sessionStorage.getItem("hp-release") || "null"); } catch (e) {}
+	if (cached && Date.now() - cached.at < 10 * 60 * 1000) {
+		got(cached.data);
+	} else {
+		fetch("https://api.github.com/repos/" + REPO + "/releases/latest",
+			{ headers: { Accept: "application/vnd.github+json" } })
+			.then(function (r) { if (!r.ok) throw new Error(r.status); return r.json(); })
+			.then(function (data) {
+				var slim = { tag_name: data.tag_name, html_url: data.html_url,
+					published_at: data.published_at,
+					assets: (data.assets || []).map(function (a) {
+						return { name: a.name, size: a.size, browser_download_url: a.browser_download_url };
+					}) };
+				try { sessionStorage.setItem("hp-release", JSON.stringify({ at: Date.now(), data: slim })); } catch (e) {}
+				got(slim);
+			})
+			.catch(function () { failed = true; renderAll(); });
+	}
+})();
+</script>
+</body>
+</html>

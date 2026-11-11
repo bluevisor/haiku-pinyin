@@ -14,13 +14,17 @@
 #include <fcitx/inputcontext.h>
 #include <fcitx/inputmethodengine.h>
 #include <fcitx/instance.h>
+#include <fcitx/menu.h>
 
 #include <chrono>
+#include <memory>
 #include <set>
 #include <string>
+#include <vector>
 
 #include "../../engine/Engine.h"
 #include "../Cloud.h"
+#include "../Words.h"
 
 
 // The settings, as Fcitx5's configuration tool shows them. Saved in
@@ -136,8 +140,13 @@ private:
 	bool fShiftAlone = false;
 	std::chrono::steady_clock::time_point fShiftDown;
 	fcitx::EventDispatcher fDispatcher;
-	// After the dispatcher: its thread hands answers to it, so it goes first.
+	// After the dispatcher: their threads hand work to it, so they go first.
 	Cloud fCloud;
+	WordsMenu fWords;
+	// 词库 in the status area: custom phrases, import, export.
+	std::vector<std::unique_ptr<fcitx::SimpleAction>> fWordsItems;
+	fcitx::Menu fWordsMenu;
+	fcitx::SimpleAction fWordsAction;
 };
 
 

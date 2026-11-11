@@ -1,5 +1,5 @@
-// 海酷拼音 Haiku Pinyin for Linux: settings, data and the user dictionary,
-// for both front ends.
+// 海酷拼音 Haiku Pinyin for Linux: settings, data, the user dictionary and
+// the custom phrases, for both front ends.
 
 #include "Common.h"
 
@@ -63,6 +63,13 @@ std::string
 UserDictionaryPath()
 {
 	return ConfigDirectory() + "/user.dict";
+}
+
+
+std::string
+PhrasesPath()
+{
+	return ConfigDirectory() + "/phrases.txt";
 }
 
 
@@ -165,6 +172,7 @@ LoadData(haikupinyin::Engine* engine, std::string* error)
 	for (const std::string& place : DataDirectories()) {
 		if (engine->Load(place, error)) {
 			engine->SetUserDictionary(UserDictionaryPath());
+			engine->SetPhrasesFile(PhrasesPath());
 			return true;
 		}
 	}
