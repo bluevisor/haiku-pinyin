@@ -9,6 +9,11 @@
 @interface HPInputController : IMKInputController
 @end
 
+// The input modes, 中 and 英: their icons are what the menu bar shows. Only
+// 中 is listed (in Settings, the input menu); the toggle selects 英.
+#define HPChineseMode @"com.bluevisor.inputmethod.HaikuPinyin.Chinese"
+#define HPEnglishMode @"com.bluevisor.inputmethod.HaikuPinyin.English"
+
 // Loads the dictionaries and makes the candidate window, before the run loop.
 void HPSetUp(IMKServer* server);
 // Saves what it has learned; at exit.

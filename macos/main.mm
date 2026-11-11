@@ -31,9 +31,8 @@ HPSaveNow(void)
 }
 
 
-// The one input mode: Settings and the input menu list the mode, not the
-// method. (中/英 is a toggle inside it, not a second mode.)
-static NSString* const kMode = @"com.bluevisor.inputmethod.HaikuPinyin.Chinese";
+// Settings and the input menu list the 中 mode, not the method.
+static NSString* const kMode = HPChineseMode;
 
 static NSArray*
 Sources()
@@ -55,6 +54,28 @@ SourceID(id source)
 }
 
 
+// The hidden 英 mode has to be on for the toggle to select it. The server
+// checks as it starts too: the method may have been added in Settings, or
+// updated from a version without the mode (registering again reads it).
+static void
+EnableEnglishMode()
+{
+	for (int pass = 0; pass < 2; pass++) {
+		for (id source in Sources()) {
+			if (![SourceID(source) isEqualToString:HPEnglishMode])
+				continue;
+			TISInputSourceRef ref = (__bridge TISInputSourceRef)source;
+			CFBooleanRef enabled = (CFBooleanRef)TISGetInputSourceProperty(
+				ref, kTISPropertyInputSourceIsEnabled);
+			if (enabled == nullptr || !CFBooleanGetValue(enabled))
+				TISEnableInputSource(ref);
+			return;
+		}
+		TISRegisterInputSource((__bridge CFURLRef)NSBundle.mainBundle.bundleURL);
+	}
+}
+
+
 static int
 Command(const char* command)
 {
@@ -71,6 +92,7 @@ Command(const char* command)
 			if ([SourceID(source) isEqualToString:kMode])
 				status = TISEnableInputSource((__bridge TISInputSourceRef)source);
 		}
+		EnableEnglishMode();
 		return status == noErr ? 0 : 1;
 	}
 	if (strcmp(command, "--select") == 0) {
@@ -243,6 +265,7 @@ main(int argc, const char* argv[])
 				@"InputMethodConnectionName"]
 			bundleIdentifier:bundle.bundleIdentifier];
 		HPSetUp(server);
+		EnableEnglishMode();
 		HPUpdaterStart();
 
 		[NSApplication sharedApplication];
