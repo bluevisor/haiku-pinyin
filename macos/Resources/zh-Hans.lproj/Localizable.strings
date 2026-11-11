@@ -83,3 +83,9 @@
 "The update has the wrong version number." = "更新的版本号不符。";
 "The update isn't signed by us; it was thrown away." = "更新的签名不对，已丢弃。";
 "Installing the update failed: %@" = "安装更新失败：%@";
+
+/* The AI's one invitation, under the line (Invitation.swift) */
+"Try on-device AI" = "试试本机 AI";
+"Better word picks and a guess at what comes next, all on this Mac. A 1.4 GB download." = "选词更准，还能猜出接下来的字，全在这台 Mac 上运行。需下载 1.4 GB。";
+"Not Now" = "以后再说";
+"Set Up…" = "设置…";

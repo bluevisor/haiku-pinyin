@@ -27,7 +27,7 @@ for arch in arm64 x86_64; do
 	done
 	swiftc -target $target -O -g -parse-as-library \
 		macos/Settings.swift macos/Candidates.swift macos/Models.swift \
-		macos/Updater.swift macos/Strings.swift \
+		macos/Updater.swift macos/Strings.swift macos/Invitation.swift \
 		"$objects"/*.o -lc++ \
 		-framework Cocoa -framework InputMethodKit -framework Carbon \
 		-framework Security \

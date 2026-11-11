@@ -125,7 +125,9 @@ a learned word. What it learns is in
 fetches Qwen3-1.7B-Base and Qwen3.5-0.8B-Base, converted to 4-bit MLX (about
 1.4 GB), from Hugging Face (or its mirror) into
 `~/Library/Application Support/HaikuPinyin/models`, and checks every file. A
-stopped download carries on where it left off. A helper process holds the
+stopped download carries on where it left off. Without a model, the first
+pause after typing a word shows a small card under the line that offers
+this, once; it never takes the keyboard. A helper process holds the
 model (about 1 GB of memory while AI is on) and answers on the side, like the
 cloud: typing never waits for it. The settings window turns AI picks and
 completions on or off and chooses the model: **Automatic** uses the 1.7B and falls

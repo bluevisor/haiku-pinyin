@@ -3,8 +3,10 @@
 //   mkdir -p build/snapshot && cp -R macos/Resources/*.lproj build/snapshot/
 //   swiftc -parse-as-library macos/Settings.swift macos/Candidates.swift \
 //       macos/Models.swift macos/Updater.swift macos/Strings.swift \
-//       macos/snapshot-settings.swift -o build/snapshot/snapshot-settings
-//   build/snapshot/snapshot-settings out.png [light|dark|bubble[-english]|candidates[-dark]]
+//       macos/Invitation.swift macos/snapshot-settings.swift \
+//       -o build/snapshot/snapshot-settings
+//   build/snapshot/snapshot-settings out.png \
+//       [light|dark|bubble[-english]|candidates[-dark]|invitation[-dark]]
 // It flashes the window on screen for a second. The string tables sit next
 // to it, so -AppleLanguages '(zh-Hant)' (or en, zh-Hans) at the end picks
 // the language.
@@ -49,6 +51,20 @@ struct SnapshotSettings {
 			capture(NSApp.windows.first { $0 is NSPanel }!, to: arguments[1])
 			return
 		}
+		if arguments.count > 2 && arguments[2].hasPrefix("invitation") {
+			// The AI's invitation under a line of text.
+			let backdrop = NSWindow(contentRect: NSRect(x: 380, y: 300, width: 400, height: 200),
+				styleMask: [.borderless], backing: .buffered, defer: false)
+			backdrop.backgroundColor = .textBackgroundColor
+			backdrop.appearance = NSAppearance(named: arguments[2].hasSuffix("dark")
+				? .darkAqua : .aqua)
+			NSApp.appearance = backdrop.appearance
+			backdrop.orderFrontRegardless()
+			showInvitation(400, 470, 20)
+			RunLoop.main.run(until: Date().addingTimeInterval(0.5))
+			capture(NSApp.windows.first { $0 is NSPanel }!, to: arguments[1])
+			return
+		}
 		if arguments.count > 2 && arguments[2].hasPrefix("bubble") {
 			// The 中/英 bubble, over a window to show the glass against.
 			let backdrop = NSWindow(contentRect: NSRect(x: 400, y: 400, width: 160, height: 90),
@@ -61,6 +77,8 @@ struct SnapshotSettings {
 			return
 		}
 
+		// SNAPSHOT_AT=ai opens it at the AI section, as the invitation does.
+		SettingsTarget.shared.section = ProcessInfo.processInfo.environment["SNAPSHOT_AT"]
 		let host = NSHostingView(rootView: SettingsView())
 		let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 480, height: 400),
 			styleMask: [.titled], backing: .buffered, defer: false)

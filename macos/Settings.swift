@@ -119,6 +119,22 @@ struct SettingsView: View {
 	}
 
 	var body: some View {
+		// Opened to a section (showSettings(at:)): scrolled to it.
+		ScrollViewReader { scroll in
+			form.onReceive(SettingsTarget.shared.$section) { section in
+				guard let section else { return }
+				DispatchQueue.main.async {
+					scroll.scrollTo(section, anchor: .top)
+					SettingsTarget.shared.section = nil
+				}
+			}
+		}
+		// Scrolls when the screen is short.
+		.frame(width: 480)
+		.frame(minHeight: 360, idealHeight: 720)
+	}
+
+	private var form: some View {
 		Form {
 			Section {
 				HStack(spacing: 14) {
@@ -235,6 +251,7 @@ struct SettingsView: View {
 				Notification.Name("HPAIStateChanged")).receive(on: RunLoop.main)) { _ in
 				aiState += 1
 			}
+			.id(SettingsTarget.ai)
 
 			Section(L("Fuzzy pinyin")) {
 				ForEach(fuzzyGroups, id: \.mask) {
@@ -290,9 +307,6 @@ struct SettingsView: View {
 			}
 		}
 		.formStyle(.grouped)
-		// Scrolls when the screen is short.
-		.frame(width: 480)
-		.frame(minHeight: 360, idealHeight: 720)
 	}
 
 	// The models missing, a button to fetch them, and how far it's got.
@@ -388,7 +402,7 @@ struct InstalledModel {
 }
 
 // The MLX models there: folders (or links to them) with a config.json.
-private func installedModels() -> [InstalledModel] {
+func installedModels() -> [InstalledModel] {
 	let manager = FileManager.default
 	let folder = modelsFolder()
 	let names = (try? manager.contentsOfDirectory(atPath: folder.path)) ?? []
@@ -409,6 +423,13 @@ private func installedModels() -> [InstalledModel] {
 
 private var settingsWindow: NSWindow?
 
+// The section the window is to show when it opens.
+final class SettingsTarget: ObservableObject {
+	static let shared = SettingsTarget()
+	static let ai = "ai"
+	@Published var section: String?
+}
+
 // A solid title bar: the form scrolls under it, and a clear one let the
 // rows show through behind the title and the window buttons.
 func styleSettingsWindow(_ window: NSWindow) {
@@ -419,6 +440,11 @@ func styleSettingsWindow(_ window: NSWindow) {
 
 @_cdecl("HPShowSettings")
 public func showSettings() {
+	showSettings(at: nil)
+}
+
+func showSettings(at section: String?) {
+	SettingsTarget.shared.section = section
 	if settingsWindow == nil {
 		let window = NSWindow(contentViewController:
 			NSHostingController(rootView: SettingsView()))

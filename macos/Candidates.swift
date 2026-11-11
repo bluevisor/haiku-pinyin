@@ -121,6 +121,8 @@ private final class CandidateHostingView: NSHostingView<CandidateBar> {
 
 private var panel: NSPanel?
 private var hosting: CandidateHostingView?
+// Where the page last showed: the line's bottom left, and its height.
+private var shownAt = (x: 0.0, y: 0.0, lineHeight: 0.0)
 
 private func makePanel() -> NSPanel {
 	let window = NSPanel(contentRect: NSRect(x: 0, y: 0, width: 100, height: 36),
@@ -188,11 +190,15 @@ private func show(_ bar: CandidateBar, _ x: Double, _ y: Double,
 	origin.x = min(max(origin.x, visible.minX), visible.maxX - size.width)
 	window.setFrameOrigin(origin)
 	window.orderFrontRegardless()
+	shownAt = (anchor.x, anchor.y, lineHeight)
+	invitationTyping()
 }
 
 @_cdecl("HPHideCandidates")
 public func hideCandidates() {
-	panel?.orderOut(nil)
+	guard let panel, panel.isVisible else { return }
+	panel.orderOut(nil)
+	invitationWordEnded(shownAt.x, shownAt.y, shownAt.lineHeight)
 }
 
 // #pragma mark - the AI's completion
