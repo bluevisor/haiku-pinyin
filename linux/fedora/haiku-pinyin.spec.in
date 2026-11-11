@@ -1,0 +1,95 @@
+# 海酷拼音 Haiku Pinyin. linux/rpm.sh fills in the version and date.
+Name:           haiku-pinyin
+Version:        @VERSION@
+Release:        1%{?dist}
+Summary:        Chinese pinyin and shuangpin input method
+License:        GPL-3.0-only
+URL:            https://github.com/bluevisor/haiku-pinyin
+Source0:        %{url}/archive/v%{version}/%{name}-%{version}.tar.gz
+# The dictionaries, built from upstream word lists for the release.
+Source1:        %{url}/releases/download/v%{version}/%{name}-data-%{version}.tar.xz
+
+BuildRequires:  gcc-c++
+BuildRequires:  make
+BuildRequires:  pkgconfig(ibus-1.0)
+BuildRequires:  pkgconfig(Fcitx5Core)
+BuildRequires:  pkgconfig(Fcitx5Config)
+BuildRequires:  pkgconfig(Fcitx5Utils)
+
+%global _description %{expand:
+海酷拼音 Haiku Pinyin: full pinyin and shuangpin (拼音加加, 小鹤, 自然码, 微软,
+智能ABC), whole sentences scored with word pairs, abbreviations, 模糊音, mixed
+Chinese and English, emoji, v-mode (numbers in 大写, dates, symbols), 简体 and
+繁體, and words it learns from you.}
+
+%description %_description
+
+%package        data
+Summary:        Dictionaries for 海酷拼音 Haiku Pinyin
+BuildArch:      noarch
+
+%description    data %_description
+
+The dictionaries its IBus engine and Fcitx5 addon share.
+
+%package -n     ibus-haiku-pinyin
+Summary:        Chinese pinyin and shuangpin input method for IBus
+Requires:       ibus
+Requires:       %{name}-data = %{version}-%{release}
+Recommends:     curl
+
+%description -n ibus-haiku-pinyin %_description
+
+The IBus engine. Add it under Settings > Keyboard > Input Sources >
+Chinese, or run haiku-pinyin-enable once (GNOME).
+
+%package -n     fcitx5-haiku-pinyin
+Summary:        Chinese pinyin and shuangpin input method for Fcitx5
+Requires:       fcitx5
+Requires:       %{name}-data = %{version}-%{release}
+Recommends:     curl
+
+%description -n fcitx5-haiku-pinyin %_description
+
+The Fcitx5 addon. Restart Fcitx5 and add it in fcitx5-configtool.
+
+%prep
+%autosetup -a 1
+# Newer than tools/build_data.py, so make takes them as they are.
+mkdir -p build/data
+cp %{name}-data-%{version}/* build/data/
+touch build/data/*
+
+%build
+%set_build_flags
+%make_build ibus fcitx5
+
+%install
+%set_build_flags
+make install-ibus install-fcitx5 DESTDIR=%{buildroot} PREFIX=%{_prefix} \
+	LIBEXECDIR=%{_libexecdir}
+install -Dm755 linux/enable.sh %{buildroot}%{_bindir}/haiku-pinyin-enable
+
+%check
+%set_build_flags
+make test
+
+%files data
+%license LICENSE
+%doc README.md
+%{_datadir}/%{name}/
+%{_datadir}/icons/hicolor/scalable/apps/%{name}.svg
+
+%files -n ibus-haiku-pinyin
+%{_libexecdir}/ibus-engine-haiku-pinyin
+%{_datadir}/ibus/component/%{name}.xml
+%{_bindir}/haiku-pinyin-enable
+
+%files -n fcitx5-haiku-pinyin
+%{_libdir}/fcitx5/libhaiku-pinyin.so
+%{_datadir}/fcitx5/addon/%{name}.conf
+%{_datadir}/fcitx5/inputmethod/%{name}.conf
+
+%changelog
+* @DATE@ John Zheng <bluevisor@gmail.com> - @VERSION@-1
+- Release @VERSION@

@@ -1,5 +1,6 @@
-// 海酷拼音 Haiku Pinyin for Linux: what the IBus engine (main.cpp), its
-// settings and menu (Settings.cpp) and the cloud (Cloud.cpp) share.
+// 海酷拼音 Haiku Pinyin for Linux: what the IBus engine (main.cpp) and its
+// settings and menu (Settings.cpp) share. What it shares with the Fcitx5
+// addon is in Common.h and Cloud.h.
 #pragma once
 
 #include <ibus.h>
@@ -7,6 +8,8 @@
 #include <string>
 
 #include "../engine/Engine.h"
+#include "Cloud.h"
+#include "Common.h"
 
 // One haikupinyin::Engine for every input context.
 struct Shared {
@@ -17,8 +20,7 @@ struct Shared {
 	bool loadFailed = false;
 	IBusEngine* focused = nullptr;
 	IBusEngine* last = nullptr;			// the context the engine state is for
-	std::string cloudAsked;				// in flight
-	std::string cloudAnswered;			// last asked
+	Cloud cloud;
 };
 
 extern Shared* sShared;
@@ -33,10 +35,9 @@ void UpdateProperties(IBusEngine* engine, bool changed = false);
 // A menu item was chosen.
 void PropertyActivate(IBusEngine* engine, const gchar* name, guint state);
 
-// Cloud.cpp: asks Google Input Tools about the composition, on the side.
-void AskCloud();
-
 // main.cpp
+// Asks the cloud about the composition, on the side.
+void AskCloud();
 void ShowCandidates(IBusEngine* engine);
 void Cancel(IBusEngine* engine);
 void ToggleChinese(IBusEngine* engine);

@@ -1,0 +1,9 @@
+# Fcitx5 addon for 海酷拼音 Haiku Pinyin; make install-fcitx5 fills in the version.
+[Addon]
+Name=海酷拼音 Haiku Pinyin
+Category=InputMethod
+Version=@VERSION@
+Library=libhaiku-pinyin
+Type=SharedLibrary
+OnDemand=True
+Configurable=True

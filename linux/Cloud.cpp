@@ -1,22 +1,11 @@
 // 海酷拼音 Haiku Pinyin for Linux: cloud candidates.
 
+#include "Cloud.h"
+
 #include <chrono>
 #include <cstdio>
-#include <string>
-#include <thread>
-
-#include "Shared.h"
 
 static const int kCloudDelay = 120;				// ms, let typing settle
-
-
-// One question at a time, asked through curl on a thread so neither IBus nor
-// the composition waits for the network; the answer comes back on the main
-// loop.
-struct CloudAnswer {
-	std::string query;
-	std::string text;
-};
 
 
 static std::string
@@ -55,37 +44,32 @@ AskGoogle(const std::string& query)
 }
 
 
-static gboolean
-CloudAnswered(gpointer data)
+Cloud::~Cloud()
 {
-	CloudAnswer* answer = static_cast<CloudAnswer*>(data);
-	sShared->cloudAsked.clear();
-	if (sShared->loaded
-		&& sShared->engine.SetCloudResult(answer->query, answer->text)
-		&& sShared->last != nullptr) {
-		ShowCandidates(sShared->last);
-	}
-	delete answer;
-	return G_SOURCE_REMOVE;
+	if (fThread.joinable())
+		fThread.join();
 }
 
 
 void
-AskCloud()
+Cloud::Ask(const haikupinyin::Engine& engine, Answer answer)
 {
-	if (!sShared->engine.GetOptions().cloud || !sShared->cloudAsked.empty())
+	if (!engine.GetOptions().cloud || !fAsked.empty())
 		return;
-	std::string query = sShared->engine.CloudQuery();
-	if (query.empty() || query == sShared->cloudAnswered)
+	std::string query = engine.CloudQuery();
+	if (query.empty() || query == fAnswered)
 		return;
 	for (char c : query) {
-		if (!g_ascii_isalpha(c))
+		if (!((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z')))
 			return;
 	}
-	sShared->cloudAsked = query;
-	sShared->cloudAnswered = query;
-	std::thread([query]() {
+	fAsked = query;
+	fAnswered = query;
+	// The last one has handed over its answer, so it's done or nearly.
+	if (fThread.joinable())
+		fThread.join();
+	fThread = std::thread([query, answer]() {
 		std::this_thread::sleep_for(std::chrono::milliseconds(kCloudDelay));
-		g_idle_add(CloudAnswered, new CloudAnswer{query, AskGoogle(query)});
-	}).detach();
+		answer(query, AskGoogle(query));
+	});
 }

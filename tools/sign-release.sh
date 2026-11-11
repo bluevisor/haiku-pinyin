@@ -31,16 +31,22 @@ gpg --list-secret-keys "$RELEASE_KEY" >/dev/null 2>&1 \
 gpg --show-keys --with-colons tools/release-key.asc | grep -q "^fpr:.*$RELEASE_KEY:" \
 	|| fail "tools/release-key.asc isn't the key $RELEASE_KEY"
 
-# Exactly this version's downloads: two .debs, two .hpkgs and the Mac's three.
+# Exactly this version's downloads: five .debs (IBus and Fcitx5 for arm64 and
+# amd64, and their data), the data tarball the Arch and Fedora packages build
+# from, two .hpkgs and the Mac's three.
 cd dist
-set -- haiku-pinyin_"$version"_*.deb haiku_pinyin-"$version"-*.hpkg \
+set -- haiku-pinyin_"$version"_*.deb fcitx5-haiku-pinyin_"$version"_*.deb \
+	haiku-pinyin-data_"$version"_all.deb haiku-pinyin-data-"$version".tar.xz \
+	haiku_pinyin-"$version"-*.hpkg \
 	HaikuPinyin-"$version"-mac.zip HaikuPinyin-"$version".dmg \
 	HaikuPinyin-"$version".pkg latest.json
 for file; do
 	[ -f "$file" ] || fail "no dist/$file"
 done
-debs=$(ls haiku-pinyin_"$version"_*.deb | wc -l)
-[ "$debs" -eq 2 ] || fail "$debs .debs for $version in dist/, not 2 (arm64, amd64)"
+for name in haiku-pinyin fcitx5-haiku-pinyin; do
+	debs=$(ls "$name"_"$version"_*.deb | wc -l)
+	[ "$debs" -eq 2 ] || fail "$debs $name .debs for $version in dist/, not 2 (arm64, amd64)"
+done
 grep -q "\"version\": \"$version\"" latest.json || fail "latest.json isn't for $version"
 cd ..
 
@@ -51,7 +57,8 @@ gpg --dearmor < tools/release-key.asc > dist/haiku-pinyin-archive-keyring.gpg
 echo "Indexing the .debs"
 repo=$(mktemp -d)
 trap 'rm -rf "$repo"' EXIT
-cp dist/haiku-pinyin_"$version"_*.deb "$repo/"
+cp dist/haiku-pinyin_"$version"_*.deb dist/fcitx5-haiku-pinyin_"$version"_*.deb \
+	dist/haiku-pinyin-data_"$version"_all.deb "$repo/"
 docker run --rm -v "$repo":/repo -w /repo ubuntu:22.04 sh -ec '
 	export DEBIAN_FRONTEND=noninteractive
 	apt-get update -qq && apt-get install -qq -y --no-install-recommends apt-utils >/dev/null

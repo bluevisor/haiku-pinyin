@@ -87,7 +87,7 @@ ibus: $(IBUS_ENGINE)
 $(IBUS_ENGINE): linux/*.cpp linux/*.h engine/*.h $(ENGINE)
 	$(CXX) $(CXXFLAGS) $$($(PKG_CONFIG) --cflags ibus-1.0) \
 		-DHP_DATADIR='"$(DATADIR)"' -DHP_VERSION='"$(VERSION)"' \
-		$(filter %.cpp,$^) $(ENGINE) $$($(PKG_CONFIG) --libs ibus-1.0) -pthread -o $@
+		$(filter %.cpp,$^) $(ENGINE) $$($(PKG_CONFIG) --libs ibus-1.0) -pthread $(LDFLAGS) -o $@
 
 # IBus only reads components from /usr/share/ibus/component (or
 # $$IBUS_COMPONENT_PATH), so PREFIX defaults to /usr.
@@ -106,6 +106,78 @@ uninstall-ibus:
 	rm -f $(DESTDIR)$(LIBEXECDIR)/ibus-engine-haiku-pinyin \
 		$(DESTDIR)$(COMPONENTDIR)/haiku-pinyin.xml
 	rm -rf $(DESTDIR)$(DATADIR)
+
+# Fcitx5 (Linux): the same engine as a Fcitx5 input method addon. Needs
+# Fcitx5's headers (libfcitx5core-dev libfcitx5config-dev libfcitx5utils-dev
+# fcitx5-modules-dev on Debian/Ubuntu, fcitx5-devel on Fedora, fcitx5 on
+# Arch); plain make builds it too when they're found.
+#   make fcitx5                  build/libhaiku-pinyin.so
+#   sudo make install-fcitx5     into Fcitx5's addon directory and PREFIX
+FCITX5_MODULES := Fcitx5Core Fcitx5Config Fcitx5Utils
+FCITX5_FOUND := $(if $(LINUX),$(shell $(PKG_CONFIG) --exists $(FCITX5_MODULES) && echo yes))
+FCITX5_ADDON := $(BUILD)/libhaiku-pinyin.so
+FCITX5_SOURCES := linux/fcitx5/HaikuPinyin.cpp linux/Common.cpp linux/Cloud.cpp
+# Fcitx5 loads addons only from its own directory (or $$FCITX_ADDON_DIRS).
+FCITX5_ADDONDIR ?= $(shell $(PKG_CONFIG) --variable=libdir Fcitx5Core)/fcitx5
+FCITX5_DATADIR ?= $(PREFIX)/share/fcitx5
+ICONDIR ?= $(PREFIX)/share/icons/hicolor
+
+all: $(if $(FCITX5_FOUND),$(FCITX5_ADDON))
+
+fcitx5: $(FCITX5_ADDON)
+
+# C++20: newer Fcitx5 headers need it (std::span in 5.1.23); older ones
+# build either way.
+$(FCITX5_ADDON): $(FCITX5_SOURCES) linux/fcitx5/*.h linux/Common.h linux/Cloud.h \
+		engine/*.h $(ENGINE)
+	$(CXX) $(CXXFLAGS) -std=c++20 -fPIC -shared \
+		$$($(PKG_CONFIG) --cflags $(FCITX5_MODULES)) \
+		-DHP_DATADIR='"$(DATADIR)"' $(FCITX5_SOURCES) $(ENGINE) \
+		$$($(PKG_CONFIG) --libs $(FCITX5_MODULES)) -pthread $(LDFLAGS) \
+		-Wl,--no-undefined -Wl,--exclude-libs,ALL -o $@
+
+install-fcitx5: $(FCITX5_ADDON) data
+	install -Dm755 $(FCITX5_ADDON) $(DESTDIR)$(FCITX5_ADDONDIR)/libhaiku-pinyin.so
+	install -d $(DESTDIR)$(DATADIR)
+	install -m644 build/data/* linux/icon.svg $(DESTDIR)$(DATADIR)
+	install -Dm644 linux/icon.svg $(DESTDIR)$(ICONDIR)/scalable/apps/haiku-pinyin.svg
+	install -d $(DESTDIR)$(FCITX5_DATADIR)/addon $(DESTDIR)$(FCITX5_DATADIR)/inputmethod
+	sed -e 's|@VERSION@|$(VERSION)|g' linux/fcitx5/addon.conf.in \
+		> $(DESTDIR)$(FCITX5_DATADIR)/addon/haiku-pinyin.conf
+	install -m644 linux/fcitx5/inputmethod.conf \
+		$(DESTDIR)$(FCITX5_DATADIR)/inputmethod/haiku-pinyin.conf
+	@echo "Installed. Restart Fcitx5 (fcitx5 -r) and add 海酷拼音 Haiku Pinyin"
+	@echo "in fcitx5-configtool (Input Method > Chinese)."
+
+uninstall-fcitx5:
+	rm -f $(DESTDIR)$(FCITX5_ADDONDIR)/libhaiku-pinyin.so \
+		$(DESTDIR)$(FCITX5_DATADIR)/addon/haiku-pinyin.conf \
+		$(DESTDIR)$(FCITX5_DATADIR)/inputmethod/haiku-pinyin.conf \
+		$(DESTDIR)$(ICONDIR)/scalable/apps/haiku-pinyin.svg
+	rm -rf $(DESTDIR)$(DATADIR)
+
+clean: clean-fcitx5
+clean-fcitx5:
+	rm -f $(FCITX5_ADDON)
+
+# Packages for other distributions, built in Docker (linux-deb, below, makes
+# the Debian/Ubuntu ones, the Fcitx5 addon's among them).
+#   make linux-sources   dist/haiku-pinyin-data-<v>.tar.xz, a release asset
+#                        the Arch and Fedora packages build from
+#   make linux-arch      dist/arch/: PKGBUILD and .SRCINFO for the AUR, and
+#                        the packages, installed and checked in a container
+#   make linux-rpm       dist/fedora/: the spec, source rpm and rpms, the same
+linux-sources: data
+	linux/sources.sh
+
+linux-arch: data
+	linux/arch.sh
+
+linux-rpm: data
+	linux/rpm.sh
+
+.PHONY: fcitx5 install-fcitx5 uninstall-fcitx5 clean-fcitx5 linux-sources \
+	linux-arch linux-rpm
 
 # The app bundle builds with clang and swiftc from a script: two
 # architectures, Settings.swift, the data inside, signing.
