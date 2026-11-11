@@ -35,10 +35,6 @@ void UpdateProperties(IBusEngine* engine, bool changed = false);
 // A menu item was chosen.
 void PropertyActivate(IBusEngine* engine, const gchar* name, guint state);
 
-// Words.cpp: the 词库 menu (custom phrases, import, export) and its items.
-void AppendWordsMenu(IBusPropList* list);
-bool WordsActivate(const std::string& property);
-
 // main.cpp
 // Asks the cloud about the composition, on the side.
 void AskCloud();

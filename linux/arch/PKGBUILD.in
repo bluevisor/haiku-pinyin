@@ -46,7 +46,11 @@ package_haiku-pinyin-data() {
 package_ibus-haiku-pinyin() {
 	pkgdesc='海酷拼音 Haiku Pinyin, a Chinese pinyin and shuangpin input method for IBus'
 	depends=(ibus glib2 gcc-libs glibc "haiku-pinyin-data=$pkgver")
-	optdepends=('curl: cloud candidates (云候选), when turned on')
+	optdepends=('curl: cloud candidates (云候选), when turned on'
+		'zenity: file dialogs for 导入 / 导出 (or kdialog)'
+		'kdialog: file dialogs for 导入 / 导出 (or zenity)'
+		'libnotify: what 导入 / 导出 did, as a notification'
+		'xdg-utils: opening the custom phrases file')
 	cd "$pkgbase-$pkgver"
 	make install-ibus DESTDIR="$pkgdir" PREFIX=/usr LIBEXECDIR=/usr/lib/ibus
 	rm -r "$pkgdir/usr/share/haiku-pinyin"	# in haiku-pinyin-data
@@ -56,7 +60,11 @@ package_ibus-haiku-pinyin() {
 package_fcitx5-haiku-pinyin() {
 	pkgdesc='海酷拼音 Haiku Pinyin, a Chinese pinyin and shuangpin input method for Fcitx5'
 	depends=(fcitx5 gcc-libs glibc "haiku-pinyin-data=$pkgver")
-	optdepends=('curl: cloud candidates (云候选), when turned on')
+	optdepends=('curl: cloud candidates (云候选), when turned on'
+		'zenity: file dialogs for 导入 / 导出 (or kdialog)'
+		'kdialog: file dialogs for 导入 / 导出 (or zenity)'
+		'libnotify: what 导入 / 导出 did, as a notification'
+		'xdg-utils: opening the custom phrases file')
 	cd "$pkgbase-$pkgver"
 	make install-fcitx5 DESTDIR="$pkgdir" PREFIX=/usr
 	rm -r "$pkgdir/usr/share/haiku-pinyin" "$pkgdir/usr/share/icons"	# in haiku-pinyin-data

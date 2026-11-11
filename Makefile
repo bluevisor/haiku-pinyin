@@ -117,7 +117,8 @@ uninstall-ibus:
 FCITX5_MODULES := Fcitx5Core Fcitx5Config Fcitx5Utils
 FCITX5_FOUND := $(if $(LINUX),$(shell $(PKG_CONFIG) --exists $(FCITX5_MODULES) && echo yes))
 FCITX5_ADDON := $(BUILD)/libhaiku-pinyin.so
-FCITX5_SOURCES := linux/fcitx5/HaikuPinyin.cpp linux/Common.cpp linux/Cloud.cpp
+FCITX5_SOURCES := linux/fcitx5/HaikuPinyin.cpp linux/Common.cpp linux/Cloud.cpp \
+	linux/Words.cpp
 # Fcitx5 loads addons only from its own directory (or $$FCITX_ADDON_DIRS).
 FCITX5_ADDONDIR ?= $(shell $(PKG_CONFIG) --variable=libdir Fcitx5Core)/fcitx5
 FCITX5_DATADIR ?= $(PREFIX)/share/fcitx5
@@ -130,7 +131,7 @@ fcitx5: $(FCITX5_ADDON)
 # C++20: newer Fcitx5 headers need it (std::span in 5.1.23); older ones
 # build either way.
 $(FCITX5_ADDON): $(FCITX5_SOURCES) linux/fcitx5/*.h linux/Common.h linux/Cloud.h \
-		engine/*.h $(ENGINE)
+		linux/Words.h engine/*.h $(ENGINE)
 	$(CXX) $(CXXFLAGS) -std=c++20 -fPIC -shared \
 		$$($(PKG_CONFIG) --cflags $(FCITX5_MODULES)) \
 		-DHP_DATADIR='"$(DATADIR)"' $(FCITX5_SOURCES) $(ENGINE) \

@@ -272,8 +272,8 @@ by default nothing you type leaves the machine.
 
 `phrases.txt`, next to `user.dict`, maps a code to text: type the code and the
 text is offered at the position you chose, several per code if you like. Open
-it from 自定义短语 in the settings window (Mac), the 词库 menu in the top bar
-(Linux) or the Deskbar menu (Haiku); it's made with a commented example the
+it from 自定义短语 in the settings window (Mac), the 词库 menu (Linux: in the
+top bar with IBus, in the tray with Fcitx5) or the Deskbar menu (Haiku); it's made with a commented example the
 first time. Changes take effect as soon as it's saved.
 
 ```
@@ -319,7 +319,7 @@ refused with how to convert them (`iconv -f GBK -t UTF-8`,
 `plutil -convert xml1`). Sogou's `.bin` and `.scel` files aren't read.
 
 On the Mac, 导入… / 导出… are in the settings window; on Linux in the 词库
-menu (with zenity's file dialogs); on Haiku in the Deskbar menu (Tracker's
+menu (with zenity's or kdialog's file dialogs); on Haiku in the Deskbar menu (Tracker's
 file panels). Anywhere, from a build: `build/hpcli export words.txt`,
 `build/hpcli import file` (on this system's `user.dict`, or `--user FILE`).
 A running input method takes up the change as the next composition starts.
@@ -331,8 +331,8 @@ A running input method takes up the change as the next composition starts.
 | `engine/` | Portable C++17 engine: lexicon, syllable graph (full pinyin, shuangpin, 模糊音), bigram beam-search decoder, user dictionary, custom phrases (`Phrases`), word import and export (`Words`), S→T converter; the questions and answers for cloud and AI candidates |
 | `haiku/` | input_server method add-on and candidate window |
 | `macos/` | InputMethodKit method (`InputController.mm`), AI helper client (`AI.mm`) and the helper itself (`ai/`, Swift + MLX), settings window and 中/英 bubble (`Settings.swift`), candidate window and gray AI completion (`Candidates.swift`), self-update (`Updater.swift`), model download (`Models.swift`), custom phrases, import and export (`Words.swift`, `Words.mm`), `build.sh`, `install.sh`, `release.sh` (signed, notarized zip, DMG and `.pkg` (`pkg.sh`, `pkg/`) and `latest.json`; `ai/upload-models.sh` puts the models on Hugging Face); dev only: `test-session.sh` types through it in a test window (full pinyin, shuangpin, then AI when its models are installed), `snapshot-settings.swift` renders the settings window and bubble to PNG |
-| `linux/` | IBus engine (`main.cpp`; its settings and top-bar menu in `Settings.cpp`), component file, installers (`enable.sh`, `install-user.sh`); the 词库 menu (`Words.cpp`); what it shares with the Fcitx5 addon: settings, data and user dictionary (`Common.cpp`), cloud candidates (`Cloud.cpp`); packages, built in Docker: `deb.sh` (`make linux-deb`: IBus and Fcitx5 .debs for arm64 and amd64, and `haiku-pinyin-data`, which adds the apt repository, `haiku-pinyin.sources`), `arch/PKGBUILD.in` and `arch.sh` (`make linux-arch`), `fedora/haiku-pinyin.spec.in` and `rpm.sh` (`make linux-rpm`), `sources.sh` (the data tarball those two build from, `make linux-sources`), `check-install.sh` (are the files where IBus and Fcitx5 look); dev only: `sync.sh` builds on a Linux box over ssh, `test-session.sh` types through gedit with xdotool |
-| `linux/fcitx5/` | Fcitx5 addon (`HaikuPinyin.cpp`: the engine, candidate window, 中/英, settings for Fcitx5's configuration tool), addon and input method `.conf` files; dev only: `docker-test.sh` types through it under Xvfb in Docker (`test-session.sh`, `textview.py`) |
+| `linux/` | IBus engine (`main.cpp`; its settings and top-bar menu in `Settings.cpp`), component file, installers (`enable.sh`, `install-user.sh`); what it shares with the Fcitx5 addon: settings, data, user dictionary and custom phrases (`Common.cpp`), cloud candidates (`Cloud.cpp`), the 词库 menu (`Words.cpp`); packages, built in Docker: `deb.sh` (`make linux-deb`: IBus and Fcitx5 .debs for arm64 and amd64, and `haiku-pinyin-data`, which adds the apt repository, `haiku-pinyin.sources`), `arch/PKGBUILD.in` and `arch.sh` (`make linux-arch`), `fedora/haiku-pinyin.spec.in` and `rpm.sh` (`make linux-rpm`), `sources.sh` (the data tarball those two build from, `make linux-sources`), `check-install.sh` (are the files where IBus and Fcitx5 look); dev only: `sync.sh` builds on a Linux box over ssh, `test-session.sh` types through gedit with xdotool |
+| `linux/fcitx5/` | Fcitx5 addon (`HaikuPinyin.cpp`: the engine, candidate window, 中/英, the 词库 menu in the tray, settings for Fcitx5's configuration tool), addon and input method `.conf` files; dev only: `docker-test.sh` types through it under Xvfb in Docker (`test-session.sh`, `textview.py`, and `panel.py`, which picks tray menu items as KDE's panel does) |
 | `cli/hpcli.cpp` | Drive the engine from a terminal: `echo nihao \| build/hpcli --layout pyjj`; `hpcli import`, `hpcli export` |
 | `tests/` | Engine tests |
 | `tools/build_data.py` | Builds `build/data/` from `sources/` |

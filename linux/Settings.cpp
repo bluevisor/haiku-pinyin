@@ -3,9 +3,11 @@
 
 #include <cstdlib>
 #include <cstring>
+#include <functional>
 #include <string>
 
 #include "Shared.h"
+#include "Words.h"
 
 
 static const struct {
@@ -69,6 +71,28 @@ EnsureLoaded()
 	sShared->engine.SetOptions(sShared->savedOptions);
 	sShared->engine.SetChinese(sShared->savedChinese);
 	return true;
+}
+
+
+// The 词库 menu's work, done on the main loop.
+static WordsMenu&
+Words()
+{
+	static WordsMenu sWords([](std::function<void()> work) {
+		g_idle_add([](gpointer data) {
+			auto* work = static_cast<std::function<void()>*>(data);
+			(*work)();
+			delete work;
+			return G_SOURCE_REMOVE;
+		}, new std::function<void()>(std::move(work)));
+	}, []() -> haikupinyin::Engine* {
+		if (!EnsureLoaded())
+			return nullptr;
+		if (sShared->last != nullptr)
+			Cancel(sShared->last);
+		return &sShared->engine;
+	});
+	return sWords;
 }
 
 
@@ -163,7 +187,14 @@ BuildProperties()
 	ibus_prop_list_append(list, NewProperty("page", PROP_TYPE_MENU,
 		("每页 " + std::to_string(options.pageSize) + " 个候选").c_str(),
 		false, sizes));
-	AppendWordsMenu(list);
+
+	IBusPropList* words = ibus_prop_list_new();
+	for (const WordsItem& item : kWordsItems) {
+		ibus_prop_list_append(words, NewProperty(item.key, PROP_TYPE_NORMAL,
+			item.label));
+	}
+	ibus_prop_list_append(list, NewProperty("words", PROP_TYPE_MENU,
+		kWordsLabel, false, words));
 	return list;
 }
 
@@ -215,7 +246,7 @@ PropertyActivate(IBusEngine* engine, const gchar* name, guint state)
 		ToggleChinese(engine);
 		return;
 	}
-	if (WordsActivate(property))
+	if (Words().Activate(property))
 		return;
 	// Radio items are also activated as they're unchecked.
 	bool radio = property.rfind("layout.", 0) == 0

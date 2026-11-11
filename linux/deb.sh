@@ -120,7 +120,7 @@ EOF
 		deps=$(depends $root/usr/libexec/ibus-engine-haiku-pinyin)
 		package haiku-pinyin $ARCH usr/libexec usr/share/ibus usr/bin <<EOF
 Depends: ibus, haiku-pinyin-data (= $VERSION), $deps
-Recommends: curl, ca-certificates, zenity, libnotify-bin
+Recommends: curl, ca-certificates, xdg-utils, zenity, libnotify-bin
 Description: 海酷拼音 Haiku Pinyin, a Chinese input method for IBus
  $features
  After installing, run haiku-pinyin-enable once as yourself (GNOME), or
@@ -137,7 +137,7 @@ EOF
 		deps=$(depends $root/$addon)
 		package fcitx5-haiku-pinyin $ARCH $(dirname $addon) usr/share/fcitx5 <<EOF
 Depends: fcitx5, haiku-pinyin-data (= $VERSION), $deps
-Recommends: curl, ca-certificates
+Recommends: curl, ca-certificates, xdg-utils, zenity | kdialog, libnotify-bin
 Description: 海酷拼音 Haiku Pinyin, a Chinese input method for Fcitx5
  $features
  After installing, restart Fcitx5 and add 海酷拼音 Haiku Pinyin in

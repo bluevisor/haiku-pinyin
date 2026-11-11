@@ -20,16 +20,17 @@ to the version.
   `ibus-haiku-pinyin`, `fcitx5-haiku-pinyin` and `haiku-pinyin-data`.
 - **Linux**: 云候选 keeps up with fast typing. An answer that came back after
   you'd typed on was dropped, and what you'd typed since was never asked.
-- **Custom phrases (自定义短语)**, on macOS, Linux and Haiku: `phrases.txt`
-  next to the learned words maps a code to text (`dz,1=` your address), at
-  the place among the candidates you choose, several per code, in full
-  pinyin and shuangpin alike. Sogou's `PhraseEdit.txt` and Rime's
+- **Custom phrases (自定义短语)**, on macOS, Linux (IBus and Fcitx5) and
+  Haiku: `phrases.txt` next to the learned words maps a code to text
+  (`dz,1=` your address), at the place among the candidates you choose,
+  several per code, in full pinyin and shuangpin alike. Sogou's `PhraseEdit.txt` and Rime's
   `custom_phrase.txt` work as they are. It's read again when you save it.
 - **Import and export words**: 导出 writes what it learned as text; 导入
   reads that back, Rime's user dictionaries, Sogou's exported words and
   custom phrases, and the Mac's text replacements, merging with what's
-  there. In the Mac's settings, the 词库 menu on Linux, the Deskbar menu on
-  Haiku, and `hpcli import` / `hpcli export`.
+  there. In the Mac's settings, the 词库 menu on Linux (the top bar with
+  IBus, the tray with Fcitx5), the Deskbar menu on Haiku, and
+  `hpcli import` / `hpcli export`.
 - **Haiku**: the shuangpin a o e choices in the Deskbar menu now take effect.
 - **macOS**: the settings window, the 中/英 bubble, model downloads and
   update messages follow the system's language, as the input menu does:
