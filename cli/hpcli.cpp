@@ -8,15 +8,128 @@
 //         [--lines 1]     each line typed afresh: keys, then its candidates,
 //                         tab-separated; "<text before>\t<keys>" sets the
 //                         context first
+//
+//   hpcli export FILE [--user FILE] [--data DIR]
+//   hpcli import FILE [--user FILE] [--data DIR]
+//         the learned words out to a text file, or words and phrases in
+//         (ours, Sogou's, Rime's, the Mac's text replacements). --user
+//         defaults to this system's user.dict, phrases.txt beside it; a
+//         running input method picks up the change by itself.
 
 #include <cstdio>
+#include <cstdlib>
 #include <cstring>
 #include <iostream>
 #include <string>
 
+#include <sys/stat.h>
+
 #include "../engine/Engine.h"
 
 using namespace haikupinyin;
+
+
+static bool
+Exists(const std::string& path)
+{
+	struct stat info;
+	return stat(path.c_str(), &info) == 0;
+}
+
+
+// Where the input method on this system keeps user.dict.
+static std::string
+DefaultUserDictionary()
+{
+	std::string home = getenv("HOME") != nullptr ? getenv("HOME") : ".";
+#if defined(__APPLE__)
+	std::string folder = home + "/Library/Application Support/HaikuPinyin";
+#elif defined(__HAIKU__)
+	std::string folder = home + "/config/settings/HaikuPinyin";
+#else
+	const char* config = getenv("XDG_CONFIG_HOME");
+	std::string folder = (config != nullptr && config[0] != '\0'
+		? std::string(config) : home + "/.config") + "/haiku-pinyin";
+#endif
+	mkdir(folder.c_str(), 0755);
+	return folder + "/user.dict";
+}
+
+
+// build/data, else where this system's input method has its data.
+static std::string
+DefaultData()
+{
+	std::string home = getenv("HOME") != nullptr ? getenv("HOME") : ".";
+	const std::string places[] = {
+		"build/data",
+#if defined(__APPLE__)
+		home + "/Library/Input Methods/HaikuPinyin.app/Contents/Resources/data",
+#elif defined(__HAIKU__)
+		home + "/config/non-packaged/data/haiku-pinyin",
+		home + "/config/data/haiku-pinyin",
+		"/boot/system/non-packaged/data/haiku-pinyin",
+		"/boot/system/data/haiku-pinyin",
+#else
+		home + "/.local/share/haiku-pinyin",
+		"/usr/local/share/haiku-pinyin",
+		"/usr/share/haiku-pinyin",
+#endif
+	};
+	for (const std::string& place : places) {
+		if (Exists(place + "/pinyin.dict"))
+			return place;
+	}
+	return "build/data";
+}
+
+
+static int
+ImportOrExport(int argc, char** argv)
+{
+	std::string command = argv[1], file = argv[2], data, user;
+	for (int i = 3; i + 1 < argc; i += 2) {
+		std::string flag = argv[i];
+		if (flag == "--data")
+			data = argv[i + 1];
+		else if (flag == "--user")
+			user = argv[i + 1];
+		else {
+			fprintf(stderr, "unknown option %s\n", flag.c_str());
+			return 1;
+		}
+	}
+	Engine engine;
+	std::string error;
+	if (!engine.Load(data.empty() ? DefaultData() : data, &error)) {
+		fprintf(stderr, "%s\n", error.c_str());
+		return 1;
+	}
+	engine.SetUserDictionary(user.empty() ? DefaultUserDictionary() : user);
+
+	if (command == "export") {
+		int count = 0;
+		if (!engine.ExportWords(file, &count)) {
+			fprintf(stderr, "can't write %s\n", file.c_str());
+			return 1;
+		}
+		printf("%d words to %s\n", count, file.c_str());
+		return 0;
+	}
+	Engine::ImportResult result = engine.ImportWords(file);
+	if (!result.error.empty()) {
+		fprintf(stderr, "%s\n", result.error.c_str());
+		return 1;
+	}
+	if (result.format.empty()) {
+		fprintf(stderr, "nothing to import in %s\n", file.c_str());
+		return 1;
+	}
+	printf("%s: %d words, %d phrases (%s), %d skipped\n",
+		result.format.c_str(), result.words, result.phrases,
+		engine.PhrasesFile().c_str(), result.skipped);
+	return 0;
+}
 
 
 static void
@@ -91,6 +204,11 @@ Feed(Engine& engine, const std::string& line)
 int
 main(int argc, char** argv)
 {
+	if (argc >= 3 && (strcmp(argv[1], "export") == 0
+			|| strcmp(argv[1], "import") == 0)) {
+		return ImportOrExport(argc, argv);
+	}
+
 	std::string data = "build/data", user;
 	bool lines = false;
 	Options options;

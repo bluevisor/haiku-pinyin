@@ -39,7 +39,7 @@ FileStamp::operator==(const FileStamp& other) const
 }
 
 
-static void
+void
 AppendUtf8(std::string& out, char32_t c)
 {
 	if (c < 0x80)
@@ -148,9 +148,10 @@ Lower(std::string text)
 }
 
 
-// "code,position=text": Sogou's PhraseEdit.txt. False when it isn't one.
-static bool
-ParseSogou(const std::string& line, Phrases::Phrase& phrase)
+// "code,position=text": Sogou's PhraseEdit.txt. False when it isn't one; an
+// empty text starts a phrase of several lines.
+bool
+Phrases::ParseSogou(const std::string& line, Phrase& phrase)
 {
 	size_t comma = line.find(',');
 	size_t equals = line.find('=');
@@ -165,12 +166,14 @@ ParseSogou(const std::string& line, Phrases::Phrase& phrase)
 	}
 	phrase.code = Lower(line.substr(0, comma));
 	phrase.position = std::max(1, atoi(position.c_str()));
+	phrase.weight = 0;
 	phrase.text = line.substr(equals + 1);
-	return Phrases::ValidCode(phrase.code);
+	return ValidCode(phrase.code);
 }
 
 
 // "text<Tab>code<Tab>weight", the weight optional: Rime's custom_phrase.txt.
+// Its codes may spell syllables apart: "yi ge".
 static bool
 ParseRime(const std::string& line, Phrases::Phrase& phrase)
 {
@@ -179,8 +182,10 @@ ParseRime(const std::string& line, Phrases::Phrase& phrase)
 		return false;
 	size_t next = line.find('\t', tab + 1);
 	phrase.text = line.substr(0, tab);
-	phrase.code = Lower(line.substr(tab + 1,
-		next == std::string::npos ? std::string::npos : next - tab - 1));
+	std::string code = line.substr(tab + 1,
+		next == std::string::npos ? std::string::npos : next - tab - 1);
+	code.erase(std::remove(code.begin(), code.end(), ' '), code.end());
+	phrase.code = Lower(code);
 	phrase.position = 1;
 	phrase.weight = next == std::string::npos ? 0
 		: atoi(line.c_str() + next + 1);
@@ -188,24 +193,74 @@ ParseRime(const std::string& line, Phrases::Phrase& phrase)
 }
 
 
-void
-Phrases::Parse(const std::string& bytes)
+std::vector<Phrases::Phrase>
+Phrases::Read(const std::string& bytes, int* ignored)
 {
-	fPhrases.clear();
+	std::vector<Phrase> phrases;
+	int skipped = 0;
+	bool comments = true;
+	bool open = false;		// in a phrase of several lines
+	auto close = [&]() {
+		if (!open)
+			return;
+		open = false;
+		std::string& text = phrases.back().text;
+		while (!text.empty() && text.back() == '\n')
+			text.pop_back();
+		if (text.empty()) {
+			phrases.pop_back();
+			skipped++;
+		}
+	};
 	std::istringstream lines(DecodeText(bytes));
 	std::string line;
 	while (std::getline(lines, line)) {
 		if (!line.empty() && line.back() == '\r')
 			line.pop_back();
-		if (line.empty() || line[0] == '#' || line[0] == ';')
+		// Rime's switch: from here on, # starts text.
+		if (line == "# no comment") {
+			comments = false;
 			continue;
-		Phrase phrase;
-		bool tabbed = line.find('\t') != std::string::npos;
-		if (tabbed ? ParseRime(line, phrase) : ParseSogou(line, phrase)) {
-			if (!phrase.text.empty())
-				fPhrases.push_back(std::move(phrase));
 		}
+		Phrase phrase;
+		bool sogou = ParseSogou(line, phrase);
+		if (open && !sogou) {
+			std::string& text = phrases.back().text;
+			if (line.empty() || line[0] != ';')
+				text += (text.empty() ? "" : "\n") + line;
+			continue;
+		}
+		close();
+		if (line.empty() || line[0] == ';' || (comments && line[0] == '#'))
+			continue;
+		if (sogou) {
+			// Sogou's date and time functions (#$year…) aren't offered.
+			if (!phrase.text.empty() && phrase.text[0] == '#')
+				skipped++;
+			else {
+				open = phrase.text.empty();
+				phrases.push_back(std::move(phrase));
+			}
+			continue;
+		}
+		while (!line.empty() && (line.back() == ' ' || line.back() == '\t'))
+			line.pop_back();
+		if (ParseRime(line, phrase))
+			phrases.push_back(std::move(phrase));
+		else
+			skipped++;
 	}
+	close();
+	if (ignored != nullptr)
+		*ignored = skipped;
+	return phrases;
+}
+
+
+void
+Phrases::Parse(const std::string& bytes)
+{
+	fPhrases = Read(bytes);
 	std::stable_sort(fPhrases.begin(), fPhrases.end(),
 		[](const Phrase& a, const Phrase& b) {
 			if (a.code != b.code)
@@ -287,9 +342,14 @@ Phrases::Append(const std::vector<Phrase>& phrases)
 		file << text;
 	if (!text.empty() && text.back() != '\n')
 		file << '\n';
-	for (const Phrase& phrase : phrases) {
-		file << phrase.code << ',' << phrase.position << '=' << phrase.text
-			<< '\n';
+	// Rime's weights become file order.
+	std::vector<Phrase> sorted = phrases;
+	std::stable_sort(sorted.begin(), sorted.end(),
+		[](const Phrase& a, const Phrase& b) { return a.weight > b.weight; });
+	for (const Phrase& phrase : sorted) {
+		bool lines = phrase.text.find('\n') != std::string::npos;
+		file << phrase.code << ',' << phrase.position << '='
+			<< (lines ? "\n" : "") << phrase.text << '\n';
 	}
 	if (!file.flush())
 		return false;

@@ -1,9 +1,11 @@
 #include "Engine.h"
 #include "VMode.h"
+#include "Words.h"
 
 #include <algorithm>
 #include <cstring>
 #include <fstream>
+#include <set>
 #include <sstream>
 
 namespace haikupinyin {
@@ -90,6 +92,7 @@ Engine::SetUserDictionary(const std::string& path)
 {
 	fUserPath = path;
 	fUser.Load(path, fLexicon.GetSyllables());
+	fUserStamp = FileStamp::Of(path);
 	size_t slash = path.rfind('/');
 	SetPhrasesFile((slash == std::string::npos ? std::string()
 		: path.substr(0, slash + 1)) + "phrases.txt");
@@ -101,6 +104,27 @@ void
 Engine::_Refresh()
 {
 	fPhrases.Refresh();
+	_RefreshUser();
+}
+
+
+// The user dictionary changed on disk (an import, hpcli): read it again,
+// keeping what was learned here since the last save.
+void
+Engine::_RefreshUser()
+{
+	if (fUserPath.empty())
+		return;
+	FileStamp stamp = FileStamp::Of(fUserPath);
+	if (stamp == fUserStamp)
+		return;
+	fUserStamp = stamp;
+	UserDict disk;
+	if (!disk.Load(fUserPath, fLexicon.GetSyllables()))
+		return;
+	if (fUser.Dirty())
+		disk.Merge(fUser);
+	fUser = std::move(disk);
 }
 
 
@@ -108,9 +132,106 @@ bool
 Engine::SaveUserDictionary()
 {
 	fUnsaved = 0;
-	if (fUserPath.empty() || !fUser.Dirty())
+	if (fUserPath.empty())
 		return true;
-	return fUser.Save(fUserPath, fLexicon.GetSyllables());
+	_RefreshUser();
+	if (!fUser.Dirty())
+		return true;
+	if (!fUser.Save(fUserPath, fLexicon.GetSyllables()))
+		return false;
+	fUserStamp = FileStamp::Of(fUserPath);
+	return true;
+}
+
+
+bool
+Engine::ExportWords(const std::string& path, int* count)
+{
+	_RefreshUser();
+	return WriteWordFile(path, fUser, fLexicon.GetSyllables(), count);
+}
+
+
+Engine::ImportResult
+Engine::ImportWords(const std::string& path)
+{
+	ImportResult result;
+	std::ifstream input(path, std::ios::binary);
+	std::ostringstream contents;
+	if (!input) {
+		result.error = "读不了 " + path;
+		return result;
+	}
+	contents << input.rdbuf();
+	_RefreshUser();
+	WordFile file = ReadWordFile(contents.str(), fLexicon.GetSyllables());
+	result.format = file.format;
+	result.skipped = file.skipped;
+	result.error = file.error;
+	if (!result.error.empty())
+		return result;
+	for (const ResolvedWord& word
+			: ResolveWords(fLexicon, file.words, &result.skipped)) {
+		fUser.Merge(word.key, word.text, word.cost, word.count);
+		result.words++;
+	}
+
+	// Phrases go at the end of the phrases file, unless they're there.
+	fPhrases.Refresh();
+	std::vector<Phrases::Phrase> added;
+	std::set<std::string> known;
+	for (const Phrases::Phrase& phrase : file.phrases) {
+		bool there = !known.insert(phrase.code + '\t' + phrase.text).second;
+		for (const Phrases::Phrase& existing : fPhrases.Find(phrase.code))
+			there = there || existing.text == phrase.text;
+		if (!there)
+			added.push_back(phrase);
+	}
+	if (!added.empty() && !fPhrases.Append(added))
+		result.skipped += int(file.phrases.size());
+	else
+		result.phrases = int(file.phrases.size());
+
+	if (!SaveUserDictionary()) {
+		result.error = "存不了 " + fUserPath;
+		result.words = 0;
+	}
+	return result;
+}
+
+
+std::string
+Engine::ImportResult::Summary() const
+{
+	if (!error.empty())
+		return "没能导入：" + error;
+	if (format.empty() || (words == 0 && phrases == 0))
+		return "文件里没有能导入的词或短语。";
+	static const struct { const char* format; const char* name; } kNames[] = {
+		{"Haiku Pinyin", "海酷拼音"},
+		{"Sogou", "搜狗词库"},
+		{"Sogou custom phrases", "搜狗自定义短语"},
+		{"Rime user dictionary", "Rime 用户词典"},
+		{"Rime custom phrases", "Rime 自定义短语"},
+		{"text replacements", "Mac 文本替换"},
+		{"mixed", "几种格式"},
+	};
+	std::string name = format;
+	for (const auto& known : kNames) {
+		if (format == known.format)
+			name = known.name;
+	}
+	std::string summary = "导入了";
+	if (words > 0)
+		summary += " " + std::to_string(words) + " 个词";
+	if (words > 0 && phrases > 0)
+		summary += "、";
+	if (phrases > 0)
+		summary += " " + std::to_string(phrases) + " 条短语";
+	summary += "（" + name + "）";
+	if (skipped > 0)
+		summary += "，跳过 " + std::to_string(skipped) + " 条";
+	return summary + "。";
 }
 
 
@@ -952,10 +1073,33 @@ Engine::PageCandidates() const
 	for (size_t i = first;
 			i < fCandidates.size() && i < first + fOptions.pageSize; i++) {
 		const Candidate& candidate = fCandidates[i];
-		page.push_back(candidate.phrase ? candidate.text
+		page.push_back(candidate.phrase ? PhraseLabel(candidate.text)
 			: _Convert(candidate.text));
 	}
 	return page;
+}
+
+
+// A custom phrase as the candidate window shows it: on one line, ⏎ for
+// its line breaks, and cut short when it's long.
+std::string
+Engine::PhraseLabel(const std::string& text)
+{
+	static const size_t kLongest = 24;	// characters
+	std::string label;
+	size_t characters = 0;
+	for (size_t i = 0; i < text.size(); i++) {
+		unsigned char c = text[i];
+		if ((c & 0xc0) != 0x80 && ++characters > kLongest) {
+			label += "…";
+			break;
+		}
+		if (c == '\n')
+			label += "⏎";
+		else if (c != '\r')
+			label += char(c);
+	}
+	return label;
 }
 
 

@@ -86,6 +86,21 @@ public:
 	const std::string& PhrasesFile() const { return fPhrases.Path(); }
 	Phrases& CustomPhrases() { return fPhrases; }
 
+	// The learned words out to a text file (词<Tab>pin yin<Tab>count), and
+	// words and phrases in from that or another input method's files
+	// (Words.h): merged with what's there, the higher count winning, and
+	// saved. Phrases go into the phrases file.
+	struct ImportResult {
+		std::string format;		// what the file was read as; "": nothing
+		int words = 0;
+		int phrases = 0;
+		int skipped = 0;		// entries it couldn't use
+		std::string error;		// the file couldn't be read or saved
+
+		std::string Summary() const;	// in Chinese, for the front ends
+	};
+	bool ExportWords(const std::string& path, int* count = nullptr);
+	ImportResult ImportWords(const std::string& path);
 
 	const Options& GetOptions() const { return fOptions; }
 	void SetOptions(const Options& options);
@@ -123,8 +138,10 @@ public:
 	size_t PickedLength() const;
 	std::string Spelled() const { return fSpelled; }
 
-	// Candidates on the current page, in the chosen script.
+	// Candidates on the current page, in the chosen script; custom phrases
+	// as written, on one line (PhraseLabel()).
 	std::vector<std::string> PageCandidates() const;
+	static std::string PhraseLabel(const std::string& text);
 	int Highlighted() const { return fHighlight % fOptions.pageSize; }
 	int Page() const { return fHighlight / fOptions.pageSize; }
 	bool HasPreviousPage() const { return Page() > 0; }
@@ -190,6 +207,7 @@ private:
 	void _AddEnglish();
 	void _PlacePhrases();
 	void _Refresh();
+	void _RefreshUser();
 	void _Select(const Candidate& candidate);
 	void _Finish(const std::string& tail);
 	void _Move(int delta);
@@ -205,6 +223,7 @@ private:
 	std::unordered_map<std::string, std::vector<std::string>> fEmoji;
 	UserDict fUser;
 	std::string fUserPath;
+	FileStamp fUserStamp;		// of the user dictionary, as last read or saved
 	Phrases fPhrases;
 	int fUnsaved = 0;
 	Bigram fBigram;

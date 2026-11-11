@@ -23,6 +23,7 @@ struct FileStamp {
 
 // Text in UTF-8, from UTF-8 (BOM or not) or UTF-16 with a BOM.
 std::string DecodeText(const std::string& bytes);
+void AppendUtf8(std::string& out, char32_t c);
 
 
 class Phrases {
@@ -42,9 +43,15 @@ public:
 
 	// The file's text: lines are "code,position=text" (Sogou's) or
 	// "text<Tab>code<Tab>weight" (Rime's custom_phrase.txt, at position 1);
-	// # and ; start comments; anything else is ignored.
+	// # and ; start comments; anything else is ignored. "code,position="
+	// alone takes the lines after it, up to the next such line.
 	void Parse(const std::string& text);
 	size_t Size() const { return fPhrases.size(); }
+	// The same, as a list in file order; ignored counts the lines that
+	// were neither.
+	static std::vector<Phrase> Read(const std::string& text,
+		int* ignored = nullptr);
+	static bool ParseSogou(const std::string& line, Phrase& phrase);
 
 	// The phrases for exactly this code, by position.
 	std::vector<Phrase> Find(const std::string& code) const;

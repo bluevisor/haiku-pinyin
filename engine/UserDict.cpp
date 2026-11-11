@@ -72,6 +72,40 @@ UserDict::Forget(const std::vector<SyllableId>& key, const std::string& text)
 
 
 bool
+UserDict::Merge(const std::vector<SyllableId>& key, const std::string& text,
+	float cost, uint32_t count)
+{
+	if (key.empty() || text.empty() || count == 0)
+		return false;
+	auto found = _Find(key, text);
+	if (found != fWords.end() && found->key == key && found->text == text) {
+		if (found->count >= count && found->cost <= cost)
+			return false;
+		found->count = std::max(found->count, count);
+		found->cost = std::min(found->cost, cost);
+	} else
+		fWords.insert(found, Word{key, text, cost, count, ++fClock});
+	fDirty = true;
+	return true;
+}
+
+
+void
+UserDict::Merge(const UserDict& other)
+{
+	for (const Word& word : other.fWords) {
+		Merge(word.key, word.text, word.cost, word.count);
+		auto found = _Find(word.key, word.text);
+		if (found != fWords.end() && found->key == word.key
+			&& found->text == word.text) {
+			found->lastUsed = std::max(found->lastUsed, word.lastUsed);
+		}
+	}
+	fClock = std::max(fClock, other.fClock);
+}
+
+
+bool
 UserDict::Load(const std::string& path, const Syllables& syllables)
 {
 	std::ifstream file(path);
