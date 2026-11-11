@@ -1,0 +1,63 @@
+# Maintainer: John Zheng <bluevisor@gmail.com>
+# 海酷拼音 Haiku Pinyin. linux/arch.sh fills in the version and checksums.
+pkgbase=haiku-pinyin
+pkgname=(haiku-pinyin-data ibus-haiku-pinyin fcitx5-haiku-pinyin)
+pkgver=@VERSION@
+pkgrel=1
+pkgdesc='海酷拼音 Haiku Pinyin, a Chinese pinyin and shuangpin input method'
+arch=(x86_64 aarch64)
+url='https://github.com/bluevisor/haiku-pinyin'
+license=(GPL-3.0-only)
+makedepends=(ibus fcitx5 pkgconf)
+source=("$pkgbase-$pkgver.tar.gz::$url/archive/refs/tags/v$pkgver.tar.gz"
+	"$url/releases/download/v$pkgver/haiku-pinyin-data-$pkgver.tar.xz")
+sha256sums=('@SOURCE_SHA256@'
+	'@DATA_SHA256@')
+
+prepare() {
+	cd "$pkgbase-$pkgver"
+	# The dictionaries, built from upstream word lists for the release;
+	# newer than tools/build_data.py, so make takes them as they are.
+	mkdir -p build/data
+	cp "$srcdir/haiku-pinyin-data-$pkgver"/* build/data/
+	touch build/data/*
+}
+
+build() {
+	cd "$pkgbase-$pkgver"
+	make ibus fcitx5
+}
+
+check() {
+	cd "$pkgbase-$pkgver"
+	make test
+}
+
+package_haiku-pinyin-data() {
+	pkgdesc='海酷拼音 Haiku Pinyin: the dictionaries its IBus engine and Fcitx5 addon share'
+	arch=(any)
+	cd "$pkgbase-$pkgver"
+	install -d "$pkgdir/usr/share/haiku-pinyin"
+	install -m644 build/data/* linux/icon.svg "$pkgdir/usr/share/haiku-pinyin/"
+	install -Dm644 linux/icon.svg \
+		"$pkgdir/usr/share/icons/hicolor/scalable/apps/haiku-pinyin.svg"
+}
+
+package_ibus-haiku-pinyin() {
+	pkgdesc='海酷拼音 Haiku Pinyin, a Chinese pinyin and shuangpin input method for IBus'
+	depends=(ibus glib2 gcc-libs glibc "haiku-pinyin-data=$pkgver")
+	optdepends=('curl: cloud candidates (云候选), when turned on')
+	cd "$pkgbase-$pkgver"
+	make install-ibus DESTDIR="$pkgdir" PREFIX=/usr LIBEXECDIR=/usr/lib/ibus
+	rm -r "$pkgdir/usr/share/haiku-pinyin"	# in haiku-pinyin-data
+	install -Dm755 linux/enable.sh "$pkgdir/usr/bin/haiku-pinyin-enable"
+}
+
+package_fcitx5-haiku-pinyin() {
+	pkgdesc='海酷拼音 Haiku Pinyin, a Chinese pinyin and shuangpin input method for Fcitx5'
+	depends=(fcitx5 gcc-libs glibc "haiku-pinyin-data=$pkgver")
+	optdepends=('curl: cloud candidates (云候选), when turned on')
+	cd "$pkgbase-$pkgver"
+	make install-fcitx5 DESTDIR="$pkgdir" PREFIX=/usr
+	rm -r "$pkgdir/usr/share/haiku-pinyin" "$pkgdir/usr/share/icons"	# in haiku-pinyin-data
+}

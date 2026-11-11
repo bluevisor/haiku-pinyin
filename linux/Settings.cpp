@@ -3,15 +3,9 @@
 
 #include <cstdlib>
 #include <cstring>
-#include <fstream>
 #include <string>
-#include <vector>
 
 #include "Shared.h"
-
-#ifndef HP_DATADIR
-#define HP_DATADIR "/usr/share/haiku-pinyin"
-#endif
 
 
 static const struct {
@@ -44,96 +38,17 @@ static const struct {
 };
 
 
-static std::string
-ConfigDirectory()
-{
-	std::string path = std::string(g_get_user_config_dir()) + "/haiku-pinyin";
-	g_mkdir_with_parents(path.c_str(), 0755);
-	return path;
-}
-
-
 void
 LoadSettings()
 {
-	std::ifstream file(ConfigDirectory() + "/settings");
-	std::string line;
-	haikupinyin::Options& options = sShared->savedOptions;
-	while (std::getline(file, line)) {
-		size_t equals = line.find('=');
-		if (equals == std::string::npos)
-			continue;
-		std::string name = line.substr(0, equals);
-		std::string value = line.substr(equals + 1);
-		bool on = value == "1" || value == "true";
-		if (name == "layout")
-			options.layout = value;
-		else if (name == "script") {
-			options.script = atoi(value.c_str()) == 0
-				? haikupinyin::Script::kSimplified
-				: haikupinyin::Script::kTraditional;
-		} else if (name == "page_size") {
-			int size = atoi(value.c_str());
-			if (size >= 3 && size <= 10)
-				options.pageSize = size;
-		} else if (name == "fullwidth")
-			options.fullwidthPunctuation = on;
-		else if (name == "emoji")
-			options.emoji = on;
-		else if (name == "english")
-			options.english = on;
-		else if (name == "cloud")
-			options.cloud = on;
-		else if (name == "fuzzy")
-			options.fuzzy = unsigned(atoi(value.c_str()));
-		else if (name == "vowels") {
-			int vowels = atoi(value.c_str());
-			if (vowels >= 0 && vowels <= 2)
-				options.vowels = haikupinyin::Vowels(vowels);
-		}
-		else if (name == "chinese")
-			sShared->savedChinese = on;
-	}
+	ReadSettings(&sShared->savedOptions, &sShared->savedChinese);
 }
 
 
 void
 SaveSettings()
 {
-	const haikupinyin::Options& options = sShared->engine.GetOptions();
-	std::string path = ConfigDirectory() + "/settings";
-	std::string staging = path + ".new";
-	{
-		std::ofstream file(staging);
-		file << "layout=" << options.layout << "\n"
-			<< "script=" << (options.script == haikupinyin::Script::kSimplified
-				? 0 : 1) << "\n"
-			<< "page_size=" << options.pageSize << "\n"
-			<< "fullwidth=" << options.fullwidthPunctuation << "\n"
-			<< "emoji=" << options.emoji << "\n"
-			<< "english=" << options.english << "\n"
-			<< "cloud=" << options.cloud << "\n"
-			<< "fuzzy=" << options.fuzzy << "\n"
-			<< "vowels=" << int(options.vowels) << "\n"
-			<< "chinese=" << sShared->engine.Chinese() << "\n";
-		if (!file)
-			return;
-	}
-	rename(staging.c_str(), path.c_str());
-}
-
-
-static std::vector<std::string>
-DataDirectories()
-{
-	std::vector<std::string> places;
-	if (const char* data = getenv("HAIKU_PINYIN_DATA"))
-		places.push_back(data);
-	places.push_back(std::string(g_get_user_data_dir()) + "/haiku-pinyin");
-	for (const gchar* const* dir = g_get_system_data_dirs(); *dir; dir++)
-		places.push_back(std::string(*dir) + "/haiku-pinyin");
-	places.push_back(HP_DATADIR);
-	return places;
+	WriteSettings(sShared->engine.GetOptions(), sShared->engine.Chinese());
 }
 
 
@@ -143,19 +58,13 @@ EnsureLoaded()
 	if (sShared->loaded || sShared->loadFailed)
 		return sShared->loaded;
 
-	std::string error = "no haiku-pinyin data directory";
-	for (const std::string& place : DataDirectories()) {
-		if (sShared->engine.Load(place, &error)) {
-			sShared->loaded = true;
-			break;
-		}
-	}
-	if (!sShared->loaded) {
+	std::string error;
+	if (!LoadData(&sShared->engine, &error)) {
 		g_warning("Haiku Pinyin: %s", error.c_str());
 		sShared->loadFailed = true;
 		return false;
 	}
-	sShared->engine.SetUserDictionary(ConfigDirectory() + "/user.dict");
+	sShared->loaded = true;
 	// Only now can the layout the settings name be checked.
 	sShared->engine.SetOptions(sShared->savedOptions);
 	sShared->engine.SetChinese(sShared->savedChinese);
