@@ -21,7 +21,7 @@ private let fuzzyGroups: [(mask: Int, name: String)] = [
 ]
 
 // A System Settings row icon: a symbol on a colored tile.
-private struct Tile: View {
+struct Tile: View {
 	let symbol: String
 	let color: Color
 
@@ -35,7 +35,7 @@ private struct Tile: View {
 	}
 }
 
-private struct Row: View {
+struct Row: View {
 	let title: String		// already in the system's language (L)
 	let symbol: String
 	let color: Color
@@ -66,7 +66,7 @@ private struct Badge: View {
 	}
 }
 
-private extension View {
+extension View {
 	// Glass buttons from macOS 26 on.
 	@ViewBuilder func glassButton() -> some View {
 		if #available(macOS 26, *) {
@@ -281,6 +281,8 @@ struct SettingsView: View {
 				Text(L("Tap Shift to switch between Chinese and English. Control-Delete on a candidate forgets a learned word."))
 					.foregroundStyle(.secondary)
 			}
+
+			WordsSection()	// Words.swift
 
 			Section {
 				Toggle(isOn: $autoUpdate) {

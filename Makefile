@@ -12,6 +12,8 @@
 #   make mac        (macOS) build/HaikuPinyin.app, universal
 #   make install-mac            (macOS) into ~/Library/Input Methods
 #   make mac-release            (macOS) the signed, notarized download in dist/
+#   make release                (macOS) dry run of the whole release; PUBLISH=1
+#                               builds and publishes it (tools/release.sh)
 
 CXX ?= c++
 CXXFLAGS ?= -O2 -g
@@ -57,7 +59,8 @@ $(BUILD)/engine_test: tests/engine_test.cpp $(ENGINE)
 
 data: $(BUILD)/data/pinyin.dict
 
-$(BUILD)/data/pinyin.dict: tools/build_data.py
+# Rebuilt when the pins move too (tools/fetch_sources.sh).
+$(BUILD)/data/pinyin.dict: tools/build_data.py tools/sources.sha256
 	python3 tools/build_data.py
 
 test: $(BUILD)/engine_test data
@@ -70,13 +73,14 @@ bench: $(BUILD)/hpcli data
 bench-update: $(BUILD)/hpcli data
 	python3 tests/bench.py --hpcli $(BUILD)/hpcli --data $(BUILD)/data --update
 
-# The add-on resolves BInputServerMethod against the input_server itself.
+# The add-on resolves BInputServerMethod against the input_server itself;
+# BFilePanel is in libtracker, not libbe.
 $(OBJ)/haiku_%.o: haiku/%.cpp haiku/*.h engine/*.h
 	@mkdir -p $(OBJ)
 	$(CXX) $(CXXFLAGS) -fPIC -c $< -o $@
 
 $(ADDON): $(ADDON_OBJECTS) $(ENGINE)
-	$(CXX) -shared -o $@ $(ADDON_OBJECTS) $(ENGINE) -lbe \
+	$(CXX) -shared -o $@ $(ADDON_OBJECTS) $(ENGINE) -lbe -ltracker \
 		/boot/system/servers/input_server
 
 install: all data
@@ -116,7 +120,8 @@ uninstall-ibus:
 FCITX5_MODULES := Fcitx5Core Fcitx5Config Fcitx5Utils
 FCITX5_FOUND := $(if $(LINUX),$(shell $(PKG_CONFIG) --exists $(FCITX5_MODULES) && echo yes))
 FCITX5_ADDON := $(BUILD)/libhaiku-pinyin.so
-FCITX5_SOURCES := linux/fcitx5/HaikuPinyin.cpp linux/Common.cpp linux/Cloud.cpp
+FCITX5_SOURCES := linux/fcitx5/HaikuPinyin.cpp linux/Common.cpp linux/Cloud.cpp \
+	linux/Words.cpp
 # Fcitx5 loads addons only from its own directory (or $$FCITX_ADDON_DIRS).
 FCITX5_ADDONDIR ?= $(shell $(PKG_CONFIG) --variable=libdir Fcitx5Core)/fcitx5
 FCITX5_DATADIR ?= $(PREFIX)/share/fcitx5
@@ -129,7 +134,7 @@ fcitx5: $(FCITX5_ADDON)
 # C++20: newer Fcitx5 headers need it (std::span in 5.1.23); older ones
 # build either way.
 $(FCITX5_ADDON): $(FCITX5_SOURCES) linux/fcitx5/*.h linux/Common.h linux/Cloud.h \
-		engine/*.h $(ENGINE)
+		linux/Words.h engine/*.h $(ENGINE)
 	$(CXX) $(CXXFLAGS) -std=c++20 -fPIC -shared \
 		$$($(PKG_CONFIG) --cflags $(FCITX5_MODULES)) \
 		-DHP_DATADIR='"$(DATADIR)"' $(FCITX5_SOURCES) $(ENGINE) \
@@ -200,9 +205,15 @@ linux-deb: data
 sign-release:
 	tools/sign-release.sh
 
+# The whole release (tools/release.sh): plain make release is the dry run,
+# checking it can start and listing what it would do; PUBLISH=1 builds every
+# package, checks the assets and signatures, and publishes v<version>.
+release:
+	tools/release.sh $(if $(PUBLISH),--publish)
+
 clean:
 	rm -rf $(OBJ) $(ENGINE) $(BUILD)/hpcli $(BUILD)/engine_test $(ADDON) \
 		$(IBUS_ENGINE)
 
 .PHONY: all data test bench bench-update install ibus install-ibus uninstall-ibus mac install-mac mac-release \
-	linux-deb sign-release clean
+	linux-deb sign-release release clean

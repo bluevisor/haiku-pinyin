@@ -1,7 +1,12 @@
 // Engine tests: engine_test <data directory>
 
+#include <algorithm>
 #include <cstdio>
+#include <cstdlib>
+#include <fstream>
+#include <sstream>
 #include <string>
+#include <sys/stat.h>
 #include <unistd.h>
 
 #include "../engine/Engine.h"
@@ -73,6 +78,395 @@ ExpectSpelled(const char* layout, Vowels vowels, const std::string& keys,
 	static const char* const kNames[] = {"aa", "oa", "a"};
 	Expect((std::string(layout) + " " + kNames[int(vowels)] + " " + keys
 		+ " spelled").c_str(), engine.Spelled(), want);
+}
+
+
+static std::string
+TempDirectory()
+{
+	char path[] = "/tmp/haiku-pinyin-dir-XXXXXX";
+	return mkdtemp(path) != nullptr ? path : "/tmp";
+}
+
+
+static void
+WriteFile(const std::string& path, const std::string& contents)
+{
+	std::ofstream file(path, std::ios::binary | std::ios::trunc);
+	file << contents;
+}
+
+
+static std::string
+ReadFile(const std::string& path)
+{
+	std::ifstream file(path, std::ios::binary);
+	std::ostringstream contents;
+	contents << file.rdbuf();
+	return contents.str();
+}
+
+
+static void
+RemoveDirectory(const std::string& path)
+{
+	std::string command = "rm -rf '" + path + "'";
+	if (system(command.c_str()) != 0)
+		printf("couldn't remove %s\n", path.c_str());
+}
+
+
+// Custom phrases: both syntaxes, placement, several per code, nonsense
+// lines, and reading the file again when it changes.
+static void
+TestPhrases()
+{
+	{
+		Phrases phrases;
+		phrases.Parse(
+			"# a comment\n"
+			"; Sogou's comment\n"
+			"dz,1=北京市海淀区\r\n"
+			"yx,2=work@example.com\n"
+			"yx,1=me@example.com\n"
+			"YX,5=upper case code\n"
+			"Rime 的短语\trime\t3\n"
+			"再一条\trime\t9\n"
+			"没有权重\tqz\n"
+			"\n"
+			"no equals sign\n"
+			"dz,x=bad position\n"
+			"dz=no position\n"
+			",1=no code\n"
+			"d2,1=a digit in the code\n"
+			"rq,1=#$year年$month月$day日\n"
+			"\tno text\n"
+			"\xff\xfe\x01garbage\n"
+			"=,=,=\n"
+			"kong,1=\n");
+		Expect("phrases parsed", std::to_string(phrases.Size()), "7");
+		int ignored = 0;
+		Phrases::Read("a,1=x\nnonsense\n\tnope\nb,1=\n\n", &ignored);
+		Expect("phrases ignored", std::to_string(ignored), "3");
+		std::vector<Phrases::Phrase> found = phrases.Find("yx");
+		std::string texts;
+		for (const Phrases::Phrase& phrase : found)
+			texts += phrase.text + "|";
+		Expect("phrases by position", texts,
+			"me@example.com|work@example.com|upper case code|");
+		found = phrases.Find("rime");
+		Expect("rime weights", found.size() == 2 ? found[0].text : "", "再一条");
+		Expect("phrase no match", std::to_string(phrases.Find("d").size()), "0");
+
+		// Several lines: code,position= alone, then the text.
+		phrases.Parse("dz,1=\r\n北京市\r\n海淀区\r\n\r\n; a comment\r\nyx,1=me\r\n");
+		found = phrases.Find("dz");
+		Expect("phrase of lines", found.size() == 1 ? found[0].text : "",
+			"北京市\n海淀区");
+		Expect("after a phrase of lines",
+			std::to_string(phrases.Find("yx").size()), "1");
+		// Rime's codes may spell syllables apart; "# no comment" makes #
+		// text.
+		phrases.Parse("一个\tyi ge\n# no comment\n#话题\tht\n");
+		Expect("rime spaced code", std::to_string(phrases.Find("yige").size()),
+			"1");
+		found = phrases.Find("ht");
+		Expect("rime no comment", found.size() == 1 ? found[0].text : "",
+			"#话题");
+
+		// UTF-16 with a BOM, as Sogou writes it.
+		std::string utf16 = "\xff\xfe";
+		for (char c : std::string("ab,1=x"))
+			utf16 += std::string(1, c) + '\0';
+		utf16 += std::string("\x2d\x4e\r\0\n\0", 6);	// 中\r\n
+		phrases.Parse(utf16);
+		found = phrases.Find("ab");
+		Expect("utf-16 phrases", found.size() == 1 ? found[0].text : "", "x中");
+
+		phrases.Parse(Phrases::Example());
+		Expect("example is all comments", std::to_string(phrases.Size()), "0");
+	}
+
+	std::string directory = TempDirectory();
+	std::string file = directory + "/phrases.txt";
+	{
+		Engine engine;
+		engine.Load(sData);
+		engine.SetUserDictionary(directory + "/user.dict");
+		Expect("phrases next to user.dict", engine.PhrasesFile(), file);
+		Expect("phrases file created",
+			engine.CustomPhrases().CreateFile() ? "yes" : "no", "yes");
+		Expect("phrases file example", ReadFile(file), Phrases::Example());
+
+		WriteFile(file, "dz,1=北京市海淀区\nyx,1=me@example.com\n"
+			"yx,3=work@example.com\nyx,9999=last\nnihao,3=你好\n");
+		Type(engine, "dz");
+		Expect("phrase first", First(engine), "北京市海淀区");
+		engine.ProcessKey(Key::kSpace, 0, 0);
+		Expect("phrase commits", engine.TakeCommit(), "北京市海淀区");
+
+		Type(engine, "yx");
+		std::vector<std::string> page = engine.PageCandidates();
+		Expect("phrase 1 of 3", page.size() > 0 ? page[0] : "", "me@example.com");
+		Expect("phrase 3 of 3", page.size() > 2 ? page[2] : "",
+			"work@example.com");
+		Expect("phrase 2 of 3 not a phrase", page.size() > 1 && page[1] != "last"
+			&& page[1] != "work@example.com" ? "no" : "yes", "no");
+		while (engine.HasNextPage())
+			engine.ProcessKey(Key::kPageDown, 0, 0);
+		page = engine.PageCandidates();
+		Expect("phrase past the end goes last", page.empty() ? "" : page.back(),
+			"last");
+		engine.ProcessKey(Key::kEscape, 0, 0);
+
+		// The same text elsewhere moves to the phrase's place.
+		Type(engine, "nihao");
+		page = engine.PageCandidates();
+		Expect("phrase moves its text", page.size() > 2 ? page[2] : "", "你好");
+		int count = 0;
+		for (const std::string& candidate : page)
+			count += candidate == "你好";
+		Expect("phrase not twice", std::to_string(count), "1");
+		engine.ProcessKey(Key::kEscape, 0, 0);
+
+		// Only the whole of the keys.
+		Type(engine, "dzh");
+		Expect("phrase exact", First(engine) == "北京市海淀区" ? "shown" : "not",
+			"not");
+		engine.ProcessKey(Key::kEscape, 0, 0);
+
+		// As written, even in traditional output.
+		Options options;
+		options.script = Script::kTraditional;
+		engine.SetOptions(options);
+		Type(engine, "dz");
+		Expect("phrase verbatim", First(engine), "北京市海淀区");
+		engine.ProcessKey(Key::kCharacter, '1', 0);
+		Expect("phrase verbatim commit", engine.TakeCommit(), "北京市海淀区");
+
+		// Shuangpin: the code is the keys as typed, whatever they spell
+		// (dz is 段 in 拼音加加).
+		for (const char* layout : {"pyjj", "xiaohe", "mspy"}) {
+			options = Options();
+			options.layout = layout;
+			engine.SetOptions(options);
+			Type(engine, "dz");
+			Expect((std::string("phrase in ") + layout).c_str(), First(engine),
+				"北京市海淀区");
+			engine.ProcessKey(Key::kEscape, 0, 0);
+		}
+		engine.SetOptions(Options());
+
+		// Changed on disk: read again as the next composition starts.
+		WriteFile(file, "dz,2=上海市徐汇区\n# yx is gone\n");
+		Type(engine, "dz");
+		page = engine.PageCandidates();
+		Expect("phrase reloaded", page.size() > 1 ? page[1] : "", "上海市徐汇区");
+		engine.ProcessKey(Key::kEscape, 0, 0);
+		Type(engine, "yx");
+		Expect("phrase removed", First(engine) == "me@example.com" ? "kept"
+			: "gone", "gone");
+		engine.ProcessKey(Key::kEscape, 0, 0);
+
+		// Removed: no phrases, no crash.
+		unlink(file.c_str());
+		Type(engine, "dz");
+		Expect("phrases file gone", First(engine) == "上海市徐汇区" ? "kept"
+			: "gone", "gone");
+		engine.ProcessKey(Key::kEscape, 0, 0);
+	}
+	RemoveDirectory(directory);
+}
+
+
+static std::string
+Imported(Engine& engine, const std::string& directory, const std::string& name,
+	const std::string& contents)
+{
+	std::string path = directory + "/" + name;
+	WriteFile(path, contents);
+	Engine::ImportResult result = engine.ImportWords(path);
+	return result.format + " " + std::to_string(result.words) + " "
+		+ std::to_string(result.phrases) + " " + std::to_string(result.skipped)
+		+ (result.problem == ImportProblem::kNone ? "" : " error");
+}
+
+
+// What a user dictionary file holds: "词 pin yin count" lines, sorted.
+static std::string
+Words(const std::string& path)
+{
+	Engine engine;
+	engine.Load(sData);
+	engine.SetUserDictionary(path);
+	std::vector<std::string> lines;
+	const UserDict& user = engine.UserDictionary();
+	for (uint32_t i = 0; i < user.Size(); i++) {
+		std::string line = user.At(i).text;
+		for (SyllableId id : user.At(i).key)
+			line += " " + std::to_string(id);
+		line += " " + std::to_string(user.At(i).count);
+		lines.push_back(line);
+	}
+	std::sort(lines.begin(), lines.end());
+	std::string all;
+	for (const std::string& line : lines)
+		all += line + "\n";
+	return all;
+}
+
+
+// Learned words out and back in, other input methods' files in, and a
+// running engine taking up a change made by another.
+static void
+TestImport()
+{
+	std::string directory = TempDirectory();
+	std::string userPath = directory + "/user.dict";
+	std::string fifth;
+	{
+		Engine engine;
+		engine.Load(sData);
+		engine.SetUserDictionary(userPath);
+		Type(engine, "zhongguoren ");
+		Type(engine, "shi");
+		fifth = engine.PageCandidates()[4];
+		engine.SelectOnPage(4);
+		Type(engine, "shi");
+		engine.SelectOnPage(0);		// the same word, first now
+		engine.TakeCommit();
+		engine.SaveUserDictionary();
+
+		int count = 0;
+		Expect("export", engine.ExportWords(directory + "/words.txt", &count)
+			? std::to_string(count) : "failed", "2");
+		std::string exported = ReadFile(directory + "/words.txt");
+		Expect("export line", exported.find(fifth + "\tshi\t2\n")
+			!= std::string::npos ? "yes" : exported, "yes");
+		Expect("export line 2", exported.find("中国人\tzhong guo ren\t1\n")
+			!= std::string::npos ? "yes" : exported, "yes");
+	}
+	{
+		// Into an empty dictionary: the same words, then merged, the higher
+		// count winning.
+		std::string other = directory + "/other";
+		mkdir(other.c_str(), 0755);
+		Engine engine;
+		engine.Load(sData);
+		engine.SetUserDictionary(other + "/user.dict");
+		Engine::ImportResult result
+			= engine.ImportWords(directory + "/words.txt");
+		Expect("import ours", result.format + " " + std::to_string(result.words),
+			"Haiku Pinyin 2");
+		Expect("round trip", Words(other + "/user.dict"), Words(userPath));
+		Type(engine, "shi");
+		Expect("imported word first", First(engine), fifth);
+		engine.ProcessKey(Key::kEscape, 0, 0);
+		Imported(engine, directory, "more.txt",
+			fifth + "\tshi\t1\n中国人\tzhong guo ren\t7\n");
+		std::string words = Words(other + "/user.dict");
+		Expect("merge keeps higher", words.find(" 2\n") != std::string::npos
+			&& words.find(" 7\n") != std::string::npos ? "yes" : words, "yes");
+
+		// Sogou's words, with pinyin or, when it's no use, from the lexicon.
+		Expect("sogou words", Imported(engine, directory, "sogou.txt",
+			"'ni'hao 你好\r\n'zhong'guo 中国 3\r\n'xx'yy 你好啊\r\n"
+			"'a ☃☃\r\nnot a word line\r\n"), "Sogou 3 0 2");
+		Expect("lexicon spelling", Words(other + "/user.dict").find("你好啊")
+			!= std::string::npos ? "yes" : "no", "yes");
+
+		// Rime's snapshot: deleted (c<1) entries skipped.
+		Expect("rime userdb", Imported(engine, directory,
+			"luna_pinyin.userdb.txt",
+			"# Rime user dictionary\n#@/db_name\tluna_pinyin.userdb\n"
+			"an zhuang \t安装\tc=2 d=1.9415 t=39\n"
+			"lie biao \t列表\tc=0 d=0.09 t=39\n"
+			"shi da fu wo \t士大夫我\tc=-1 d=0 t=219\n"),
+			"Rime user dictionary 1 0 2");
+
+		// Phrases: Rime's custom_phrase.txt, Sogou's, the Mac's.
+		Expect("rime phrases", Imported(engine, directory, "custom_phrase.txt",
+			"# Rime table\n#@/db_name\tcustom_phrase.txt\n"
+			"又\tu\t2\n有\tu\t3\nAmazon\tamazon\n一个\tyi ge\n"),
+			"Rime custom phrases 0 4 0");
+		// Without that header, a code that spells the text is a word.
+		Expect("rime phrases or words", Imported(engine, directory, "mixed.txt",
+			"一个\tyi ge\nAmazon\tamazon\n"), "mixed 1 1 0");
+		Expect("sogou phrases", Imported(engine, directory, "PhraseEdit.txt",
+			"\xef\xbb\xbf; 搜狗输入法--自定义短语配置文件\r\n\r\n"
+			"dz,1=北京市海淀区\r\nss,1=#$year年\r\nones,2=\r\nline one\r\n"
+			"line two\r\nb,1=吧\r\n"),
+			"Sogou custom phrases 0 3 1");
+		Expect("mac phrases", Imported(engine, directory, "Text.plist",
+			"<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<plist version=\"1.0\">\n"
+			"<array>\n\t<dict>\n\t\t<key>phrase</key>\n\t\t<string>On my way!"
+			"</string>\n\t\t<key>shortcut</key>\n\t\t<string>omw</string>\n"
+			"\t</dict>\n\t<dict>\n\t\t<key>phrase</key>\n\t\t<string>→</string>\n"
+			"\t\t<key>shortcut</key>\n\t\t<string>:-&gt;:</string>\n\t</dict>\n"
+			"\t<dict>\n\t\t<key>phrase</key>\n\t\t<string>R&amp;D &#x4e2d;\n"
+			"two</string>\n\t\t<key>shortcut</key>\n\t\t<string>RD</string>\n"
+			"\t</dict>\n</array>\n</plist>\n"),
+			"text replacements 0 2 1");
+		Expect("same phrases again", Imported(engine, directory, "Text2.plist",
+			ReadFile(directory + "/Text.plist")), "text replacements 0 2 1");
+		Phrases phrases;
+		phrases.SetPath(other + "/phrases.txt");
+		Expect("imported phrases", std::to_string(phrases.Size()), "9");
+		std::vector<Phrases::Phrase> found = phrases.Find("rd");
+		Expect("plist text", found.size() == 1 ? found[0].text : "", "R&D 中\ntwo");
+		found = phrases.Find("u");
+		Expect("rime weight order", found.size() == 2 ? found[0].text : "", "有");
+		Type(engine, "omw");
+		Expect("imported phrase typed", First(engine), "On my way!");
+		engine.ProcessKey(Key::kEscape, 0, 0);
+		Type(engine, "ones");
+		std::vector<std::string> page = engine.PageCandidates();
+		Expect("phrase label", page.size() > 1 ? page[1] : "",
+			"line one⏎line two");
+		engine.ProcessKey(Key::kCharacter, '2', 0);
+		Expect("phrase of lines commits", engine.TakeCommit(),
+			"line one\nline two");
+
+		// Nonsense: never a crash.
+		Expect("binary plist", Imported(engine, directory, "b.plist",
+			std::string("bplist00\x01\x02", 10)), " 0 0 0 error");
+		Expect("gbk", Imported(engine, directory, "gbk.txt",
+			"'ni'hao \xc4\xe3\xba\xc3\r\n"), " 0 0 0 error");
+		Expect("empty", Imported(engine, directory, "empty.txt", ""), " 0 0 0");
+		Expect("garbage", Imported(engine, directory, "garbage.txt",
+			std::string("\x00\x01\t\t\t\n<dict><key>", 21)).substr(0, 1), " ");
+		Expect("missing", engine.ImportWords(directory + "/none").problem
+			== ImportProblem::kUnreadable ? "unreadable" : "other", "unreadable");
+	}
+	{
+		// Another process (hpcli, the Mac's settings window) imports while
+		// this one runs: it reads the file again as the next composition
+		// starts, keeping what it learned since its last save.
+		Engine running;
+		running.Load(sData);
+		running.SetUserDictionary(userPath);
+		Type(running, "ta");
+		std::string third = running.PageCandidates()[2];
+		running.SelectOnPage(2);
+		running.TakeCommit();
+
+		Engine other;
+		other.Load(sData);
+		other.SetUserDictionary(userPath);
+		std::string imported = Imported(other, directory, "late.txt",
+			"已经\tyi jing\t9\n");
+		Expect("import elsewhere", imported, "Haiku Pinyin 1 0 0");
+		Type(running, "yijing");
+		Expect("taken up", First(running), "已经");
+		running.ProcessKey(Key::kEscape, 0, 0);
+		running.SaveUserDictionary();
+		std::string words = Words(userPath);
+		Expect("kept its own", words.find(third + " ") != std::string::npos
+			? "yes" : words, "yes");
+		Expect("kept the import", words.find("已经 ") != std::string::npos
+			? "yes" : words, "yes");
+	}
+	RemoveDirectory(directory);
 }
 
 
@@ -503,6 +897,9 @@ main(int argc, char** argv)
 			engine.ProcessKey(Key::kCharacter, 'l', 0) ? "used" : "passed",
 			"passed");
 	}
+
+	TestPhrases();
+	TestImport();
 
 	printf(sFailures == 0 ? "all passed\n" : "%d failed\n", sFailures);
 	return sFailures == 0 ? 0 : 1;

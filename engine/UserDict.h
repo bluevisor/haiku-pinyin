@@ -33,6 +33,11 @@ public:
 		float cost);
 	bool Forget(const std::vector<SyllableId>& key, const std::string& text);
 	void Clear() { fWords.clear(); fDirty = true; }
+	// A word from elsewhere (an import, another copy of the file): the
+	// higher count and the lower cost win. True when it changed anything.
+	bool Merge(const std::vector<SyllableId>& key, const std::string& text,
+		float cost, uint32_t count);
+	void Merge(const UserDict& other);
 
 	// Saved by spelling, so it survives a rebuilt lexicon.
 	bool Load(const std::string& path, const Syllables& syllables);

@@ -48,6 +48,7 @@ struct Candidate {
 	bool cloud = false;	// from the cloud
 	bool ai = false;	// moved first by the AI
 	bool english = false;
+	bool phrase = false;	// a custom phrase: shown and typed as written
 };
 
 

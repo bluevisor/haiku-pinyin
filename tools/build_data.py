@@ -297,7 +297,7 @@ def build_english():
 		if re.fullmatch(r"[A-Za-z]{2,}", word):
 			words.add(word)
 	with open(os.path.join(OUT, "english.txt"), "w", encoding="utf-8") as f:
-		f.writelines(w + "\n" for w in sorted(words, key=str.lower))
+		f.writelines(w + "\n" for w in sorted(words, key=lambda w: (w.lower(), w)))
 	print(f"english.txt: {len(words)} words")
 
 

@@ -1,5 +1,9 @@
 # 海酷拼音 Haiku Pinyin
 
+**English** · [简体中文](README.zh-CN.md) · [繁體中文](README.zh-TW.md) ·
+[Website](https://bluevisor.github.io/haiku-pinyin/) · [Privacy](PRIVACY.md) ·
+[Security](SECURITY.md) · [Contributing](CONTRIBUTING.md)
+
 A modern Chinese input method for Haiku, Linux and macOS, in the spirit of
 搜狗拼音 and the macOS pinyin input: whole-sentence conversion, abbreviations
 (`zgr` → 中国人, `bjdx` → 北京大学), half-typed syllables, learning from what
@@ -207,9 +211,17 @@ sha256sum --ignore-missing -c SHA256SUMS   # shasum -a 256 -c on a Mac; sha256su
 ```
 
 The Mac downloads are also signed and notarized by Apple, and apt checks the
-Linux repository on its own. `tools/sign-release.sh` makes the checksums and
-the apt repository for a release, after the Mac, Linux and Haiku packages are
-in `dist/`.
+Linux repository on its own.
+
+A release is one command on the owner's Mac. `make release` is the dry run:
+it checks a release can start (a clean main, up to date; notes in
+CHANGELOG.md; the Developer ID certificates, the notary profile and the
+release key; Docker; the Haiku VM) and lists what it would do.
+`make release PUBLISH=1` builds every package, makes the checksums and the apt
+repository (`tools/sign-release.sh`), checks every asset and signature,
+publishes GitHub release v<version> and turns CHANGELOG.md's Unreleased into
+that version. `tools/release.sh --check` runs just the asset check on
+`dist/`.
 
 ## Using it
 
@@ -266,20 +278,79 @@ pinyin inline; everywhere else the committed text arrives as typing.
 
 **Cloud candidates** send the pinyin of each composition, but nothing you've
 committed, to Google Input Tools. They're off until you turn on 云候选, so
-by default nothing you type leaves the machine.
+by default nothing you type leaves the machine. [PRIVACY.md](PRIVACY.md)
+lists everything that can reach the network.
+
+### Custom phrases (自定义短语)
+
+`phrases.txt`, next to `user.dict`, maps a code to text: type the code and the
+text is offered at the position you chose, several per code if you like. Open
+it from 自定义短语 in the settings window (Mac), the 词库 menu (Linux: in the
+top bar with IBus, in the tray with Fcitx5) or the Deskbar menu (Haiku); it's made with a commented example the
+first time. Changes take effect as soon as it's saved.
+
+```
+# code,position=text (Sogou's syntax); # and ; start comments
+dz,1=北京市海淀区中关村大街 1 号
+yx,1=me@example.com
+yx,2=work@example.com
+sig,1=
+Several lines:
+up to the next code,position= line
+```
+
+- **Codes** are letters (and `'`, or `;` where a shuangpin layout uses it),
+  matched against the keys exactly as typed, in full pinyin and shuangpin
+  alike: `dz` offers the address in 拼音加加 too, where it also spells 段.
+  Phrases replace the same text elsewhere among the candidates, are typed as
+  written (never converted to 繁體) and teach nothing.
+- **Rime's `custom_phrase.txt`** lines work as they are: `text<Tab>code<Tab>weight`
+  (the weight optional) go first, the higher weight earlier; spaces in a code
+  are ignored, and `# no comment` makes `#` ordinary text from there on.
+- **Sogou's `PhraseEdit.txt`** works as it is too, UTF-8 or UTF-16; its date
+  functions (`#$year…`) are skipped.
+
+### Importing and exporting words
+
+导出 writes what it learned as text, `词<Tab>pin yin<Tab>count` (the columns
+of Rime's export too). 导入 reads a file back and merges it with what's
+there, the higher count winning, so importing the same file twice changes
+nothing. It also reads, telling them apart by their contents:
+
+| From | File | Becomes |
+|---|---|---|
+| 海酷拼音, or Rime's `rime_dict_manager --export` | `词<Tab>pin yin<Tab>count` | words |
+| Rime's user dictionary snapshot | `*.userdb.txt` (`pin yin <Tab>词<Tab>c=…`; deleted and never-typed entries skipped) | words |
+| Sogou's exported words | `'pin'yin 词`, UTF-8 or UTF-16 | words |
+| Rime's `custom_phrase.txt`, Sogou's `PhraseEdit.txt` | as above | phrases |
+| The Mac's text replacements | the `.plist` you get by dragging them out of System Settings → Keyboard → Text Replacements | phrases (shortcuts that aren't letters are skipped) |
+
+Words whose pinyin is missing or unusable are spelled the way the lexicon
+spells their pieces, and skipped when it can't. Imported phrases go to the
+end of `phrases.txt`. GBK text (older Sogou exports) and binary plists are
+refused with how to convert them (`iconv -f GBK -t UTF-8`,
+`plutil -convert xml1`). Sogou's `.bin` and `.scel` files aren't read.
+
+On the Mac, 导入… / 导出… are in the settings window; on Linux in the 词库
+menu (with zenity's or kdialog's file dialogs); on Haiku in the Deskbar menu (Tracker's
+file panels). Anywhere, from a build: `build/hpcli export words.txt`,
+`build/hpcli import file` (on this system's `user.dict`, or `--user FILE`).
+A running input method takes up the change as the next composition starts.
 
 ## Layout
 
 | Path | What |
 |---|---|
-| `engine/` | Portable C++17 engine: lexicon, syllable graph (full pinyin, shuangpin, 模糊音), bigram beam-search decoder, user dictionary, S→T converter; the questions and answers for cloud and AI candidates |
+| `engine/` | Portable C++17 engine: lexicon, syllable graph (full pinyin, shuangpin, 模糊音), bigram beam-search decoder, user dictionary, custom phrases (`Phrases`), word import and export (`Words`), S→T converter; the questions and answers for cloud and AI candidates |
 | `haiku/` | input_server method add-on and candidate window |
-| `macos/` | InputMethodKit method (`InputController.mm`), AI helper client (`AI.mm`) and the helper itself (`ai/`, Swift + MLX), settings window and 中/英 bubble (`Settings.swift`), candidate window and gray AI completion (`Candidates.swift`), self-update (`Updater.swift`), model download (`Models.swift`), `build.sh`, `install.sh`, `release.sh` (signed, notarized zip, DMG and `.pkg` (`pkg.sh`, `pkg/`) and `latest.json`; `ai/upload-models.sh` puts the models on Hugging Face); dev only: `test-session.sh` types through it in a test window (full pinyin, shuangpin, then AI when its models are installed), `snapshot-settings.swift` renders the settings window and bubble to PNG |
-| `linux/` | IBus engine (`main.cpp`; its settings and top-bar menu in `Settings.cpp`), component file, installers (`enable.sh`, `install-user.sh`); what it shares with the Fcitx5 addon: settings, data and user dictionary (`Common.cpp`), cloud candidates (`Cloud.cpp`); packages, built in Docker: `deb.sh` (`make linux-deb`: IBus and Fcitx5 .debs for arm64 and amd64, and `haiku-pinyin-data`, which adds the apt repository, `haiku-pinyin.sources`), `arch/PKGBUILD.in` and `arch.sh` (`make linux-arch`), `fedora/haiku-pinyin.spec.in` and `rpm.sh` (`make linux-rpm`), `sources.sh` (the data tarball those two build from, `make linux-sources`), `check-install.sh` (are the files where IBus and Fcitx5 look); dev only: `sync.sh` builds on a Linux box over ssh, `test-session.sh` types through gedit with xdotool |
-| `linux/fcitx5/` | Fcitx5 addon (`HaikuPinyin.cpp`: the engine, candidate window, 中/英, settings for Fcitx5's configuration tool), addon and input method `.conf` files; dev only: `docker-test.sh` types through it under Xvfb in Docker (`test-session.sh`, `textview.py`) |
-| `cli/hpcli.cpp` | Drive the engine from a terminal: `echo nihao \| build/hpcli --layout pyjj` |
+| `macos/` | InputMethodKit method (`InputController.mm`), AI helper client (`AI.mm`) and the helper itself (`ai/`, Swift + MLX), settings window and 中/英 bubble (`Settings.swift`), candidate window and gray AI completion (`Candidates.swift`), self-update (`Updater.swift`), model download (`Models.swift`), custom phrases, import and export (`Words.swift`, `Words.mm`), `build.sh`, `install.sh`, `release.sh` (signed, notarized zip, DMG and `.pkg` (`pkg.sh`, `pkg/`) and `latest.json`; `ai/upload-models.sh` puts the models on Hugging Face); dev only: `test-session.sh` types through it in a test window (full pinyin, shuangpin, then AI when its models are installed), `snapshot-settings.swift` renders the settings window and bubble to PNG |
+| `linux/` | IBus engine (`main.cpp`; its settings and top-bar menu in `Settings.cpp`), component file, installers (`enable.sh`, `install-user.sh`); what it shares with the Fcitx5 addon: settings, data, user dictionary and custom phrases (`Common.cpp`), cloud candidates (`Cloud.cpp`), the 词库 menu (`Words.cpp`); packages, built in Docker: `deb.sh` (`make linux-deb`: IBus and Fcitx5 .debs for arm64 and amd64, and `haiku-pinyin-data`, which adds the apt repository, `haiku-pinyin.sources`), `arch/PKGBUILD.in` and `arch.sh` (`make linux-arch`), `fedora/haiku-pinyin.spec.in` and `rpm.sh` (`make linux-rpm`), `sources.sh` (the data tarball those two build from, `make linux-sources`), `check-install.sh` (are the files where IBus and Fcitx5 look); dev only: `sync.sh` builds on a Linux box over ssh, `test-session.sh` types through gedit with xdotool |
+| `linux/fcitx5/` | Fcitx5 addon (`HaikuPinyin.cpp`: the engine, candidate window, 中/英, the 词库 menu in the tray, settings for Fcitx5's configuration tool), addon and input method `.conf` files; dev only: `docker-test.sh` types through it under Xvfb in Docker (`test-session.sh`, `textview.py`, and `panel.py`, which picks tray menu items as KDE's panel does) |
+| `cli/hpcli.cpp` | Drive the engine from a terminal: `echo nihao \| build/hpcli --layout pyjj`; `hpcli import`, `hpcli export` |
 | `tests/` | Engine tests |
+| `tools/fetch_sources.sh`, `tools/sources.sha256` | Fetches `sources/`, each upstream at a pinned commit, checked against the checksums |
 | `tools/build_data.py` | Builds `build/data/` from `sources/` |
+| `tools/release.sh` | The whole release (`make release`): pre-flight, every build, the asset and signature check, the GitHub release |
 | `tools/sign-release.sh`, `tools/release-key.asc` | Signs a release in `dist/`: the apt repository (`InRelease`) and `SHA256SUMS.asc`, with the release key |
 | `CHANGELOG.md`, `tools/release-notes.sh` | What changed in each release; the script prints a version's notes (or Unreleased) for the GitHub release and the Mac updater's feed |
 | `tools/haiku-testkeys/` | Dev only: a virtual keyboard device + `hpkeys` to type through the input_server over ssh, `imtest`, `hpsettings` |
@@ -287,7 +358,7 @@ by default nothing you type leaves the machine.
 ## Build
 
 ```sh
-tools/fetch_sources.sh      # rime-ice, libpinyin, OpenCC, rime-double-pinyin
+tools/fetch_sources.sh      # rime-ice, libpinyin, OpenCC, rime-double-pinyin, pinned
 make data test              # anywhere: data, engine, hpcli, tests
 echo zgr | build/hpcli      # try it
 haiku/sync.sh haiku-dbg     # copy to a Haiku machine and build there
@@ -305,6 +376,12 @@ sentence, how many characters are right, how often the sentence is among
 the first five, and the worst misses, and fails when the first drops more
 than a point below `tests/bench/baseline.txt`. After a change that improves
 the scores, `make bench-update` records them; commit the baseline with it.
+
+The upstream data comes at pinned commits, every file checked against
+`tools/sources.sha256`, so the data and the bench scores only move when a pin
+does. To bump one: set it in `tools/fetch_sources.sh`, run
+`tools/fetch_sources.sh --update` (it rewrites the checksums), then
+`make data test bench`, and commit the script, checksums and baseline together.
 
 `haiku/cross.sh` cross-compiles the x86_64 add-on on a Mac (Haiku's
 cross-compiler image in Docker) and packages it on a Haiku machine.

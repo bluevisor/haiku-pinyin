@@ -1,0 +1,27 @@
+name: Feature request / 功能建议
+description: Something 海酷拼音 should do. 希望海酷拼音增加的功能。
+labels: [enhancement]
+body:
+  - type: textarea
+    id: want
+    attributes:
+      label: What you'd like / 想要什么
+      description: "What you want to type or do, and what should happen. 想输入什么、做什么，希望发生什么。"
+    validations:
+      required: true
+  - type: textarea
+    id: why
+    attributes:
+      label: Why / 为什么
+      description: "What you do today instead, or how another input method does it (搜狗, 微软拼音, macOS 拼音, Rime …). 现在是怎么做的，或者别的输入法是怎么做的。"
+  - type: dropdown
+    id: platforms
+    attributes:
+      label: Platforms / 平台
+      multiple: true
+      options:
+        - macOS
+        - Linux, IBus
+        - Linux, Fcitx5
+        - Haiku
+        - All / 全部

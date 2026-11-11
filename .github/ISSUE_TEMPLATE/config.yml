@@ -1,0 +1,8 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Report a security vulnerability / 报告安全漏洞
+    url: https://github.com/bluevisor/haiku-pinyin/security/advisories/new
+    about: Privately, so it can be fixed before it's public. 私下报告，修复后再公开。
+  - name: What leaves your computer / 隐私说明
+    url: https://github.com/bluevisor/haiku-pinyin/blob/main/PRIVACY.md
+    about: Everything 海酷拼音 sends over the network, and when.

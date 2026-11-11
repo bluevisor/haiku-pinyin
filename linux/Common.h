@@ -12,6 +12,8 @@
 std::string ConfigDirectory();
 // The words it learns, in ConfigDirectory().
 std::string UserDictionaryPath();
+// The custom phrases, beside them.
+std::string PhrasesPath();
 
 // ConfigDirectory()/settings: options keeps its defaults for anything the
 // file doesn't name.
@@ -22,5 +24,7 @@ bool WriteSettings(const haikupinyin::Options& options, bool chinese);
 // haiku-pinyin/ in the XDG data directories, then HP_DATADIR.
 std::vector<std::string> DataDirectories();
 // Loads the dictionaries from the first of those that has them, and points
-// the user dictionary at UserDictionaryPath().
+// the user dictionary at UserDictionaryPath() and the custom phrases at
+// PhrasesPath(), which the engine reads again as a composition starts when
+// it changed.
 bool LoadData(haikupinyin::Engine* engine, std::string* error);

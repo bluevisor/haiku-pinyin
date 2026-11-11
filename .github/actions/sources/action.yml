@@ -1,0 +1,31 @@
+# sources/ at the versions tools/fetch_sources.sh pins (cached, keyed on the
+# pins, and checked against them either way), then build/data.
+name: Sources and data
+description: The pinned upstream data in sources/, and make data
+runs:
+  using: composite
+  steps:
+    - name: Restore sources
+      id: sources
+      uses: actions/cache/restore@v5
+      with:
+        path: sources
+        key: sources-${{ runner.os }}-${{ hashFiles('tools/fetch_sources.sh', 'tools/sources.sha256') }}
+    # Fetches what the cache lacks and checks it all against the pins.
+    - name: Fetch sources
+      shell: bash
+      run: |
+        for try in 1 2 3; do
+          tools/fetch_sources.sh && exit 0
+          sleep 20
+        done
+        exit 1
+    - name: Save sources
+      if: steps.sources.outputs.cache-hit != 'true'
+      uses: actions/cache/save@v5
+      with:
+        path: sources
+        key: ${{ steps.sources.outputs.cache-primary-key }}
+    - name: make data
+      shell: bash
+      run: make data
