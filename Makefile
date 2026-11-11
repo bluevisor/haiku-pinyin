@@ -4,6 +4,7 @@
 #                   engine on Linux when ibus-1.0 is found)
 #   make data       build/data from sources/ (tools/fetch_sources.sh first)
 #   make test       run the engine tests
+#   make bench      conversion quality against tests/bench/baseline.txt
 #   make install    (Haiku) the add-on and data into ~/config/non-packaged
 #   make ibus       (Linux) build/ibus-engine-haiku-pinyin
 #   sudo make install-ibus      (Linux) into PREFIX (/usr), where IBus looks
@@ -61,6 +62,13 @@ $(BUILD)/data/pinyin.dict: tools/build_data.py
 
 test: $(BUILD)/engine_test data
 	$(BUILD)/engine_test $(BUILD)/data
+
+# Conversion quality on tests/bench/, against tests/bench/baseline.txt.
+bench: $(BUILD)/hpcli data
+	python3 tests/bench.py --hpcli $(BUILD)/hpcli --data $(BUILD)/data
+
+bench-update: $(BUILD)/hpcli data
+	python3 tests/bench.py --hpcli $(BUILD)/hpcli --data $(BUILD)/data --update
 
 # The add-on resolves BInputServerMethod against the input_server itself.
 $(OBJ)/haiku_%.o: haiku/%.cpp haiku/*.h engine/*.h
@@ -124,5 +132,5 @@ clean:
 	rm -rf $(OBJ) $(ENGINE) $(BUILD)/hpcli $(BUILD)/engine_test $(ADDON) \
 		$(IBUS_ENGINE)
 
-.PHONY: all data test install ibus install-ibus uninstall-ibus mac install-mac mac-release \
+.PHONY: all data test bench bench-update install ibus install-ibus uninstall-ibus mac install-mac mac-release \
 	linux-deb sign-release clean
