@@ -9,11 +9,6 @@
 @interface HPInputController : IMKInputController
 @end
 
-// The input modes, 中 and 英: their icons are what the menu bar shows. Only
-// 中 is listed (in Settings, the input menu); the toggle selects 英.
-#define HPChineseMode @"com.bluevisor.inputmethod.HaikuPinyin.Chinese"
-#define HPEnglishMode @"com.bluevisor.inputmethod.HaikuPinyin.English"
-
 // english, simplified or traditional, by the system's language as the input
 // menu has it (Strings.swift's L() chooses the same way).
 NSString* HPLocalized(NSString* english, NSString* simplified,

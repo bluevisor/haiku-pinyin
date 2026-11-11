@@ -631,50 +631,12 @@ CloudAnswer(NSData* data, NSString* query)
 }
 
 
-// Whether the hidden 英 mode is on the enabled list. Without it, 中/英 is a
-// toggle inside the 中 mode, as before there were two.
-static bool
-EnglishModeEnabled()
-{
-	NSDictionary* filter = @{
-		(__bridge NSString*)kTISPropertyInputSourceID: HPEnglishMode,
-	};
-	NSArray* enabled = CFBridgingRelease(TISCreateInputSourceList(
-		(__bridge CFDictionaryRef)filter, false));
-	return enabled.count > 0;
-}
-
-
 - (void)toggleChinese
 {
 	bool chinese = !sEngine->Chinese();
 	sEngine->SetChinese(chinese);
 	[self sync];
 	[self showMode];
-	// The menu bar shows the selected mode's icon, so 中 and 英 are two
-	// modes and the toggle selects the matching one.
-	if (EnglishModeEnabled())
-		[self.textClient selectInputMode:chinese ? HPChineseMode : HPEnglishMode];
-}
-
-
-// A mode picked in the input menu, or the one selected on arriving in a
-// field (after a toggle in another app, say): the engine follows it. Not
-// when there's only the 中 mode: English toggled on stays on.
-- (void)setValue:(id)value forTag:(long)tag client:(id)sender
-{
-	if (tag != kTextServiceInputModePropertyTag
-		|| ![value isKindOfClass:NSString.class] || !sLoaded
-		|| !EnglishModeEnabled())
-		return;
-	bool chinese = ![value isEqualToString:HPEnglishMode];
-	HPDebug(@"mode %@", value);
-	if (chinese == sEngine->Chinese())
-		return;
-	[self takeClient:sender];
-	[self claim];
-	sEngine->SetChinese(chinese);
-	[self sync];
 }
 
 

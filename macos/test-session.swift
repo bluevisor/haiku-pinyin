@@ -8,7 +8,6 @@ import Carbon
 import Cocoa
 
 let chineseMode = "com.bluevisor.inputmethod.HaikuPinyin.Chinese"
-let englishMode = "com.bluevisor.inputmethod.HaikuPinyin.English"
 
 let keyCodes: [Character: CGKeyCode] = [
 	"a": 0, "s": 1, "d": 2, "f": 3, "h": 4, "g": 5, "z": 6, "x": 7, "c": 8,
@@ -147,15 +146,6 @@ final class Pad: NSObject, NSApplicationDelegate {
 		return "no gray completion at the cursor \(caret)"
 	}
 
-	// The English layout under the method (U.S., ABC…).
-	func ascii() -> String {
-		onMain { () -> String in
-			let source = TISCopyCurrentASCIICapableKeyboardLayoutInputSource().takeRetainedValue()
-			let id = TISGetInputSourceProperty(source, kTISPropertyInputSourceID)
-			return id.map { Unmanaged<CFString>.fromOpaque($0).takeUnretainedValue() as String } ?? "?"
-		}
-	}
-
 	func shiftTap() {
 		focused()
 		post(kShift, true, .shift)
@@ -164,39 +154,14 @@ final class Pad: NSObject, NSApplicationDelegate {
 		usleep(400_000)
 	}
 
-	func currentSource() -> String {
-		onMain { () -> String in
-			let source = TISCopyCurrentKeyboardInputSource().takeRetainedValue()
-			let id = TISGetInputSourceProperty(source, kTISPropertyInputSourceID)
-			return id.map { Unmanaged<CFString>.fromOpaque($0).takeUnretainedValue() as String } ?? "?"
-		}
-	}
-
-	// The input source the system has selected now: the menu bar shows its icon.
-	func expectSource(_ id: String, _ when: String) {
-		var current = ""
-		for _ in 0..<20 {
-			current = currentSource()
-			if current == id { return }
-			usleep(100_000)
-		}
-		finish("\(when): the input source is \(current), not \(id)")
-	}
-
-	func select(_ id: String) {
-		onMain { if let source = inputSource(id) { _ = TISSelectInputSource(source) } }
-		usleep(500_000)
-	}
-
 	var previous: TISInputSource?
-	var keep = false	// leaves the source as the test did, for the next one
 	var report = ""
 	let output = CommandLine.arguments.count > 1 ? CommandLine.arguments[1]
 		: "/dev/stdout"
 
 	func finish(_ message: String) -> Never {
 		onMain {
-			if let previous, !keep || message != "done" { TISSelectInputSource(previous) }
+			if let previous { TISSelectInputSource(previous) }
 			report += message + "\n"
 			try? report.write(toFile: output, atomically: true, encoding: .utf8)
 			print(report, terminator: "")
@@ -210,33 +175,23 @@ final class Pad: NSObject, NSApplicationDelegate {
 		for _ in 0..<50 where !onMain({ NSApp.isActive && window.isKeyWindow }) {
 			usleep(100_000)
 		}
-		// "carry" goes on from where "modes" left off, in another app.
-		let start = phase == "carry" ? englishMode : chineseMode
 		onMain {
 			previous = TISCopyCurrentKeyboardInputSource().takeRetainedValue()
-			keep = phase == "modes"
-			if phase == "carry" {
-				previous = TISCopyCurrentASCIICapableKeyboardLayoutInputSource().takeRetainedValue()
-			} else if let source = inputSource(chineseMode) {
-				TISSelectInputSource(source)
-			}
+			if let source = inputSource(chineseMode) { TISSelectInputSource(source) }
 		}
 		usleep(300_000)
-		let current = currentSource()
-		guard current == start else { finish("input source is \(current), not \(start)") }
+		let current = onMain { () -> String in
+			let source = TISCopyCurrentKeyboardInputSource().takeRetainedValue()
+			let id = TISGetInputSourceProperty(source, kTISPropertyInputSourceID)
+			return id.map { Unmanaged<CFString>.fromOpaque($0).takeUnretainedValue() as String } ?? "?"
+		}
+		guard current == chineseMode else { finish("input source is \(current), not 海酷拼音") }
 		usleep(800_000)
 
 		if phase == "shuangpin" {
 			shuangpin()
 		} else if phase == "live" {
 			live()
-		} else if phase == "modes" {
-			modes()
-		} else if phase == "carry" {
-			t("hello"); k(kReturn)			// English, as the last app left it
-			shiftTap()
-			expectSource(chineseMode, "after a Shift tap")
-			t("nihao"); k(kSpace)			// 你好
 		} else if phase == "ai" {
 			ai()
 		} else {
@@ -311,34 +266,6 @@ extension Pad {
 		try? task.run()
 		task.waitUntilExit()
 		usleep(500_000)
-	}
-
-	// 中 and 英 are two input modes, so the menu bar shows which is on: the
-	// Shift tap selects the other, and the engine follows the one selected.
-	func modes() {
-		t("nihao"); k(kSpace)				// 你好
-		shiftTap()
-		expectSource(englishMode, "after a Shift tap")
-		t("hello ")							// English
-		shiftTap()
-		expectSource(chineseMode, "after a second Shift tap")
-		t("nihao"); k(kSpace)				// 你好
-		k(kReturn)
-		// Away to another source and back, in English: still English.
-		shiftTap()
-		expectSource(englishMode, "after a third Shift tap")
-		select(ascii())
-		t("abc ")
-		select(englishMode)
-		expectSource(englishMode, "back to the 英 mode")
-		t("world ")
-		// The input menu lists only 中: choosing it types Chinese again.
-		select(chineseMode)
-		expectSource(chineseMode, "back to the 中 mode")
-		t("zhongguo"); k(kSpace)			// 中国
-		// Left in English for "carry".
-		shiftTap()
-		expectSource(englishMode, "after the last Shift tap")
 	}
 
 	// 拼音加加, a o e one key each.

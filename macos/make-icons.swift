@@ -1,4 +1,4 @@
-// Draws the menu bar icons, 中 and 英 knocked out of a rounded square, as
+// Draws the menu bar icon, 中 knocked out of a rounded square, as
 // a template PDF with the glyphs as paths (no font inside):
 //   swiftc macos/make-icons.swift -o build/make-icons && build/make-icons macos/Resources
 import CoreGraphics
@@ -42,4 +42,3 @@ func icon(_ text: String, _ name: String) {
 }
 
 icon("中", "zh.pdf")
-icon("英", "en.pdf")

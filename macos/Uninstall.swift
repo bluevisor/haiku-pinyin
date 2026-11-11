@@ -184,7 +184,6 @@ private func leaveInputMenu() {
 			TISEnableInputSource(english)
 		}
 		let current = TISCopyCurrentKeyboardInputSource()?.takeRetainedValue()
-		// 中 or 英: both modes have the method's bundle ID.
 		let ours = current.flatMap { property($0, kTISPropertyBundleID) as String? }
 			== Bundle.main.bundleIdentifier
 		if ours || current == nil { TISSelectInputSource(english) }

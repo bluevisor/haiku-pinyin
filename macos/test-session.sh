@@ -1,10 +1,9 @@
 #!/bin/sh
 # Dev only: types through 海酷拼音 in a test window on this Mac and prints
 # what arrived (macos/test-session.swift): full pinyin with the default
-# settings, 拼音加加 shuangpin, a setting changed while it runs, the 中 and
-# 英 input modes, then the AI. Install it first (macos/install.sh).
-#   macos/test-session.sh [pass]    only that pass (full, shuangpin, live,
-#                                   modes, ai)
+# settings, 拼音加加 shuangpin, a setting changed while it runs, then the
+# AI. Install it first (macos/install.sh).
+#   macos/test-session.sh [pass]    only that pass (full, shuangpin, live, ai)
 set -e
 cd "$(dirname "$0")/.."
 app=build/HPSessionTest.app
@@ -63,12 +62,6 @@ pass() {
 	rm -f "$out"
 	open -W -n "$app" --args "$out" "$name"
 	got=$(sed '$d' "$out")	# the last line says how it ended
-	# modes goes on in a second app, carry, from the 英 mode it left on.
-	if [ "$name" = modes ] && [ "$(tail -1 "$out")" = done ]; then
-		open -W -n "$app" --args "$out" carry
-		got="$got
-$(sed '$d' "$out")"
-	fi
 	if [ "$got" = "$expected" ]; then
 		echo "PASS $name"
 	else
@@ -86,10 +79,6 @@ pass shuangpin "中国，啥玩意儿啊为什么
 nihd输入法中国
 饿我壹拾贰" layout -string pyjj vowels -int 2
 pass live "中国中国你好中国" layout -string pyjj
-pass modes "你好hello 你好
-abc world 中国
-hello
-你好" layout -string full
 # Needs the models (macos/ai/fetch-models.sh); skipped without them.
 if [ -f "$HOME/Library/Application Support/HaikuPinyin/models/Qwen3-1.7B-Base-4bit/config.json" ]; then
 	pass ai "我妹妹说她
