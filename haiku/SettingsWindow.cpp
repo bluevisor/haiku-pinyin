@@ -1,6 +1,6 @@
 // Haiku Pinyin: the settings window. The same options as the Deskbar menu,
-// in boxes as Haiku's preferences have them, plus the 词库 actions and a
-// problem report.
+// in boxes as Haiku's preferences have them, plus the 词库 actions, the
+// sync folder and a problem report.
 
 #include "SettingsWindow.h"
 
@@ -8,9 +8,12 @@
 #include <Button.h>
 #include <CheckBox.h>
 #include <ControlLook.h>
+#include <FilePanel.h>
+#include <FindDirectory.h>
 #include <LayoutBuilder.h>
 #include <MenuField.h>
 #include <MenuItem.h>
+#include <Path.h>
 #include <PopUpMenu.h>
 #include <Roster.h>
 #include <String.h>
@@ -21,14 +24,18 @@
 #include <string>
 
 #include "../engine/Report.h"
+#include "../engine/Sync.h"
 
 #ifndef HP_VERSION
 #define HP_VERSION "0"
 #endif
 
 enum {
-	kMsgChanged	= 'hpCh',	// a control, to the window
-	kMsgReport	= 'hpRp',
+	kMsgChanged		= 'hpCh',	// a control, to the window
+	kMsgReport		= 'hpRp',
+	kMsgChooseSync	= 'hpCS',
+	kMsgSyncChosen	= 'hpSy',	// from the file panel
+	kMsgSyncOff		= 'hpSO',
 };
 
 static const struct {
@@ -100,6 +107,19 @@ LoadOptions(const BMessage& message)
 }
 
 
+// user.dict, as PinyinMethod keeps it: the sync-folder file goes beside it
+// (engine/Sync.h), and the method reads it again as a composition starts.
+static std::string
+UserDictionary()
+{
+	BPath path;
+	if (find_directory(B_USER_SETTINGS_DIRECTORY, &path, true) != B_OK)
+		return std::string();
+	path.Append("HaikuPinyin/user.dict");
+	return path.Path();
+}
+
+
 static BMenuField*
 PopUp(const char* name, const char* label)
 {
@@ -165,7 +185,8 @@ SettingsWindow::SettingsWindow(BMessenger method,
 		B_NOT_RESIZABLE | B_NOT_ZOOMABLE | B_AUTO_UPDATE_SIZE_LIMITS
 			| B_ASYNCHRONOUS_CONTROLS | B_CLOSE_ON_ESCAPE),
 	fMethod(method),
-	fOptions(options)
+	fOptions(options),
+	fSyncPanel(NULL)
 {
 	fLayout = PopUp("layout", "全拼 / 双拼:");
 	for (const auto& layout : kLayouts)
@@ -228,6 +249,37 @@ SettingsWindow::SettingsWindow(BMessenger method,
 		.Add(MethodButton("folder", "打开词库文件夹", kMsgOpenFolder, method))
 		.View();
 
+	// Sync: the folder, two buttons, and what it means for privacy.
+	fSyncFolder = new BStringView("sync folder", "");
+	fSyncFolder->SetTruncation(B_TRUNCATE_MIDDLE);
+	fSyncFolder->SetExplicitMinSize(BSize(be_plain_font->StringWidth("M") * 16,
+		B_SIZE_UNSET));
+	fSyncFolder->SetExplicitMaxSize(BSize(B_SIZE_UNLIMITED, B_SIZE_UNSET));
+	fSyncOff = new BButton("sync off", "关闭", new BMessage(kMsgSyncOff));
+	BGroupLayout* syncNotes;
+	BView* sync = BLayoutBuilder::Group<>(B_VERTICAL, B_USE_SMALL_SPACING)
+		.SetInsets(B_USE_DEFAULT_SPACING)
+		.AddGroup(B_HORIZONTAL)
+			.Add(new BStringView("sync label", "同步文件夹:"))
+			.Add(fSyncFolder, 1.0f)
+			.Add(fSyncOff)
+			.Add(new BButton("sync choose", "选择…", new BMessage(kMsgChooseSync)))
+		.End()
+		.AddGroup(B_VERTICAL, 0)
+			.GetLayout(&syncNotes)
+		.End()
+		.View();
+	static const char* const kSyncNotes[] = {
+		"选一个你自己的同步工具（Dropbox、Syncthing、Nextcloud、网络共享）同步的文件夹，",
+		"学到的词和自定义短语就在你的几台电脑之间保持一致。每台电脑只写自己的文件。",
+		"这个文件夹里有你学到的词，能看到它的人都能读到。海酷拼音自己不上传任何东西。",
+	};
+	for (const char* line : kSyncNotes) {
+		BStringView* note = new BStringView("sync note", line);
+		note->SetFont(&small);
+		syncNotes->AddView(note);
+	}
+
 	BString version;
 	version << "版本 " << HP_VERSION;
 	BLayoutBuilder::Group<>(this, B_VERTICAL)
@@ -244,6 +296,7 @@ SettingsWindow::SettingsWindow(BMessenger method,
 				.AddGlue()
 			.End()
 		.End()
+		.Add(Box("同步", sync))
 		.AddGroup(B_HORIZONTAL)
 			.Add(new BStringView("version", version.String()))
 			.AddGlue()
@@ -251,9 +304,16 @@ SettingsWindow::SettingsWindow(BMessenger method,
 		.End();
 
 	_Show(options);
+	_ShowSync();
 	BSize size = GetLayout()->PreferredSize();
 	ResizeTo(size.width, size.height);
 	CenterOnScreen();
+}
+
+
+SettingsWindow::~SettingsWindow()
+{
+	delete fSyncPanel;
 }
 
 
@@ -261,6 +321,23 @@ void
 SettingsWindow::MessageReceived(BMessage* message)
 {
 	switch (message->what) {
+		case kMsgChooseSync:
+			_ChooseSync();
+			break;
+		case kMsgSyncChosen:
+		{
+			entry_ref ref;
+			if (message->FindRef("refs", &ref) == B_OK) {
+				BPath folder(&ref);
+				haikupinyin::WriteSyncSetting(UserDictionary(), folder.Path());
+				_ShowSync();
+			}
+			break;
+		}
+		case kMsgSyncOff:
+			haikupinyin::WriteSyncSetting(UserDictionary(), "");
+			_ShowSync();
+			break;
 		case kMsgChanged:
 		{
 			fOptions = _Chosen();
@@ -337,6 +414,37 @@ SettingsWindow::_Chosen() const
 			options.fuzzy &= ~kFuzzyGroups[i].mask;
 	}
 	return options;
+}
+
+
+void
+SettingsWindow::_ShowSync()
+{
+	std::string folder = haikupinyin::ReadSyncSetting(UserDictionary());
+	fSyncFolder->SetText(folder.empty() ? "关闭" : folder.c_str());
+	fSyncOff->SetEnabled(!folder.empty());
+}
+
+
+// Tracker's panel, for folders only.
+void
+SettingsWindow::_ChooseSync()
+{
+	if (fSyncPanel == NULL) {
+		BMessenger target(this);
+		fSyncPanel = new BFilePanel(B_OPEN_PANEL, &target, NULL,
+			B_DIRECTORY_NODE, false, new BMessage(kMsgSyncChosen));
+		if (fSyncPanel->Window()->Lock()) {
+			fSyncPanel->Window()->SetTitle("海酷拼音：选择同步文件夹");
+			fSyncPanel->Window()->Unlock();
+		}
+		fSyncPanel->SetButtonLabel(B_DEFAULT_BUTTON, "选择");
+		fSyncPanel->SetButtonLabel(B_CANCEL_BUTTON, "取消");
+	}
+	std::string folder = haikupinyin::ReadSyncSetting(UserDictionary());
+	if (!folder.empty())
+		fSyncPanel->SetPanelDirectory(folder.c_str());
+	fSyncPanel->Show();
 }
 
 

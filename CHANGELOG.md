@@ -7,6 +7,15 @@ to the version.
 
 ## Unreleased
 
+- **Sync between machines.** Pick a folder your own sync tool already keeps
+  alike (iCloud Drive, Dropbox, Syncthing, Nextcloud, a network share) under
+  同步 in the settings window, on Mac, Linux and Haiku, and the words it
+  learned, the ones you forgot with Ctrl+Delete, and your custom phrases
+  follow you between machines. There's no server: each machine writes only
+  its own file there, so the sync tool makes no conflict copies, and the
+  same word learned on two machines isn't counted twice. The folder holds
+  your learned words, so pick one only you can read. `hpcli sync FOLDER`
+  does one round by hand.
 - **Better sentences.** Whole sentences come out right more often (88% of
   the conversion benchmark, from 85%; 85% of a second set written apart
   from it, from 77%): word pairs now reach into the dictionary's longer

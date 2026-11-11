@@ -11,10 +11,14 @@ namespace haikupinyin {
 
 // Enough of a file's stat to tell that it changed.
 struct FileStamp {
-	int64_t seconds = 0;
+	int64_t seconds = 0;		// modified
 	int64_t nanoseconds = 0;
 	int64_t size = -1;		// -1: no file
 	uint64_t inode = 0;
+	// Changed (ctime): this machine's clock, which sync tools that copy the
+	// other machine's modification time can't set.
+	int64_t changedSeconds = 0;
+	int64_t changedNanoseconds = 0;
 
 	static FileStamp Of(const std::string& path);
 	bool operator==(const FileStamp& other) const;

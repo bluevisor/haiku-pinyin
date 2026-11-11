@@ -47,6 +47,8 @@ APPLICATIONSDIR ?= $(PREFIX)/share/applications
 GTK_FOUND := $(if $(LINUX),$(shell $(PKG_CONFIG) --exists gtk+-3.0 && echo yes))
 SETUP := $(BUILD)/haiku-pinyin-setup
 SETUP_SOURCES := linux/setup/Setup.cpp linux/Common.cpp
+# The engine's sync runs on a thread of its own (older glibc needs -pthread).
+THREADS := $(if $(LINUX),-pthread)
 
 all: $(ENGINE) $(BUILD)/hpcli $(BUILD)/engine_test $(if $(HAIKU),$(ADDON)) \
 	$(if $(IBUS_FOUND),$(IBUS_ENGINE)) $(if $(GTK_FOUND),$(SETUP))
@@ -60,10 +62,10 @@ $(ENGINE): $(ENGINE_OBJECTS)
 	ar rcs $@ $^
 
 $(BUILD)/hpcli: cli/hpcli.cpp $(ENGINE)
-	$(CXX) $(CXXFLAGS) $< $(ENGINE) -o $@
+	$(CXX) $(CXXFLAGS) $< $(ENGINE) $(THREADS) -o $@
 
 $(BUILD)/engine_test: tests/engine_test.cpp $(ENGINE)
-	$(CXX) $(CXXFLAGS) $< $(ENGINE) -o $@
+	$(CXX) $(CXXFLAGS) $< $(ENGINE) $(THREADS) -o $@
 
 data: $(BUILD)/data/pinyin.dict
 
@@ -106,7 +108,7 @@ setup: $(SETUP)
 $(SETUP): $(SETUP_SOURCES) linux/Common.h engine/*.h $(ENGINE)
 	$(CXX) $(CXXFLAGS) $$($(PKG_CONFIG) --cflags gtk+-3.0) \
 		-DHP_DATADIR='"$(DATADIR)"' -DHP_VERSION='"$(VERSION)"' \
-		$(SETUP_SOURCES) $(ENGINE) $$($(PKG_CONFIG) --libs gtk+-3.0) $(LDFLAGS) -o $@
+		$(SETUP_SOURCES) $(ENGINE) $$($(PKG_CONFIG) --libs gtk+-3.0) $(THREADS) $(LDFLAGS) -o $@
 
 # IBus only reads components from /usr/share/ibus/component (or
 # $$IBUS_COMPONENT_PATH), so PREFIX defaults to /usr. The settings window

@@ -18,6 +18,7 @@
 #include "../../engine/Engine.h"
 #include "../../engine/Phrases.h"
 #include "../../engine/Report.h"
+#include "../../engine/Sync.h"
 #include "../Common.h"
 
 #ifndef HP_VERSION
@@ -72,6 +73,8 @@ struct Setup {
 	GtkWidget* english = nullptr;
 	GtkWidget* cloud = nullptr;
 	GtkWidget* fuzzy[3] = {};
+	GtkWidget* syncNote = nullptr;		// the folder, or 关闭
+	GtkWidget* syncOff = nullptr;
 	GFileMonitor* monitor = nullptr;
 	bool showing = false;	// setting the controls, not the user
 	// Loaded for import and export, the first time.
@@ -357,6 +360,63 @@ Export(GtkWidget*, gpointer data)
 }
 
 
+// #pragma mark - sync
+
+
+// The sync-folder file beside user.dict (engine/Sync.h): the input method
+// reads it again as a composition starts.
+static void
+ShowSync(Setup* setup)
+{
+	std::string folder = haikupinyin::ReadSyncSetting(UserDictionaryPath());
+	gtk_label_set_text(GTK_LABEL(setup->syncNote), folder.empty()
+		? T("关闭", "Off") : folder.c_str());
+	gtk_widget_set_sensitive(setup->syncOff, !folder.empty());
+}
+
+
+static void
+SetSync(Setup* setup, const std::string& folder)
+{
+	if (!haikupinyin::WriteSyncSetting(UserDictionaryPath(), folder)) {
+		Tell(setup, std::string(T("没能保存同步设置：", "Couldn't save the sync setting: "))
+			+ haikupinyin::SyncSettingFile(UserDictionaryPath()),
+			GTK_MESSAGE_ERROR);
+	}
+	ShowSync(setup);
+}
+
+
+static void
+ChooseSync(GtkWidget*, gpointer data)
+{
+	Setup* setup = static_cast<Setup*>(data);
+	GtkFileChooserNative* chooser = gtk_file_chooser_native_new(
+		T("选择同步文件夹：你的同步工具同步的文件夹",
+			"Choose a Sync Folder: one your sync tool syncs"),
+		GTK_WINDOW(setup->window), GTK_FILE_CHOOSER_ACTION_SELECT_FOLDER,
+		T("选择", "Choose"), T("取消", "Cancel"));
+	GtkFileChooser* files = GTK_FILE_CHOOSER(chooser);
+	std::string current = haikupinyin::ReadSyncSetting(UserDictionaryPath());
+	gtk_file_chooser_set_current_folder(files, current.empty()
+		? g_get_home_dir() : current.c_str());
+	if (gtk_native_dialog_run(GTK_NATIVE_DIALOG(chooser)) == GTK_RESPONSE_ACCEPT) {
+		if (gchar* chosen = gtk_file_chooser_get_filename(files)) {
+			SetSync(setup, chosen);
+			g_free(chosen);
+		}
+	}
+	g_object_unref(chooser);
+}
+
+
+static void
+StopSync(GtkWidget*, gpointer data)
+{
+	SetSync(static_cast<Setup*>(data), "");
+}
+
+
 // #pragma mark - reporting a problem
 
 
@@ -440,10 +500,11 @@ Section(GtkWidget* page, const char* heading)
 }
 
 
-// A row: the title (and a note under it), the control on the right.
+// A row: the title (and a note under it, its label in noteLabel), the
+// control on the right.
 static GtkWidget*
 Row(GtkWidget* list, const char* title, GtkWidget* control,
-	const char* note = nullptr)
+	const char* note = nullptr, GtkWidget** noteLabel = nullptr)
 {
 	GtkWidget* box = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 12);
 	gtk_widget_set_margin_start(box, 12);
@@ -467,6 +528,8 @@ Row(GtkWidget* list, const char* title, GtkWidget* control,
 		gtk_label_set_attributes(GTK_LABEL(small), smaller);
 		pango_attr_list_unref(smaller);
 		gtk_box_pack_start(GTK_BOX(text), small, FALSE, FALSE, 0);
+		if (noteLabel != nullptr)
+			*noteLabel = small;
 	}
 	gtk_box_pack_start(GTK_BOX(box), text, TRUE, TRUE, 0);
 	if (control != nullptr) {
@@ -613,6 +676,35 @@ Build(Setup* setup)
 		Button(T("打开", "Open"), G_CALLBACK(OpenFolder), setup),
 		"~/.config/haiku-pinyin");
 
+	// Sync: the folder and two buttons, then what it means for privacy.
+	list = Section(page, T("同步", "Sync"));
+	GtkWidget* buttons = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 6);
+	setup->syncOff = Button(T("关闭", "Turn Off"), G_CALLBACK(StopSync), setup);
+	gtk_box_pack_start(GTK_BOX(buttons), setup->syncOff, FALSE, FALSE, 0);
+	gtk_box_pack_start(GTK_BOX(buttons),
+		Button(T("选择…", "Choose…"), G_CALLBACK(ChooseSync), setup),
+		FALSE, FALSE, 0);
+	Row(list, T("同步文件夹", "Sync folder"), buttons, "", &setup->syncNote);
+	gtk_label_set_ellipsize(GTK_LABEL(setup->syncNote), PANGO_ELLIPSIZE_MIDDLE);
+	gtk_label_set_line_wrap(GTK_LABEL(setup->syncNote), FALSE);
+	GtkWidget* footer = gtk_label_new(T(
+		"选一个你自己的同步工具（Dropbox、Syncthing、Nextcloud、网络共享）"
+		"同步的文件夹，学到的词和自定义短语就在你的几台电脑之间保持一致。"
+		"每台电脑只写自己的文件。这个文件夹里有你学到的词：能看到它的人都能读到。"
+		"海酷拼音自己不上传任何东西。",
+		"Pick a folder your own sync tool syncs (Dropbox, Syncthing, "
+		"Nextcloud, a network share) to keep learned words and "
+		"custom phrases alike on your computers. Each one writes only its "
+		"own files. The folder holds the words it learned: whoever can see "
+		"it can read them. Haiku Pinyin itself sends nothing anywhere."));
+	gtk_label_set_xalign(GTK_LABEL(footer), 0);
+	gtk_label_set_line_wrap(GTK_LABEL(footer), TRUE);
+	gtk_label_set_max_width_chars(GTK_LABEL(footer), 60);
+	gtk_style_context_add_class(gtk_widget_get_style_context(footer),
+		"dim-label");
+	gtk_widget_set_margin_top(footer, 6);
+	gtk_box_pack_start(GTK_BOX(page), footer, FALSE, FALSE, 0);
+
 	list = Section(page, T("反馈", "Feedback"));
 	Row(list, T("报告问题", "Report a problem"),
 		Button(T("报告问题…", "Report a Problem…"), G_CALLBACK(Report), setup),
@@ -624,6 +716,7 @@ Build(Setup* setup)
 	gtk_container_add(GTK_CONTAINER(window), stack);
 
 	Show(setup);
+	ShowSync(setup);
 	GFile* file = g_file_new_for_path(SettingsPath().c_str());
 	setup->monitor = g_file_monitor_file(file, G_FILE_MONITOR_NONE, nullptr,
 		nullptr);

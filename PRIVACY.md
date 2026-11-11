@@ -4,7 +4,9 @@
 
 **By default, nothing you type leaves your computer.** 海酷拼音 has no
 accounts, analytics, telemetry or automatic crash reporting. The words it
-learns, your settings and the AI's model all stay on your machine.
+learns, your settings and the AI's model all stay on your machine, unless
+you pick a [sync folder](#the-sync-folder) for your own sync tool to carry
+the words and custom phrases to your other machines.
 
 Four things can reach the network, each for a reason you can see and turn
 off. This page lists every one of them; it was written by reading the code,
@@ -20,7 +22,9 @@ and the places to check it are at the end.
 ## What never leaves your computer
 
 - **What you type**, and the text you commit.
-- **The words it learns** (`user.dict`) and your settings.
+- **The words it learns** (`user.dict`) and your settings, unless you pick
+  a [sync folder](#the-sync-folder): then your own sync tool carries the
+  words and custom phrases to your other machines.
 - **The text before the cursor** that the Mac's AI reads (up to 64
   characters). It goes to a helper process on the same Mac, over a pipe;
   the helper loads the model from a folder on disk and never connects to
@@ -105,6 +109,32 @@ The `haiku-pinyin-data` .deb adds a repository,
 - **To stop it**, delete that file. The Arch and Fedora packages add no
   repository, and Haiku has no update check.
 
+## The sync folder
+
+**Off until you pick a folder** (同步 in the settings window, on every
+platform). Pick one only you can read.
+
+When you've picked one, 海酷拼音 writes two files for this machine into
+`<folder>/haiku-pinyin/`, and reads the other machines' from there:
+
+- `<id>.words`: **every word it learned**, as plain text (the word, its
+  pinyin, how often you picked it, when, and a ranking cost), and the words
+  you forgot with Ctrl+Delete.
+- `<id>.phrases`: your custom phrases (`phrases.txt`) as they stand.
+- Each file names the machine (its host name) in its first lines. `<id>`
+  is a random number kept in `sync-id` beside `user.dict`; it stands for
+  nothing else.
+
+**海酷拼音 itself sends nothing anywhere**: it reads and writes files in a
+folder on your disk, and opens no connection. Whatever syncs that folder
+(iCloud Drive, Dropbox, Syncthing, Nextcloud, a network share) carries
+those files to your other machines and keeps them wherever that service
+keeps things; its privacy policy applies to them. **Anyone who can read the
+folder can read the words you learned.**
+
+Turning it off stops the reading and writing; the files already in the
+folder stay until you delete them.
+
 ## Copy diagnostics
 
 **Settings → Diagnostics → Copy** (macOS) puts a report on the clipboard
@@ -151,6 +181,9 @@ GitHub until you submit it.
 | Linux | `~/.config/haiku-pinyin/user.dict` | `~/.config/haiku-pinyin/settings` | |
 | Haiku | `~/config/settings/HaikuPinyin/user.dict` | `~/config/settings/HaikuPinyin/` | |
 
+Beside `user.dict` on each: `phrases.txt` (custom phrases), and with sync on,
+`sync-folder` (the folder you picked) and `sync-id` (this machine's id).
+
 On a Mac, **Uninstall…** in the settings deletes the app. With **Also
 delete my data** ticked, it deletes the Mac's row above too (learned words,
 custom phrases, settings, models and updates) and the logs.
@@ -177,6 +210,7 @@ browser and has no analytics, cookies, or outside fonts or scripts.
 | AI helper (local only) | `macos/AI.mm`, `macos/ai/Sources/main.swift` |
 | apt repository | `linux/haiku-pinyin.sources`, `linux/deb.sh` |
 | Diagnostics | `macos/Diagnostics.swift` |
+| Sync folder (files only, no network) | `engine/Sync.cpp`; the setting: `macos/Words.swift`, `linux/setup/Setup.cpp`, `haiku/SettingsWindow.cpp` |
 | Problem reports | `macos/Report.swift`; the link on Linux and Haiku: `engine/Report.cpp`, opened by `linux/setup/Setup.cpp` and `haiku/SettingsWindow.cpp` (the browser; no request of their own) |
 
 Nothing else in `engine/`, `macos/`, `linux/` or `haiku/` opens a network

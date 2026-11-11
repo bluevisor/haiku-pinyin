@@ -1,8 +1,8 @@
-// 海酷拼音 Haiku Pinyin for macOS: custom phrases, and importing and
-// exporting learned words, for the settings window (Words.swift, which says
-// what happened in the system's language). A second engine works on the
-// files; the input method's own takes the change up as its next composition
-// starts.
+// 海酷拼音 Haiku Pinyin for macOS: custom phrases, importing and exporting
+// learned words, and the sync folder, for the settings window (Words.swift,
+// which says what happened in the system's language). A second engine works
+// on the files; the input method's own takes the change up as its next
+// composition starts.
 
 #import <Foundation/Foundation.h>
 
@@ -88,4 +88,24 @@ HPExportWords(const char* path)
 	if (!LoadEngine(engine) || !engine.ExportWords(path, &count))
 		return -1;
 	return count;
+}
+
+
+// The sync folder (engine/Sync.h): the sync-folder file beside user.dict,
+// "" when off. The input method reads it again as a composition starts.
+extern "C" const char*
+HPSyncFolder(void)
+{
+	static std::string folder;
+	folder = haikupinyin::ReadSyncSetting([Folder()
+		stringByAppendingPathComponent:@"user.dict"].UTF8String);
+	return folder.c_str();
+}
+
+
+extern "C" bool
+HPSetSyncFolder(const char* folder)
+{
+	return haikupinyin::WriteSyncSetting([Folder()
+		stringByAppendingPathComponent:@"user.dict"].UTF8String, folder);
 }

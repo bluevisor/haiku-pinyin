@@ -94,8 +94,17 @@ Engine::SetUserDictionary(const std::string& path)
 	fUser.Load(path, fLexicon.GetSyllables());
 	fUserStamp = FileStamp::Of(path);
 	size_t slash = path.rfind('/');
+	fSyncStamp = FileStamp();
 	SetPhrasesFile((slash == std::string::npos ? std::string()
 		: path.substr(0, slash + 1)) + "phrases.txt");
+}
+
+
+void
+Engine::SetPhrasesFile(const std::string& path)
+{
+	fPhrases.SetPath(path);
+	_ConfigureSync();
 }
 
 
@@ -105,6 +114,93 @@ Engine::_Refresh()
 {
 	fPhrases.Refresh();
 	_RefreshUser();
+	_RefreshSync();
+}
+
+
+void
+Engine::SetSyncFolder(const std::string& folder)
+{
+	fSyncFixed = true;
+	fSyncFolder = folder;
+	_ConfigureSync();
+}
+
+
+// The sync-folder file, when it changed: a stat.
+void
+Engine::_ConfigureSync()
+{
+	if (!fSyncFixed && !fUserPath.empty()) {
+		FileStamp stamp = FileStamp::Of(SyncSettingFile(fUserPath));
+		if (stamp != fSyncStamp) {
+			fSyncStamp = stamp;
+			fSyncFolder = ReadSyncSetting(fUserPath);
+		}
+	}
+	fSync.SetFolder(fUserPath.empty() ? std::string() : fSyncFolder,
+		fUserPath, fPhrases.Path());
+}
+
+
+// Whatever the worker brought, joined in; it's asked to look again.
+void
+Engine::_RefreshSync()
+{
+	_ConfigureSync();
+	if (!fSync.On())
+		return;
+	fSync.Poke();
+	std::vector<SyncedWord> words;
+	if (fSync.Take(words))
+		_JoinSynced(words);
+}
+
+
+int
+Engine::_JoinSynced(const std::vector<SyncedWord>& words)
+{
+	const Syllables& syllables = fLexicon.GetSyllables();
+	UserDict theirs;
+	for (const SyncedWord& word : words) {
+		std::vector<SyllableId> key;
+		std::istringstream names(word.pinyin);
+		std::string name;
+		bool valid = true;
+		while (valid && names >> name) {
+			int id = syllables.Find(name);
+			valid = id >= 0;
+			key.push_back(SyllableId(id));
+		}
+		if (valid)
+			theirs.Add(key, word.text, word.cost, word.count, word.time);
+	}
+	return fUser.Join(theirs);
+}
+
+
+SyncReport
+Engine::SyncNow()
+{
+	SyncReport report;
+	_ConfigureSync();
+	if (!fSync.On()) {
+		report.error = "no sync folder";
+		return report;
+	}
+	_RefreshUser();
+	std::vector<SyncedWord> words;
+	fSync.Read(words, report);
+	if (!report.error.empty())
+		return report;
+	report.changed = _JoinSynced(words);
+	fPhrases.Refresh();
+	if (!SaveUserDictionary()) {
+		report.error = "can't save " + fUserPath;
+		return report;
+	}
+	fSync.Write(report);
+	return report;
 }
 
 
@@ -123,7 +219,7 @@ Engine::_RefreshUser()
 	if (!disk.Load(fUserPath, fLexicon.GetSyllables()))
 		return;
 	if (fUser.Dirty())
-		disk.Merge(fUser);
+		disk.Join(fUser);
 	fUser = std::move(disk);
 }
 
@@ -140,6 +236,7 @@ Engine::SaveUserDictionary()
 	if (!fUser.Save(fUserPath, fLexicon.GetSyllables()))
 		return false;
 	fUserStamp = FileStamp::Of(fUserPath);
+	fSync.Wake();
 	return true;
 }
 
