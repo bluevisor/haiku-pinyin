@@ -14,6 +14,7 @@
 #include "Lexicon.h"
 #include "Phrases.h"
 #include "Spelling.h"
+#include "Sync.h"
 #include "UserDict.h"
 #include "Words.h"
 
@@ -83,7 +84,7 @@ public:
 
 	// Custom phrases (Phrases.h), read again when the file changes, as a
 	// composition starts.
-	void SetPhrasesFile(const std::string& path) { fPhrases.SetPath(path); }
+	void SetPhrasesFile(const std::string& path);
 	const std::string& PhrasesFile() const { return fPhrases.Path(); }
 	Phrases& CustomPhrases() { return fPhrases; }
 
@@ -102,6 +103,18 @@ public:
 	};
 	bool ExportWords(const std::string& path, int* count = nullptr);
 	ImportResult ImportWords(const std::string& path);
+
+	// Sync (Sync.h) through a folder the user's own tool syncs, "" for off:
+	// the sync-folder file beside user.dict says which, read again when it
+	// changes, as a composition starts. SetSyncFolder sets it for this
+	// engine alone, the file aside. Compositions start the worker that
+	// reads and writes the folder; what it brings is joined in as the next
+	// one starts, and saving the dictionary has it write ours.
+	void SetSyncFolder(const std::string& folder);
+	const std::string& SyncFolder() const { return fSync.Folder(); }
+	// One round on this thread (hpcli sync): the others' files in, the
+	// dictionary saved, ours out.
+	SyncReport SyncNow();
 
 	const Options& GetOptions() const { return fOptions; }
 	void SetOptions(const Options& options);
@@ -209,6 +222,9 @@ private:
 	void _PlacePhrases();
 	void _Refresh();
 	void _RefreshUser();
+	void _RefreshSync();
+	void _ConfigureSync();
+	int _JoinSynced(const std::vector<SyncedWord>& words);
 	void _Select(const Candidate& candidate);
 	void _Finish(const std::string& tail);
 	void _Move(int delta);
@@ -227,6 +243,10 @@ private:
 	FileStamp fUserStamp;		// of the user dictionary, as last read or saved
 	Phrases fPhrases;
 	int fUnsaved = 0;
+	Sync fSync;
+	std::string fSyncFolder;
+	FileStamp fSyncStamp;		// of the sync-folder file, as last read
+	bool fSyncFixed = false;	// by SetSyncFolder
 	Bigram fBigram;
 	std::vector<std::string> fEnglish;		// sorted, ignoring case
 	std::vector<std::string> fEnglishLower;

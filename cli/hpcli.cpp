@@ -15,6 +15,11 @@
 //         (ours, Sogou's, Rime's, the Mac's text replacements). --user
 //         defaults to this system's user.dict, phrases.txt beside it; a
 //         running input method picks up the change by itself.
+//
+//   hpcli sync [FOLDER] [--user FILE] [--data DIR]
+//         one sync round through FOLDER (by default the one set in the
+//         settings): the other machines' words and phrases in, then this
+//         machine's out to FOLDER/haiku-pinyin/ (engine/Sync.h)
 
 #include <cstdio>
 #include <cstdlib>
@@ -87,8 +92,10 @@ DefaultData()
 static int
 ImportOrExport(int argc, char** argv)
 {
-	std::string command = argv[1], file = argv[2], data, user;
-	for (int i = 3; i + 1 < argc; i += 2) {
+	// sync's folder is optional.
+	bool folder = argc >= 3 && strncmp(argv[2], "--", 2) != 0;
+	std::string command = argv[1], file = folder ? argv[2] : "", data, user;
+	for (int i = folder ? 3 : 2; i + 1 < argc; i += 2) {
 		std::string flag = argv[i];
 		if (flag == "--data")
 			data = argv[i + 1];
@@ -107,6 +114,26 @@ ImportOrExport(int argc, char** argv)
 	}
 	engine.SetUserDictionary(user.empty() ? DefaultUserDictionary() : user);
 
+	if (command == "sync") {
+		if (!file.empty())
+			engine.SetSyncFolder(file);
+		SyncReport report = engine.SyncNow();
+		if (!report.error.empty()) {
+			fprintf(stderr, "%s\n", report.error == "no sync folder"
+				? "no sync folder: hpcli sync FOLDER, or set one in the settings"
+				: report.error.c_str());
+			return 1;
+		}
+		printf("%s: %d words from %d other machines, %d changed here; "
+			"%d words out\n", report.folder.c_str(), report.received,
+			report.machines, report.changed, report.sent);
+		if (!report.phrasesFrom.empty()) {
+			printf("%s now has %s's phrases (the one it replaced, if any, is "
+				"phrases.txt.bak)\n", engine.PhrasesFile().c_str(),
+				report.phrasesFrom.c_str());
+		}
+		return 0;
+	}
 	if (command == "export") {
 		int count = 0;
 		if (!engine.ExportWords(file, &count)) {
@@ -210,8 +237,9 @@ Feed(Engine& engine, const std::string& line)
 int
 main(int argc, char** argv)
 {
-	if (argc >= 3 && (strcmp(argv[1], "export") == 0
-			|| strcmp(argv[1], "import") == 0)) {
+	if ((argc >= 3 && (strcmp(argv[1], "export") == 0
+			|| strcmp(argv[1], "import") == 0))
+		|| (argc >= 2 && strcmp(argv[1], "sync") == 0)) {
 		return ImportOrExport(argc, argv);
 	}
 

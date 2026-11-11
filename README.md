@@ -362,16 +362,57 @@ file panels). Anywhere, from a build: `build/hpcli export words.txt`,
 `build/hpcli import file` (on this system's `user.dict`, or `--user FILE`).
 A running input method takes up the change as the next composition starts.
 
+### Syncing between machines (同步)
+
+Learned words and custom phrases can follow you between your Macs, Linux PCs
+and Haiku machines through a folder **your own sync tool** already keeps
+alike: iCloud Drive, Dropbox, Syncthing, Nextcloud, a network share. There's
+no server. Pick the folder under 同步 in the settings window (Mac, Linux,
+Haiku); none, the default, is off. The setting is the file `sync-folder`
+beside `user.dict`.
+
+- **One file per machine.** The folder gets a `haiku-pinyin/` folder holding
+  `<id>.words` and `<id>.phrases` for each machine. A machine writes only its
+  own and reads the others', so the sync tool never sees two machines change
+  one file and makes no conflict copies. The id is random, kept in `sync-id`
+  beside `user.dict`; the machine's name is in each file's first lines.
+- **Words** are text, `词<Tab>pin yin<Tab>count<Tab>time<Tab>cost`, every word
+  that machine knows. They merge by the higher count, never the sum, so the
+  same word learned on two machines isn't counted again each time they sync.
+- **Forgetting** a word (Ctrl+Delete) forgets it everywhere: the files list
+  forgotten words too (`-<Tab>词<Tab>pin yin<Tab>time`), and a copy learned
+  before the forget doesn't bring it back. Using the word again afterward, on
+  any machine, does.
+- **Custom phrases** go as a whole file: the most recently edited
+  `phrases.txt` replaces the others', which keep the one it replaced as
+  `phrases.txt.bak`. An edit made after a machine took the others' phrases
+  counts as newer than them, even if that machine's clock runs behind. Edit
+  them on one machine at a time, or merge by hand from the `.bak`. To remove
+  every phrase, empty the file; a deleted one comes back from the others. A
+  new machine's commented example never replaces anyone's phrases.
+- **When:** it writes its files as it saves what it learned (every few
+  words), and reads the others' when they change, on a thread of its own that
+  typing never waits on: within seconds while you type, within a minute
+  otherwise. Files are written to a temporary name and renamed into place,
+  and a file the sync tool has only half delivered is ignored until it's
+  whole.
+- `build/hpcli sync FOLDER` does one round by hand (`--user FILE` for
+  another `user.dict`; without `FOLDER`, the one in the settings).
+
+The folder holds the words you learned, in plain text: anyone who can read
+it can read them. 海酷拼音 sends nothing anywhere itself; your sync tool
+does. See [PRIVACY.md](PRIVACY.md#the-sync-folder).
+
 ## Layout
 
 | Path | What |
 |---|---|
-| `engine/` | Portable C++17 engine: lexicon, syllable graph (full pinyin, shuangpin, 模糊音), bigram beam-search decoder, user dictionary, custom phrases (`Phrases`), word import and export (`Words`), S→T converter, the prefilled bug report link (`Report`); the questions and answers for cloud and AI candidates |
+| `engine/` | Portable C++17 engine: lexicon, syllable graph (full pinyin, shuangpin, 模糊音), bigram beam-search decoder, user dictionary, custom phrases (`Phrases`), word import and export (`Words`), sync through a folder (`Sync`), S→T converter, the prefilled bug report link (`Report`); the questions and answers for cloud and AI candidates |
 | `haiku/` | input_server method add-on (`PinyinMethod.cpp`: the engine, the Deskbar menu), candidate window, settings window (`SettingsWindow.cpp`) |
-| `macos/` | InputMethodKit method (`InputController.mm`), AI helper client (`AI.mm`) and the helper itself (`ai/`, Swift + MLX), settings window and 中/英 bubble (`Settings.swift`), candidate window and gray AI completion (`Candidates.swift`), self-update (`Updater.swift`), model download (`Models.swift`), custom phrases, import and export (`Words.swift`, `Words.mm`), `build.sh`, `install.sh`, `release.sh` (signed, notarized zip, DMG and `.pkg` (`pkg.sh`, `pkg/`) and `latest.json`; `ai/upload-models.sh` puts the models on Hugging Face); dev only: `test-session.sh` types through it in a test window (full pinyin, shuangpin, then AI when its models are installed), `snapshot-settings.swift` renders the settings window and bubble to PNG |
+| `macos/` | InputMethodKit method (`InputController.mm`), AI helper client (`AI.mm`) and the helper itself (`ai/`, Swift + MLX), settings window and 中/英 bubble (`Settings.swift`), candidate window and gray AI completion (`Candidates.swift`), self-update (`Updater.swift`), model download (`Models.swift`), custom phrases, import and export, the sync folder (`Words.swift`, `Words.mm`), `build.sh`, `install.sh`, `release.sh` (signed, notarized zip, DMG and `.pkg` (`pkg.sh`, `pkg/`) and `latest.json`; `ai/upload-models.sh` puts the models on Hugging Face); dev only: `test-session.sh` types through it in a test window (full pinyin, shuangpin, then AI when its models are installed), `snapshot-settings.swift` renders the settings window and bubble to PNG |
 | `linux/` | IBus engine (`main.cpp`; its settings and top-bar menu in `Settings.cpp`), the settings window (`setup/Setup.cpp`, GTK 3, and `setup/ibus-setup-haiku-pinyin.desktop.in` for GNOME Settings), component file, installers (`enable.sh`, `install-user.sh`); what it shares with the Fcitx5 addon: settings, data, user dictionary and custom phrases (`Common.cpp`), cloud candidates (`Cloud.cpp`), the 词库 menu (`Words.cpp`); packages, built in Docker: `deb.sh` (`make linux-deb`: IBus and Fcitx5 .debs for arm64 and amd64, and `haiku-pinyin-data`, which adds the apt repository, `haiku-pinyin.sources`), `arch/PKGBUILD.in` and `arch.sh` (`make linux-arch`), `fedora/haiku-pinyin.spec.in` and `rpm.sh` (`make linux-rpm`), `sources.sh` (the data tarball those two build from, `make linux-sources`), `check-install.sh` (are the files where IBus and Fcitx5 look); dev only: `sync.sh` builds on a Linux box over ssh, `test-session.sh` types through gedit with xdotool |
 | `linux/fcitx5/` | Fcitx5 addon (`HaikuPinyin.cpp`: the engine, candidate window, 中/英, the 词库 menu in the tray, settings for Fcitx5's configuration tool), addon and input method `.conf` files; dev only: `docker-test.sh` types through it under Xvfb in Docker (`test-session.sh`, `textview.py`, and `panel.py`, which picks tray menu items as KDE's panel does) |
-| `cli/hpcli.cpp` | Drive the engine from a terminal: `echo nihao \| build/hpcli --layout pyjj`; `hpcli import`, `hpcli export` |
+| `cli/hpcli.cpp` | Drive the engine from a terminal: `echo nihao \| build/hpcli --layout pyjj`; `hpcli import`, `hpcli export`, `hpcli sync` |
 | `tests/` | Engine tests |
 | `tools/fetch_sources.sh`, `tools/sources.sha256` | Fetches `sources/`, each upstream at a pinned commit, checked against the checksums |
 | `tools/build_data.py` | Builds `build/data/` from `sources/` |

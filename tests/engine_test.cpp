@@ -3,11 +3,14 @@
 #include <algorithm>
 #include <cstdio>
 #include <cstdlib>
+#include <fcntl.h>
 #include <fstream>
+#include <functional>
 #include <sstream>
 #include <string>
 #include <sys/stat.h>
 #include <unistd.h>
+#include <utime.h>
 
 #include "../engine/Engine.h"
 #include "../engine/Report.h"
@@ -478,6 +481,392 @@ Has(const std::string& text, const std::string& part)
 }
 
 
+// #pragma mark - sync
+
+
+// A machine: its own folder with user.dict (and phrases.txt, sync-id), and
+// an engine on it syncing through shared.
+struct Machine {
+	std::string directory;
+	Engine engine;
+
+	Machine(const std::string& root, const char* name,
+		const std::string& shared)
+		:
+		directory(root + "/" + name)
+	{
+		mkdir(directory.c_str(), 0755);
+		engine.Load(sData);
+		engine.SetUserDictionary(directory + "/user.dict");
+		engine.SetSyncFolder(shared);
+	}
+
+	// Picks the candidate at index for keys, and commits it.
+	void Pick(const std::string& keys, int index)
+	{
+		Type(engine, keys);
+		engine.SelectOnPage(index);
+		engine.TakeCommit();
+	}
+
+	std::string FirstFor(const std::string& keys)
+	{
+		Type(engine, keys);
+		std::string first = First(engine);
+		engine.ProcessKey(Key::kEscape, 0, 0);
+		return first;
+	}
+
+	SyncReport Round() { return engine.SyncNow(); }
+	std::string Words() const { return ::Words(directory + "/user.dict"); }
+};
+
+
+static uint32_t
+CountOf(const UserDict& user, const std::string& text)
+{
+	for (uint32_t i = 0; i < user.Size(); i++) {
+		if (user.At(i).text == text)
+			return user.At(i).count;
+	}
+	return 0;
+}
+
+
+static void
+SetModified(const std::string& path, time_t when)
+{
+	struct utimbuf times;
+	times.actime = when;
+	times.modtime = when;
+	utime(path.c_str(), &times);
+}
+
+
+// Learned words and custom phrases through a shared folder: the join's
+// rules, rounds that change nothing, forgotten words, half-written files,
+// two machines agreeing, and the running engine's worker.
+static void
+TestSync()
+{
+	{
+		// The join: higher count, lower cost, newer time; the same either
+		// way round, and twice is once.
+		std::vector<SyllableId> key = {1, 2};
+		UserDict a, b;
+		a.Add(key, "甲", 9.0f, 3, 100);
+		b.Add(key, "甲", 7.0f, 2, 200);
+		b.Add({3}, "乙", 5.0f, 1, 150);
+		UserDict ab = a, ba = b;
+		Expect("join changes", std::to_string(ab.Join(b)), "2");
+		ba.Join(a);
+		Expect("join count", std::to_string(CountOf(ab, "甲")), "3");
+		Expect("join cost", std::to_string(int(ab.At(0).cost)), "7");
+		Expect("join time", std::to_string(ab.At(0).lastUsed), "200");
+		Expect("join either way", std::to_string(ba.Size()) + " "
+			+ std::to_string(CountOf(ba, "甲")) + " "
+			+ std::to_string(int(ba.At(0).cost)), "2 3 7");
+		Expect("join twice", std::to_string(ab.Join(b)), "0");
+
+		// Forgotten after it was last learned: it goes, and stays gone
+		// when an older copy comes back; learned again after, it returns.
+		UserDict forgot = ab;
+		forgot.Add(key, "甲", 0, 0, 300);
+		Expect("forgotten", std::to_string(CountOf(forgot, "甲")), "0");
+		UserDict stale = a;
+		Expect("forget wins", std::to_string(stale.Join(forgot)) + " "
+			+ std::to_string(CountOf(stale, "甲")), "3 0");
+		stale.Join(a);
+		Expect("old copy stays out", std::to_string(CountOf(stale, "甲")), "0");
+		UserDict later;
+		later.Add(key, "甲", 9.0f, 1, 400);
+		stale.Join(later);
+		Expect("learned again", std::to_string(CountOf(stale, "甲")), "1");
+		Expect("forget kept", std::to_string(stale.ForgottenWords().size()),
+			"1");
+
+		// A forget taken in from a machine whose clock runs ahead still
+		// comes before learning the word here afterward.
+		UserDict here;
+		here.SetTime(1000);
+		here.Learn(key, "甲", 9.0f);
+		UserDict ahead;
+		ahead.Add(key, "甲", 0, 0, 5000);
+		here.Join(ahead);
+		Expect("ahead forgets", std::to_string(CountOf(here, "甲")), "0");
+		here.Learn(key, "甲", 9.0f);
+		UserDict elsewhere;
+		elsewhere.Join(ahead);
+		elsewhere.Join(here);
+		Expect("learned after a forget from ahead",
+			std::to_string(CountOf(elsewhere, "甲")), "1");
+	}
+
+	std::string root = TempDirectory();
+	std::string shared = root + "/shared";
+	mkdir(shared.c_str(), 0755);
+	std::string folder = shared + "/haiku-pinyin";
+	{
+		Machine a(root, "a", shared), b(root, "b", shared);
+		// A fifth candidate learned on one machine is first on the other.
+		Type(a.engine, "shi");
+		std::string fifth = a.engine.PageCandidates()[4];
+		a.engine.ProcessKey(Key::kEscape, 0, 0);
+		a.Pick("shi", 4);
+		a.Pick("shi", 0);
+		a.Pick("zhongguoren ", 0);
+		b.Pick("nihao ", 0);
+		SyncReport report = a.Round();
+		Expect("sync report", report.error + std::to_string(report.sent), "2");
+		report = b.Round();
+		Expect("sync report b", report.error + std::to_string(report.received)
+			+ " " + std::to_string(report.changed) + " "
+			+ std::to_string(report.machines), "2 2 1");
+		a.Round();
+		Expect("learned elsewhere is first", b.FirstFor("shi"), fifth);
+		Expect("both ways", a.FirstFor("nihao"), "你好");
+		Expect("converged", a.Words(), b.Words());
+		std::string words = a.Words();
+		Expect("each its own file", std::to_string(
+			Has(ReadFile(folder + "/" + ReadFile(a.directory + "/sync-id")
+				.substr(0, 16) + ".words"), "中国人\tzhong guo ren\t1\t")),
+			"1");
+
+		// Rounds and more rounds: nothing counted twice.
+		for (int i = 0; i < 4; i++) {
+			a.Round();
+			b.Round();
+		}
+		Expect("no double counting", b.Words(), words);
+		Expect("count stays", std::to_string(CountOf(
+			b.engine.UserDictionary(), fifth)), "2");
+		// The same word learned on both: the higher count, not the sum.
+		a.Pick("shi", 0);
+		b.Pick("shi", 0);
+		b.Pick("shi", 0);
+		a.Round();
+		b.Round();
+		a.Round();
+		Expect("higher count", std::to_string(CountOf(
+			a.engine.UserDictionary(), fifth)) + " " + std::to_string(CountOf(
+			b.engine.UserDictionary(), fifth)), "4 4");
+
+		// Ctrl+Delete on one: gone on the other, and a third machine's old
+		// copy doesn't bring it back.
+		Machine c(root, "c", shared);
+		c.Round();
+		Expect("third has it", std::to_string(CountOf(
+			c.engine.UserDictionary(), fifth)), "4");
+		c.engine.SetSyncFolder("");
+		Type(a.engine, "shi");
+		Expect("forgetting", First(a.engine), fifth);
+		a.engine.ProcessKey(Key::kDelete, 0, kControl);
+		a.engine.ProcessKey(Key::kEscape, 0, 0);
+		a.Round();
+		b.Round();
+		Expect("forgotten elsewhere", std::to_string(CountOf(
+			b.engine.UserDictionary(), fifth)), "0");
+		Expect("forgotten elsewhere, typed", b.FirstFor("shi") != fifth
+			? "gone" : "there", "gone");
+		c.engine.SetSyncFolder(shared);
+		c.Round();
+		a.Round();
+		b.Round();
+		Expect("old copy dropped", std::to_string(CountOf(
+			c.engine.UserDictionary(), fifth)) + std::to_string(CountOf(
+			a.engine.UserDictionary(), fifth)) + std::to_string(CountOf(
+			b.engine.UserDictionary(), fifth)), "000");
+		Expect("tombstone written", std::to_string(Has(
+			ReadFile(folder + "/" + ReadFile(b.directory + "/sync-id")
+				.substr(0, 16) + ".words"), "-\t" + fifth + "\tshi\t")), "1");
+		// Learned again afterward, anywhere: back everywhere, from one.
+		b.Pick("shi", 4);
+		std::string again = b.engine.UserDictionary().Size() > 0
+			? std::to_string(CountOf(b.engine.UserDictionary(), fifth)) : "";
+		b.Round();
+		a.Round();
+		c.Round();
+		Expect("learned again everywhere", std::to_string(CountOf(
+			a.engine.UserDictionary(), fifth)) + std::to_string(CountOf(
+			c.engine.UserDictionary(), fifth)), again + again);
+		Expect("forgotten survives in user.dict", std::to_string(Has(
+			ReadFile(a.directory + "/user.dict"), "0\t")), "1");
+
+		// Half-synced and broken files: no end, garbage lines, zeros, a
+		// temporary file. Only the whole file's good lines count.
+		WriteFile(folder + "/1111111111111111.words",
+			"# machine: half\n安全\tan quan\t50\t1\t9\n");
+		WriteFile(folder + "/2222222222222222.words",
+			"# machine: garbled\n"
+			"安全\tan quan\t7\t1\t9\n"
+			"不对\tnot pinyin\t9\t1\t9\n"
+			"缺字段\tque\n"
+			"负数\tfu shu\t-3\t1\t9\n"
+			"\t\t\t\t\n"
+			"-\t安心\tan xin\tsoon\n"
+			+ std::string("\0\0\0\0\n", 5)
+			+ "# end\n");
+		WriteFile(folder + "/3333333333333333.words",
+			std::string(64, '\0'));
+		WriteFile(folder + "/.4444444444444444.words.new",
+			"一二\tyi er\t99\t1\t9\n# end\n");
+		WriteFile(folder + "/notes.txt", "a\tb\t1\t1\t1\n# end\n");
+		report = b.Round();
+		Expect("partial files", std::to_string(CountOf(
+			b.engine.UserDictionary(), "安全")) + " " + std::to_string(CountOf(
+			b.engine.UserDictionary(), "不对")) + std::to_string(CountOf(
+			b.engine.UserDictionary(), "负数")) + std::to_string(CountOf(
+			b.engine.UserDictionary(), "一二")), "7 000");
+		Expect("partial files read", std::to_string(report.machines), "3");
+		// The half file, finished by the sync tool.
+		WriteFile(folder + "/1111111111111111.words",
+			"# machine: half\n安全\tan quan\t50\t1\t9\n# end\n");
+		b.Round();
+		Expect("finished file", std::to_string(CountOf(
+			b.engine.UserDictionary(), "安全")), "50");
+	}
+	RemoveDirectory(root);
+
+	// Custom phrases: the newest edit wins, as a whole file.
+	root = TempDirectory();
+	shared = root + "/shared";
+	mkdir(shared.c_str(), 0755);
+	folder = shared + "/haiku-pinyin";
+	{
+		Machine a(root, "a", shared), b(root, "b", shared);
+		std::string aPhrases = a.directory + "/phrases.txt";
+		std::string bPhrases = b.directory + "/phrases.txt";
+		// A new file's example never replaces anyone's phrases.
+		b.engine.CustomPhrases().CreateFile();
+		WriteFile(aPhrases, "dz,1=北京市海淀区\n");
+		SetModified(aPhrases, 1000000000);
+		a.Round();
+		SyncReport report = b.Round();
+		Expect("phrases taken", ReadFile(bPhrases), "dz,1=北京市海淀区\n");
+		Expect("phrases from", report.phrasesFrom.empty() ? "nobody" : "a",
+			"a");
+		Expect("example not kept", std::to_string(
+			FileStamp::Of(bPhrases + ".bak").size), "-1");
+		Expect("phrase typed", b.FirstFor("dz"), "北京市海淀区");
+		a.Round();
+		Expect("example didn't win", ReadFile(aPhrases), "dz,1=北京市海淀区\n");
+
+		// Edited on b later: a takes it, and keeps its own as .bak.
+		WriteFile(bPhrases, "dz,1=北京市海淀区\nyx,1=me@example.com\n");
+		SetModified(bPhrases, 1000000100);
+		WriteFile(aPhrases, "dz,1=上海\n");
+		SetModified(aPhrases, 1000000050);
+		b.Round();
+		a.Round();
+		Expect("newest wins", ReadFile(aPhrases),
+			"dz,1=北京市海淀区\nyx,1=me@example.com\n");
+		Expect("replaced kept", ReadFile(aPhrases + ".bak"), "dz,1=上海\n");
+		b.Round();
+		Expect("older lost", ReadFile(bPhrases),
+			"dz,1=北京市海淀区\nyx,1=me@example.com\n");
+		Expect("phrase typed after", a.FirstFor("yx"), "me@example.com");
+
+		// A phrases file half there doesn't count.
+		WriteFile(folder + "/5555555555555555.phrases",
+			"# machine: half\n# edited: 2000000000\n# bytes: 40\n# ---\n"
+			"dz,1=半个\n");
+		a.Round();
+		Expect("half phrases", ReadFile(aPhrases),
+			"dz,1=北京市海淀区\nyx,1=me@example.com\n");
+
+		// Edited on a after it took b's, with a clock behind b's: still
+		// the newer edit.
+		WriteFile(aPhrases, "dz,1=深圳\n");
+		SetModified(aPhrases, 1000000010);
+		a.Round();
+		b.Round();
+		Expect("edited after, clock behind", ReadFile(bPhrases), "dz,1=深圳\n");
+		a.Round();
+		Expect("kept after", ReadFile(aPhrases), "dz,1=深圳\n");
+	}
+	RemoveDirectory(root);
+
+	// The setting, and a running engine's worker: no SyncNow, only typing.
+	root = TempDirectory();
+	shared = root + "/shared";
+	mkdir(shared.c_str(), 0755);
+	{
+		std::string aDirectory = root + "/a", bDirectory = root + "/b";
+		mkdir(aDirectory.c_str(), 0755);
+		mkdir(bDirectory.c_str(), 0755);
+		Expect("setting", std::to_string(WriteSyncSetting(
+			aDirectory + "/user.dict", shared + "/")), "1");
+		WriteSyncSetting(bDirectory + "/user.dict", shared);
+		Expect("setting read", ReadSyncSetting(aDirectory + "/user.dict"),
+			shared);
+		Engine a, b;
+		a.Load(sData);
+		a.SetUserDictionary(aDirectory + "/user.dict");
+		b.Load(sData);
+		b.SetUserDictionary(bDirectory + "/user.dict");
+		Expect("setting taken", a.SyncFolder(), shared);
+
+		// Up to ten seconds for the workers.
+		auto until = [](const std::function<bool()>& done) {
+			for (int i = 0; i < 200 && !done(); i++)
+				usleep(50000);
+			return done();
+		};
+		auto firstFor = [](Engine& engine, const std::string& keys) {
+			Type(engine, keys);
+			std::string first = First(engine);
+			engine.ProcessKey(Key::kEscape, 0, 0);
+			return first;
+		};
+		// b looks first, and finds only its own file; then once more, so it
+		// has seen the folder as it is.
+		firstFor(b, "ni");
+		folder = shared + "/haiku-pinyin";
+		Expect("worker starts", until([&] {
+			return FileStamp::Of(folder + "/" + ReadFile(bDirectory
+				+ "/sync-id").substr(0, 16) + ".words").size > 0;
+		}) ? "yes" : "no", "yes");
+		firstFor(b, "ni");
+		usleep(300000);
+		struct stat before;
+		stat(folder.c_str(), &before);
+
+		Type(a, "shi");
+		std::string fifth = a.PageCandidates()[4];
+		a.SelectOnPage(4);
+		a.TakeCommit();
+		a.SaveUserDictionary();
+		Expect("worker writes", until([&] {
+			std::string id = ReadFile(aDirectory + "/sync-id").substr(0, 16);
+			return Has(ReadFile(folder + "/" + id + ".words"),
+				fifth + "\tshi\t1\t");
+		}) ? "yes" : "no", "yes");
+		// As rsync -a leaves it: the folder's time put back, to the
+		// nanosecond.
+#if defined(__APPLE__)
+		struct timespec times[2] = {before.st_atimespec, before.st_mtimespec};
+#else
+		struct timespec times[2] = {before.st_atim, before.st_mtim};
+#endif
+		utimensat(AT_FDCWD, folder.c_str(), times, 0);
+		Expect("worker reads", until([&] {
+			return firstFor(b, "shi") == fifth;
+		}) ? "yes" : "no", "yes");
+		Type(b, "shi");
+		b.ProcessKey(Key::kDelete, 0, kControl);
+		b.ProcessKey(Key::kEscape, 0, 0);
+		Expect("worker forgets", until([&] {
+			return firstFor(a, "shi") != fifth;
+		}) ? "yes" : "no", "yes");
+
+		WriteSyncSetting(aDirectory + "/user.dict", "");
+		firstFor(a, "ni");
+		Expect("setting off", a.SyncFolder(), "");
+	}
+	RemoveDirectory(root);
+}
+
+
 // The bug report link: the template's fields, escaped, and the settings.
 static void
 TestReport()
@@ -944,6 +1333,7 @@ main(int argc, char** argv)
 
 	TestPhrases();
 	TestImport();
+	TestSync();
 	TestReport();
 
 	printf(sFailures == 0 ? "all passed\n" : "%d failed\n", sFailures);
