@@ -12,6 +12,15 @@
 
 namespace haikupinyin {
 
+// Why a file couldn't be imported at all.
+enum class ImportProblem {
+	kNone,
+	kUnreadable,
+	kNotUtf8,		// GBK, say: iconv -f GBK -t UTF-8 first
+	kBinaryPlist,	// plutil -convert xml1 first
+	kNotSaved,		// the user dictionary couldn't be written
+};
+
 // A file to import, read but not yet looked up in the lexicon.
 struct WordFile {
 	struct Word {
@@ -24,7 +33,7 @@ struct WordFile {
 	std::vector<Word> words;
 	std::vector<Phrases::Phrase> phrases;
 	int skipped = 0;		// entries that were there but unusable
-	std::string error;		// a file it can't read at all
+	ImportProblem problem = ImportProblem::kNone;
 };
 
 // Reads ours (词<Tab>pin yin<Tab>count), Rime's user dictionary snapshots

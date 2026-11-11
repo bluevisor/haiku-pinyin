@@ -15,6 +15,7 @@
 #include "Phrases.h"
 #include "Spelling.h"
 #include "UserDict.h"
+#include "Words.h"
 
 namespace haikupinyin {
 
@@ -95,9 +96,9 @@ public:
 		int words = 0;
 		int phrases = 0;
 		int skipped = 0;		// entries it couldn't use
-		std::string error;		// the file couldn't be read or saved
+		ImportProblem problem = ImportProblem::kNone;
 
-		std::string Summary() const;	// in Chinese, for the front ends
+		std::string Summary() const;	// in Chinese, for Linux and Haiku
 	};
 	bool ExportWords(const std::string& path, int* count = nullptr);
 	ImportResult ImportWords(const std::string& path);

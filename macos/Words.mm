@@ -1,7 +1,8 @@
 // 海酷拼音 Haiku Pinyin for macOS: custom phrases, and importing and
-// exporting learned words, for the settings window (Words.swift). A second
-// engine works on the files; the input method's own takes the change up as
-// its next composition starts.
+// exporting learned words, for the settings window (Words.swift, which says
+// what happened in the system's language). A second engine works on the
+// files; the input method's own takes the change up as its next composition
+// starts.
 
 #import <Foundation/Foundation.h>
 
@@ -25,14 +26,14 @@ Folder()
 
 
 static bool
-LoadEngine(haikupinyin::Engine& engine, std::string* error)
+LoadEngine(haikupinyin::Engine& engine)
 {
 	NSString* data = NSProcessInfo.processInfo.environment[@"HAIKU_PINYIN_DATA"];
 	if (data == nil) {
 		data = [NSBundle.mainBundle.resourcePath
 			stringByAppendingPathComponent:@"data"];
 	}
-	if (!engine.Load(data.UTF8String, error))
+	if (!engine.Load(data.UTF8String))
 		return false;
 	engine.SetUserDictionary([Folder()
 		stringByAppendingPathComponent:@"user.dict"].UTF8String);
@@ -53,33 +54,38 @@ HPPhrasesFile(void)
 }
 
 
-// What happened, in a sentence for the settings window.
+// What the file was read as (Engine::ImportResult::format, "" for nothing),
+// the counts, and the problem (haikupinyin::ImportProblem; -1: the
+// dictionaries didn't load).
 extern "C" const char*
-HPImportWords(const char* path)
+HPImportWords(const char* path, int32_t* words, int32_t* phrases,
+	int32_t* skipped, int32_t* problem)
 {
-	static thread_local std::string summary;
+	static thread_local std::string format;
 	haikupinyin::Engine engine;
-	std::string error;
-	if (!LoadEngine(engine, &error))
-		summary = "没能导入：" + error;
-	else
-		summary = engine.ImportWords(path).Summary();
-	return summary.c_str();
+	*words = *phrases = *skipped = 0;
+	if (!LoadEngine(engine)) {
+		*problem = -1;
+		format.clear();
+		return format.c_str();
+	}
+	haikupinyin::Engine::ImportResult result = engine.ImportWords(path);
+	*words = result.words;
+	*phrases = result.phrases;
+	*skipped = result.skipped;
+	*problem = int32_t(result.problem);
+	format = result.format;
+	return format.c_str();
 }
 
 
-extern "C" const char*
+// How many words went out, or -1.
+extern "C" int32_t
 HPExportWords(const char* path)
 {
-	static thread_local std::string summary;
 	haikupinyin::Engine engine;
-	std::string error;
 	int count = 0;
-	if (!LoadEngine(engine, &error))
-		summary = "没能导出：" + error;
-	else if (!engine.ExportWords(path, &count))
-		summary = std::string("没能写入 ") + path;
-	else
-		summary = "导出了 " + std::to_string(count) + " 个学到的词。";
-	return summary.c_str();
+	if (!LoadEngine(engine) || !engine.ExportWords(path, &count))
+		return -1;
+	return count;
 }

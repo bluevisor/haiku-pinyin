@@ -1,18 +1,21 @@
-// 海酷拼音 Haiku Pinyin for macOS: the settings window's 词库 section: the
-// custom phrases file, and importing and exporting learned words (Words.mm
-// does the work).
+// 海酷拼音 Haiku Pinyin for macOS: the settings window's word lists section:
+// the custom phrases file, and importing and exporting learned words
+// (Words.mm does the work).
 import AppKit
 import SwiftUI
 import UniformTypeIdentifiers
 
-// Words.mm: the phrases file (made if missing); import and export, each
-// answering with a sentence to show.
+// Words.mm: the phrases file (made if missing); an import, answering with
+// the format it read and counts; an export, answering with the count or -1.
 @_silgen_name("HPPhrasesFile")
 private func phrasesFile() -> UnsafePointer<CChar>
 @_silgen_name("HPImportWords")
-private func importWords(_ path: UnsafePointer<CChar>) -> UnsafePointer<CChar>
+private func importWords(_ path: UnsafePointer<CChar>,
+	_ words: UnsafeMutablePointer<Int32>, _ phrases: UnsafeMutablePointer<Int32>,
+	_ skipped: UnsafeMutablePointer<Int32>, _ problem: UnsafeMutablePointer<Int32>)
+	-> UnsafePointer<CChar>
 @_silgen_name("HPExportWords")
-private func exportWords(_ path: UnsafePointer<CChar>) -> UnsafePointer<CChar>
+private func exportWords(_ path: UnsafePointer<CChar>) -> Int32
 
 struct WordsSection: View {
 	@State private var status = ""
@@ -21,28 +24,28 @@ struct WordsSection: View {
 	var body: some View {
 		Section {
 			LabeledContent {
-				Button("编辑…") { openPhrases() }
+				Button(L("Edit…")) { openPhrases() }
 					.glassButton()
 			} label: {
-				Row(title: "自定义短语", symbol: "text.bubble.fill", color: .mint)
+				Row(title: L("Custom phrases"), symbol: "text.bubble.fill", color: .mint)
 			}
 			LabeledContent {
 				HStack {
-					Button("导入…") { importFile() }
+					Button(L("Import…")) { importFile() }
 						.glassButton()
-					Button("导出…") { exportFile() }
+					Button(L("Export…")) { exportFile() }
 						.glassButton()
 				}
 				.disabled(busy)
 			} label: {
-				Row(title: "导入 / 导出词库", symbol: "arrow.up.arrow.down.square.fill",
-					color: .indigo)
+				Row(title: L("Import and export words"),
+					symbol: "arrow.up.arrow.down.square.fill", color: .indigo)
 			}
 		} header: {
-			Text("词库")
+			Text(L("Word lists"))
 		} footer: {
 			Text(status.isEmpty
-				? "自定义短语：打出编码时给出的短语，如 dz 出地址。导入：海酷拼音或 Rime 导出的词、Rime 的用户词典和 custom_phrase.txt、搜狗的词库和自定义短语、Mac 的文本替换（从系统设置里拖出的 .plist）。"
+				? L("Custom phrases are offered when you type their code: dz for your address, say. Import reads words exported from Haiku Pinyin or Rime, Rime's user dictionaries and custom_phrase.txt, Sogou's word lists and custom phrases, and the Mac's text replacements (the .plist you drag out of System Settings).")
 				: status)
 				.foregroundStyle(.secondary)
 		}
@@ -55,41 +58,81 @@ struct WordsSection: View {
 
 	private func importFile() {
 		let panel = NSOpenPanel()
-		panel.title = "导入词库"
-		panel.message = "海酷拼音、Rime、搜狗的词库或自定义短语，或 Mac 的文本替换"
-		panel.prompt = "导入"
+		panel.title = L("Import Words")
+		panel.message = L("Words or custom phrases from Haiku Pinyin, Rime or Sogou, or the Mac's text replacements")
+		panel.prompt = L("Import")
 		panel.canChooseDirectories = false
 		panel.allowsMultipleSelection = false
 		NSApp.activate(ignoringOtherApps: true)
 		panel.begin { response in
 			guard response == .OK, let url = panel.url else { return }
-			run { importWords(url.path) }
+			run { importSummary(url.path) }
 		}
 	}
 
 	private func exportFile() {
 		let panel = NSSavePanel()
-		panel.title = "导出学到的词"
-		panel.prompt = "导出"
-		panel.nameFieldStringValue = "海酷拼音词库.txt"
+		panel.title = L("Export Learned Words")
+		panel.prompt = L("Export")
+		panel.nameFieldStringValue = L("Haiku Pinyin words.txt")
 		panel.allowedContentTypes = [.plainText]
 		NSApp.activate(ignoringOtherApps: true)
 		panel.begin { response in
 			guard response == .OK, let url = panel.url else { return }
-			run { exportWords(url.path) }
+			run {
+				let count = exportWords(url.path)
+				return count < 0 ? L("Couldn't write %@.", url.lastPathComponent)
+					: L("Exported %ld learned words.", Int(count))
+			}
 		}
 	}
 
-	// Off the main thread: an import reads the whole lexicon once.
-	private func run(_ work: @escaping () -> UnsafePointer<CChar>) {
+	// Off the main thread: an import may read the whole lexicon once.
+	private func run(_ work: @escaping () -> String) {
 		saveNow()
 		busy = true
 		DispatchQueue.global(qos: .userInitiated).async {
-			let message = String(cString: work())
+			let message = work()
 			DispatchQueue.main.async {
 				status = message
 				busy = false
 			}
 		}
 	}
+}
+
+// What an import did, in a sentence or two.
+private func importSummary(_ path: String) -> String {
+	var words: Int32 = 0, phrases: Int32 = 0, skipped: Int32 = 0, problem: Int32 = 0
+	let format = String(cString: importWords(path, &words, &phrases, &skipped, &problem))
+	// haikupinyin::ImportProblem, in order; -1: no dictionaries.
+	switch problem {
+	case -1: return L("Couldn't load the dictionaries.")
+	case 1: return L("Couldn't read that file.")
+	case 2: return L("That file isn't UTF-8 text. If it's GBK, convert it first: iconv -f GBK -t UTF-8")
+	case 3: return L("That's a binary plist. Convert it first: plutil -convert xml1")
+	case 4: return L("Couldn't save the learned words.")
+	default: break
+	}
+	if format.isEmpty || (words == 0 && phrases == 0) {
+		return L("Found nothing to import in that file.")
+	}
+	let names = [
+		"Haiku Pinyin": L("Haiku Pinyin"),
+		"Sogou": L("Sogou word list"),
+		"Sogou custom phrases": L("Sogou custom phrases"),
+		"Rime user dictionary": L("Rime user dictionary"),
+		"Rime custom phrases": L("Rime custom phrases"),
+		"text replacements": L("Mac text replacements"),
+		"mixed": L("several formats"),
+	]
+	let name = names[format] ?? format
+	var summary = words > 0 && phrases > 0
+		? L("Imported %ld words and %ld phrases (%@).", Int(words), Int(phrases), name)
+		: words > 0 ? L("Imported %ld words (%@).", Int(words), name)
+		: L("Imported %ld phrases (%@).", Int(phrases), name)
+	if skipped > 0 {
+		summary += L(" ") + L("Skipped %ld.", Int(skipped))
+	}
+	return summary
 }

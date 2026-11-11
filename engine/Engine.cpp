@@ -159,7 +159,7 @@ Engine::ImportWords(const std::string& path)
 	std::ifstream input(path, std::ios::binary);
 	std::ostringstream contents;
 	if (!input) {
-		result.error = "读不了 " + path;
+		result.problem = ImportProblem::kUnreadable;
 		return result;
 	}
 	contents << input.rdbuf();
@@ -167,8 +167,8 @@ Engine::ImportWords(const std::string& path)
 	WordFile file = ReadWordFile(contents.str(), fLexicon.GetSyllables());
 	result.format = file.format;
 	result.skipped = file.skipped;
-	result.error = file.error;
-	if (!result.error.empty())
+	result.problem = file.problem;
+	if (result.problem != ImportProblem::kNone)
 		return result;
 	for (const ResolvedWord& word
 			: ResolveWords(fLexicon, file.words, &result.skipped)) {
@@ -193,7 +193,7 @@ Engine::ImportWords(const std::string& path)
 		result.phrases = int(file.phrases.size());
 
 	if (!SaveUserDictionary()) {
-		result.error = "存不了 " + fUserPath;
+		result.problem = ImportProblem::kNotSaved;
 		result.words = 0;
 	}
 	return result;
@@ -203,8 +203,18 @@ Engine::ImportWords(const std::string& path)
 std::string
 Engine::ImportResult::Summary() const
 {
-	if (!error.empty())
-		return "没能导入：" + error;
+	switch (problem) {
+		case ImportProblem::kNone:
+			break;
+		case ImportProblem::kUnreadable:
+			return "没能导入：读不了这个文件。";
+		case ImportProblem::kNotUtf8:
+			return "没能导入：不是 UTF-8 文本。GBK 的话，先用 iconv -f GBK -t UTF-8 转换。";
+		case ImportProblem::kBinaryPlist:
+			return "没能导入：这是二进制的 plist，先用 plutil -convert xml1 转成文本。";
+		case ImportProblem::kNotSaved:
+			return "没能导入：存不了学到的词。";
+	}
 	if (format.empty() || (words == 0 && phrases == 0))
 		return "文件里没有能导入的词或短语。";
 	static const struct { const char* format; const char* name; } kNames[] = {

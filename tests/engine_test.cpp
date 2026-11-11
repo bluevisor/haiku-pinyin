@@ -288,7 +288,7 @@ Imported(Engine& engine, const std::string& directory, const std::string& name,
 	Engine::ImportResult result = engine.ImportWords(path);
 	return result.format + " " + std::to_string(result.words) + " "
 		+ std::to_string(result.phrases) + " " + std::to_string(result.skipped)
-		+ (result.error.empty() ? "" : " error");
+		+ (result.problem == ImportProblem::kNone ? "" : " error");
 }
 
 
@@ -435,8 +435,8 @@ TestImport()
 		Expect("empty", Imported(engine, directory, "empty.txt", ""), " 0 0 0");
 		Expect("garbage", Imported(engine, directory, "garbage.txt",
 			std::string("\x00\x01\t\t\t\n<dict><key>", 21)).substr(0, 1), " ");
-		Expect("missing", engine.ImportWords(directory + "/none").error.empty()
-			? "no error" : "error", "error");
+		Expect("missing", engine.ImportWords(directory + "/none").problem
+			== ImportProblem::kUnreadable ? "unreadable" : "other", "unreadable");
 	}
 	{
 		// Another process (hpcli, the Mac's settings window) imports while

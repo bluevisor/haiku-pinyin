@@ -117,8 +117,14 @@ ImportOrExport(int argc, char** argv)
 		return 0;
 	}
 	Engine::ImportResult result = engine.ImportWords(file);
-	if (!result.error.empty()) {
-		fprintf(stderr, "%s\n", result.error.c_str());
+	static const char* const kProblems[] = {
+		"", "can't read it", "not UTF-8 text (GBK? iconv -f GBK -t UTF-8 first)",
+		"a binary plist (plutil -convert xml1 it first)",
+		"can't save the user dictionary",
+	};
+	if (result.problem != ImportProblem::kNone) {
+		fprintf(stderr, "%s: %s\n", file.c_str(),
+			kProblems[int(result.problem)]);
 		return 1;
 	}
 	if (result.format.empty()) {

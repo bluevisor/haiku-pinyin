@@ -99,5 +99,5 @@ jobs:
                 $cxx -O2 -std=c++17 -fPIC -Wall -Wno-multichar \
                   -c $f -o $out/$(basename $f .cpp).o
               done
-              $cxx -shared -o $out/HaikuPinyin $out/*.o -lbe
+              $cxx -shared -o $out/HaikuPinyin $out/*.o -lbe -ltracker
               ls -l $out/HaikuPinyin'

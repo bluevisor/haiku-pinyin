@@ -202,12 +202,12 @@ ReadWordFile(const std::string& bytes, const Syllables& syllables)
 {
 	WordFile file;
 	if (StartsWith(bytes, "bplist")) {
-		file.error = "二进制的 plist：先用 plutil -convert xml1 转成文本";
+		file.problem = ImportProblem::kBinaryPlist;
 		return file;
 	}
 	std::string text = DecodeText(bytes);
 	if (!ValidUtf8(text)) {
-		file.error = "不是 UTF-8 文本（GBK 的话，先用 iconv -f GBK -t UTF-8 转换）";
+		file.problem = ImportProblem::kNotUtf8;
 		return file;
 	}
 	if (text.find("<plist") != std::string::npos) {

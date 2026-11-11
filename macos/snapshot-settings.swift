@@ -33,10 +33,11 @@ private let aiState = ProcessInfo.processInfo.environment["SNAPSHOT_AI"] ?? ""
 @_cdecl("HPPhrasesFile") func phrasesFileStub() -> UnsafePointer<CChar> {
 	UnsafePointer(strdup("/tmp/phrases.txt")!)
 }
-@_cdecl("HPImportWords") func importWordsStub(_ path: UnsafePointer<CChar>)
+@_cdecl("HPImportWords") func importWordsStub(_ path: UnsafePointer<CChar>,
+	_ words: UnsafeMutablePointer<Int32>, _ phrases: UnsafeMutablePointer<Int32>,
+	_ skipped: UnsafeMutablePointer<Int32>, _ problem: UnsafeMutablePointer<Int32>)
 	-> UnsafePointer<CChar> { UnsafePointer(strdup("")!) }
-@_cdecl("HPExportWords") func exportWordsStub(_ path: UnsafePointer<CChar>)
-	-> UnsafePointer<CChar> { UnsafePointer(strdup("")!) }
+@_cdecl("HPExportWords") func exportWordsStub(_ path: UnsafePointer<CChar>) -> Int32 { 0 }
 
 @main
 struct SnapshotSettings {
