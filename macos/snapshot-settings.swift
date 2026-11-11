@@ -10,6 +10,8 @@ import SwiftUI
 
 // What the input method's own code provides the settings window.
 @_cdecl("HPAIModelsChanged") func aiModelsChangedStub() {}
+@_cdecl("HPAIUsable") func aiUsableStub() -> Bool { true }
+@_cdecl("HPAIFailed") func aiFailedStub() -> Bool { false }
 @_cdecl("HPSaveNow") func saveNowStub() {}
 @_cdecl("HPComposing") func composingStub() -> Bool { false }
 

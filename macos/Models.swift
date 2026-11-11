@@ -64,6 +64,14 @@ let modelSpecs = [
 @_silgen_name("HPAIModelsChanged")
 func aiModelsChanged()
 
+// AI.mm: the helper and the chosen model are there, and it didn't fail to
+// load.
+@_silgen_name("HPAIUsable")
+func aiUsableNow() -> Bool
+
+@_silgen_name("HPAIFailed")
+func aiFailedNow() -> Bool
+
 // ~/Library/Application Support/HaikuPinyin/models, or $HAIKU_PINYIN_MODELS,
 // as AI.mm has it.
 func modelsFolder() -> URL {

@@ -94,8 +94,19 @@ struct SettingsView: View {
 	@State private var models = installedModels()
 	@ObservedObject private var downloader = ModelDownloader.shared
 	@ObservedObject private var updater = Updater.shared
+	@State private var aiState = 0		// bumped on HPAIStateChanged, to redraw
 
 	private var aiInstalled: Bool { !models.isEmpty && aiSupported }
+	// The model the settings pick is there and didn't fail to load. Until it
+	// is, the AI toggles show off: the AI isn't doing anything.
+	private var aiUsable: Bool { _ = aiState; return aiInstalled && aiUsableNow() }
+	private var aiFailed: Bool { aiInstalled && aiFailedNow() }
+
+	// A setting as it works now: off while the AI can't run, whatever's saved.
+	private func aiSetting(_ saved: Binding<Bool>) -> Binding<Bool> {
+		Binding(get: { saved.wrappedValue && aiUsable },
+			set: { saved.wrappedValue = $0 })
+	}
 
 	private var version: String {
 		Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString")
@@ -173,12 +184,15 @@ struct SettingsView: View {
 
 			Section {
 				Group {
-					Toggle(isOn: $aiPicks) {
+					Toggle(isOn: aiSetting($aiPicks)) {
 						Row(title: "AI 选词", symbol: "sparkles", color: .purple)
 					}
-					Toggle(isOn: $aiComplete) {
+					Toggle(isOn: aiSetting($aiComplete)) {
 						Row(title: "AI 补全 (Tab)", symbol: "text.append", color: .green)
 					}
+				}
+				.disabled(!aiUsable)
+				Group {
 					Picker(selection: $aiModel) {
 						Text("自动").tag("")
 						ForEach(models, id: \.name) { model in
@@ -207,6 +221,10 @@ struct SettingsView: View {
 			} footer: {
 				Text(!aiSupported
 					? "AI 需要 Apple 芯片的 Mac。"
+					: aiFailed
+					? "模型没能载入，AI 已关闭。换一个模型，或在模型文件夹里删掉它再重新下载。"
+					: aiInstalled && !aiUsable
+					? "没找到所选的模型，AI 已关闭。选一个已有的模型，或下载默认的模型。"
 					: aiInstalled
 					? "在本机运行的语言模型读光标前的文字：把更通顺的候选排到第一（标 ✦），上屏后给出接下来的字，按 Tab 输入。文字不离开这台 Mac。自动：用 Qwen3-1.7B，这台 Mac 跑得慢时换小的。模型文件夹里的 MLX 模型都可以选。"
 					: "先下载模型：Qwen3 的 1.7B 和 0.8B 两个基础模型，从 Hugging Face 下载，共约 1.4 GB；用的时候约占 1 GB 内存。文字不离开这台 Mac。")
@@ -214,6 +232,10 @@ struct SettingsView: View {
 			}
 			.onAppear { models = installedModels() }
 			.onChange(of: downloader.running) { _ in models = installedModels() }
+			.onReceive(NotificationCenter.default.publisher(for:
+				Notification.Name("HPAIStateChanged")).receive(on: RunLoop.main)) { _ in
+				aiState += 1
+			}
 
 			Section("模糊音") {
 				ForEach(fuzzyGroups, id: \.mask) {
