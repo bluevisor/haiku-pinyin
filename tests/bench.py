@@ -18,15 +18,21 @@ BASELINE = os.path.join(BENCH, 'baseline.txt')
 TOLERANCE = 1.0		# points of exact match
 TOP = 5
 
-# Each set's file and its tab-separated columns.
+# Each set's file and its tab-separated columns: domain, keys, sentence (full
+# pinyin); keys, word (full pinyin); or layout, keys, sentence. The held-out
+# sets were written apart from the others, to check that a change helps more
+# than the sentences it was tuned on.
 SETS = [
-	('sentences', 'sentences.tsv'),	# domain, keys, sentence (full pinyin)
-	('abbrev', 'abbrev.tsv'),		# keys, word (full pinyin)
-	('shuangpin', 'shuangpin.tsv'),	# layout, keys, sentence
+	('sentences', 'sentences.tsv', 'domain'),
+	('abbrev', 'abbrev.tsv', 'keys'),
+	('shuangpin', 'shuangpin.tsv', 'layout'),
+	('heldout', 'heldout.tsv', 'domain'),
+	('ho-abbrev', 'heldout-abbrev.tsv', 'keys'),
+	('ho-shuang', 'heldout-shuangpin.tsv', 'layout'),
 ]
 
 
-def read(name, file):
+def read(file, columns):
 	items = []
 	with open(os.path.join(BENCH, file), encoding='utf-8') as f:
 		for number, line in enumerate(f, 1):
@@ -34,9 +40,9 @@ def read(name, file):
 			if not line or line.startswith('#'):
 				continue
 			fields = line.split('\t')
-			if name == 'abbrev':
+			if columns == 'keys':
 				fields = ['full'] + fields
-			elif name == 'sentences':
+			elif columns == 'domain':
 				fields = ['full'] + fields[1:]
 			if len(fields) != 3:
 				sys.exit(f'{file}:{number}: want 3 tab-separated fields')
@@ -121,8 +127,8 @@ def main():
 	scores = {}
 	all_misses = []
 	print(f'{"":10} {"n":>4} {"exact":>13} {"chars":>13} {"top 5":>13}')
-	for name, file in SETS:
-		items = read(name, file)
+	for name, file, columns in SETS:
+		items = read(file, columns)
 		got, misses = score(args.hpcli, args.data, items)
 		all_misses += [(name,) + m for m in misses]
 		columns = []

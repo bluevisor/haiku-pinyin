@@ -7,6 +7,16 @@ to the version.
 
 ## Unreleased
 
+- **Better sentences.** Whole sentences come out right more often (88% of
+  the conversion benchmark, from 85%; 85% of a second set written apart
+  from it, from 77%): word pairs now reach into the dictionary's longer
+  phrases (去看电影, 我想), 吧 and 吗 end sentences where 把 and 码 don't
+  (看电影吧, 便宜一点吗), and a finished syllable at the end is read as typed
+  (休息, not 修行). When the sentence isn't right, the next best one or two
+  follow it on the page (收银台在那里, then 收银台在哪里).
+- **Abbreviations**: z, c or s before an h that's an initial too reads as two
+  initials, so `zhrmghg` gives 中华人民共和国 and `shzy` 社会主义.
+
 - **Linux: Fcitx5.** 海酷拼音 also comes as a Fcitx5 addon now (KDE Plasma,
   and wherever Fcitx5 runs), doing all the IBus engine does: inline
   composition, the candidate window, Shift for 中/英, 云候选, the words it

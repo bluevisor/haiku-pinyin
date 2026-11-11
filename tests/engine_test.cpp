@@ -194,6 +194,24 @@ main(int argc, char** argv)
 	// The bigram model, and the word before as context.
 	ExpectFirst("full", Script::kSimplified, "wozaixuexizhongwen",
 		"我在学习中文");
+	// Pairs reach into the lexicon's phrases (去看电影 ends in 电影), and 吧
+	// ends sentences where 把 doesn't.
+	ExpectFirst("full", Script::kSimplified, "womenzhoumoqukandianyingba",
+		"我们周末去看电影吧");
+	// z before an h that is an initial too.
+	ExpectFirst("full", Script::kSimplified, "zhrmghg", "中华人民共和国");
+	{
+		// The next best sentence comes second.
+		Engine engine;
+		engine.Load(sData);
+		Type(engine, "shouyintaizainali");
+		std::vector<std::string> page = engine.PageCandidates();
+		Expect("second sentence", page.size() > 1 ? page[1] : "",
+			"收银台在哪里");
+		// Picking it commits it whole.
+		engine.SelectOnPage(1);
+		Expect("second sentence picked", engine.TakeCommit(), "收银台在哪里");
+	}
 	{
 		Engine engine;
 		engine.Load(sData);

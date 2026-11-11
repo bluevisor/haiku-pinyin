@@ -66,6 +66,18 @@ Bigram::Load(const std::string& directory)
 			fPairs = reinterpret_cast<const Pair*>(data + 4);
 			fPairCount = count;
 		}
+		// The words alone follow the pairs, in newer files.
+		size_t at = 12 + size_t(fPairCount) * sizeof(Pair);
+		const char* base = static_cast<const char*>(fPairFile.address);
+		if (fPairs != nullptr && at + 12 <= fPairFile.size
+			&& memcmp(base + at, "HPUNIG01", 8) == 0) {
+			memcpy(&count, base + at + 8, 4);
+			if (at + 12 + size_t(count) * sizeof(WordRecord)
+					<= fPairFile.size) {
+				fWords = reinterpret_cast<const WordRecord*>(base + at + 12);
+				fWordCount = count;
+			}
+		}
 	}
 }
 
@@ -83,6 +95,21 @@ Bigram::LogProbability(uint32_t first, uint32_t second, float& logp) const
 	if (found == end || found->first != first || found->second != second)
 		return false;
 	logp = found->logp;
+	return true;
+}
+
+
+bool
+Bigram::Find(uint32_t word, Word& values) const
+{
+	if (fWords == nullptr)
+		return false;
+	const WordRecord* end = fWords + fWordCount;
+	const WordRecord* found = std::lower_bound(fWords, end, word,
+		[](const WordRecord& record, uint32_t key) { return record.word < key; });
+	if (found == end || found->word != word)
+		return false;
+	values = found->values;
 	return true;
 }
 
