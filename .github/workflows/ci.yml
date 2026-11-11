@@ -1,5 +1,6 @@
 # Builds and tests on every pull request and push to main. No signing or
-# releases here: the keys stay on the owner's machine.
+# releases here: the keys stay on the owner's machine (tools/release.sh).
+# The Mac AI helper builds in mac-ai.yml.
 name: CI
 
 on:
@@ -25,62 +26,57 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y libibus-1.0-dev fcitx5-modules-dev \
             libfcitx5core-dev libfcitx5config-dev libfcitx5utils-dev
-      # sources/ is the upstream data, fetched once per fetch_sources.sh.
-      - name: Restore sources
-        id: sources
-        uses: actions/cache/restore@v5
-        with:
-          path: sources
-          key: sources-${{ runner.os }}-${{ hashFiles('tools/fetch_sources.sh') }}
-      - name: Fetch sources
-        if: steps.sources.outputs.cache-hit != 'true'
-        run: |
-          for try in 1 2 3; do
-            rm -rf sources && mkdir sources
-            tools/fetch_sources.sh && exit 0
-            sleep 20
-          done
-          exit 1
-      - name: Save sources
-        if: steps.sources.outputs.cache-hit != 'true'
-        uses: actions/cache/save@v5
-        with:
-          path: sources
-          key: ${{ steps.sources.outputs.cache-primary-key }}
-      - run: make data
+      - uses: ./.github/actions/sources
       - run: make -j"$(nproc)" all
       - run: make test
       - run: make bench
       - run: make ibus
       - run: make fcitx5
 
+  # linux/deb.sh as for a release (it needs only the public key), on each
+  # architecture natively, then installed in clean containers of the oldest
+  # and newest systems it's for, checked by linux/check-install.sh.
+  linux-debs:
+    name: Linux .debs (${{ matrix.arch }}, built and installed)
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: amd64
+            runner: ubuntu-latest
+          - arch: arm64
+            runner: ubuntu-24.04-arm
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: ./.github/actions/sources
+      - run: linux/deb.sh ${{ matrix.arch }}
+      - name: Install them
+        run: |
+          for image in ubuntu:22.04 ubuntu:24.04 debian:12; do
+            echo "::group::$image"
+            docker run --rm -v "$PWD":/src:ro "$image" sh -ec '
+              export DEBIAN_FRONTEND=noninteractive
+              apt-get update -qq
+              apt-get install -qq -y --no-install-recommends /src/dist/*.deb >/dev/null
+              /src/linux/check-install.sh
+              test -f /etc/apt/sources.list.d/haiku-pinyin.sources
+              test -f /usr/share/keyrings/haiku-pinyin-archive-keyring.gpg
+              command -v haiku-pinyin-enable'
+            echo "::endgroup::"
+          done
+      - uses: actions/upload-artifact@v4
+        with:
+          name: debs-${{ matrix.arch }}
+          path: dist/*.deb
+          retention-days: 7
+
   macos:
     name: macOS (app without AI, tests)
     runs-on: macos-latest
     steps:
       - uses: actions/checkout@v5
-      - name: Restore sources
-        id: sources
-        uses: actions/cache/restore@v5
-        with:
-          path: sources
-          key: sources-${{ runner.os }}-${{ hashFiles('tools/fetch_sources.sh') }}
-      - name: Fetch sources
-        if: steps.sources.outputs.cache-hit != 'true'
-        run: |
-          for try in 1 2 3; do
-            rm -rf sources && mkdir sources
-            tools/fetch_sources.sh && exit 0
-            sleep 20
-          done
-          exit 1
-      - name: Save sources
-        if: steps.sources.outputs.cache-hit != 'true'
-        uses: actions/cache/save@v5
-        with:
-          path: sources
-          key: ${{ steps.sources.outputs.cache-primary-key }}
-      - run: make data
+      - uses: ./.github/actions/sources
       - run: make -j"$(sysctl -n hw.ncpu)" all
       - run: make test
       # The MLX helper takes a long Xcode build; ad hoc signed.
@@ -92,6 +88,9 @@ jobs:
     steps:
       - uses: actions/checkout@v5
       # The compile half of haiku/cross.sh; packaging needs a Haiku machine.
+      # No arm64 here: Haiku publishes cross-compiler images for x86_64 and
+      # x86_gcc2h only (arm64 is a nightly-only port), so the arm64 add-on
+      # is built on a Haiku VM (tools/release.sh).
       - name: Cross-compile the add-on
         run: |
           docker run --rm -v "$PWD":/src -w /src \
