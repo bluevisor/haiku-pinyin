@@ -12,6 +12,8 @@
 #   make mac        (macOS) build/HaikuPinyin.app, universal
 #   make install-mac            (macOS) into ~/Library/Input Methods
 #   make mac-release            (macOS) the signed, notarized download in dist/
+#   make release                (macOS) dry run of the whole release; PUBLISH=1
+#                               builds and publishes it (tools/release.sh)
 
 CXX ?= c++
 CXXFLAGS ?= -O2 -g
@@ -57,7 +59,8 @@ $(BUILD)/engine_test: tests/engine_test.cpp $(ENGINE)
 
 data: $(BUILD)/data/pinyin.dict
 
-$(BUILD)/data/pinyin.dict: tools/build_data.py
+# Rebuilt when the pins move too (tools/fetch_sources.sh).
+$(BUILD)/data/pinyin.dict: tools/build_data.py tools/sources.sha256
 	python3 tools/build_data.py
 
 test: $(BUILD)/engine_test data
@@ -200,9 +203,15 @@ linux-deb: data
 sign-release:
 	tools/sign-release.sh
 
+# The whole release (tools/release.sh): plain make release is the dry run,
+# checking it can start and listing what it would do; PUBLISH=1 builds every
+# package, checks the assets and signatures, and publishes v<version>.
+release:
+	tools/release.sh $(if $(PUBLISH),--publish)
+
 clean:
 	rm -rf $(OBJ) $(ENGINE) $(BUILD)/hpcli $(BUILD)/engine_test $(ADDON) \
 		$(IBUS_ENGINE)
 
 .PHONY: all data test bench bench-update install ibus install-ibus uninstall-ibus mac install-mac mac-release \
-	linux-deb sign-release clean
+	linux-deb sign-release release clean
