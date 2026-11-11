@@ -7,6 +7,20 @@ to the version.
 
 ## Unreleased
 
+- **Linux: Fcitx5.** 海酷拼音 also comes as a Fcitx5 addon now (KDE Plasma,
+  and wherever Fcitx5 runs), doing all the IBus engine does: inline
+  composition, the candidate window, Shift for 中/英, 云候选, the words it
+  learns, and every setting, in Fcitx5's configuration tool. Both keep their
+  settings and learned words in `~/.config/haiku-pinyin/`, so switching
+  frameworks keeps them.
+- **Linux packages**: three .debs now, `haiku-pinyin` (IBus),
+  `fcitx5-haiku-pinyin` (Fcitx5) and `haiku-pinyin-data`, which both need and
+  which now adds the apt repository; `apt upgrade` brings it in. For Arch, a
+  PKGBUILD ready for the AUR, and for Fedora a spec, build
+  `ibus-haiku-pinyin`, `fcitx5-haiku-pinyin` and `haiku-pinyin-data`.
+- **Linux**: 云候选 keeps up with fast typing. An answer that came back after
+  you'd typed on was dropped, and what you'd typed since was never asked.
+
 - **macOS**: the settings window, the 中/英 bubble, model downloads and
   update messages follow the system's language, as the input menu does:
   English, 简体 or 繁體.
