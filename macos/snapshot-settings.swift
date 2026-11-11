@@ -1,17 +1,24 @@
 // Dev only: renders the settings window's view to a PNG, to look at it
 // without screen recording permission:
+//   mkdir -p build/snapshot && cp -R macos/Resources/*.lproj build/snapshot/
 //   swiftc -parse-as-library macos/Settings.swift macos/Candidates.swift \
-//       macos/Models.swift macos/Updater.swift macos/snapshot-settings.swift \
-//       -o build/snapshot-settings
-//   build/snapshot-settings out.png [light|dark|bubble|candidates[-dark]]
-// It flashes the window on screen for a second.
+//       macos/Models.swift macos/Updater.swift macos/Strings.swift \
+//       macos/snapshot-settings.swift -o build/snapshot/snapshot-settings
+//   build/snapshot/snapshot-settings out.png [light|dark|bubble[-english]|candidates[-dark]]
+// It flashes the window on screen for a second. The string tables sit next
+// to it, so -AppleLanguages '(zh-Hant)' (or en, zh-Hans) at the end picks
+// the language.
 import AppKit
 import SwiftUI
 
 // What the input method's own code provides the settings window.
+// SNAPSHOT_AI=failed or missing shows the AI as a broken or missing model
+// leaves it; HAIKU_PINYIN_AI=/usr/bin/true stands in for the helper, and
+// HAIKU_PINYIN_MODELS=<empty folder> shows the download.
+private let aiState = ProcessInfo.processInfo.environment["SNAPSHOT_AI"] ?? ""
 @_cdecl("HPAIModelsChanged") func aiModelsChangedStub() {}
-@_cdecl("HPAIUsable") func aiUsableStub() -> Bool { true }
-@_cdecl("HPAIFailed") func aiFailedStub() -> Bool { false }
+@_cdecl("HPAIUsable") func aiUsableStub() -> Bool { aiState.isEmpty }
+@_cdecl("HPAIFailed") func aiFailedStub() -> Bool { aiState == "failed" }
 @_cdecl("HPSaveNow") func saveNowStub() {}
 @_cdecl("HPComposing") func composingStub() -> Bool { false }
 
@@ -42,13 +49,13 @@ struct SnapshotSettings {
 			capture(NSApp.windows.first { $0 is NSPanel }!, to: arguments[1])
 			return
 		}
-		if arguments.count > 2 && arguments[2] == "bubble" {
+		if arguments.count > 2 && arguments[2].hasPrefix("bubble") {
 			// The 中/英 bubble, over a window to show the glass against.
 			let backdrop = NSWindow(contentRect: NSRect(x: 400, y: 400, width: 160, height: 90),
 				styleMask: [.borderless], backing: .buffered, defer: false)
 			backdrop.backgroundColor = .systemOrange
 			backdrop.orderFrontRegardless()
-			showModeBubble(true, 440, 470)
+			showModeBubble(!arguments[2].hasSuffix("english"), 440, 470)
 			RunLoop.main.run(until: Date().addingTimeInterval(0.3))
 			capture(NSApp.windows.first { $0 is NSPanel }!, to: arguments[1])
 			return

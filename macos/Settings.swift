@@ -5,12 +5,12 @@ import AppKit
 import SwiftUI
 
 private let layouts: [(id: String, name: String)] = [
-	("full", "全拼"),
-	("pyjj", "双拼 · 拼音加加"),
-	("xiaohe", "双拼 · 小鹤"),
-	("ziranma", "双拼 · 自然码"),
-	("mspy", "双拼 · 微软"),
-	("abc", "双拼 · 智能ABC"),
+	("full", L("Full pinyin")),
+	("pyjj", L("Shuangpin · Pinyin Jiajia")),
+	("xiaohe", L("Shuangpin · Xiaohe")),
+	("ziranma", L("Shuangpin · Ziranma")),
+	("mspy", L("Shuangpin · Microsoft")),
+	("abc", L("Shuangpin · Intelligent ABC")),
 ]
 
 // The engine's Fuzzy masks (engine/Spelling.h).
@@ -36,7 +36,7 @@ private struct Tile: View {
 }
 
 private struct Row: View {
-	let title: String
+	let title: String		// already in the system's language (L)
 	let symbol: String
 	let color: Color
 
@@ -124,9 +124,9 @@ struct SettingsView: View {
 				HStack(spacing: 14) {
 					Badge()
 					VStack(alignment: .leading, spacing: 3) {
-						Text("海酷拼音")
+						Text(L("Haiku Pinyin"))
 							.font(.title2.weight(.semibold))
-						Text("全拼与双拼，整句输入，本机 AI 选词与补全")
+						Text(L("Whole-sentence pinyin with on-device AI"))
 							.foregroundStyle(.secondary)
 					}
 					Spacer()
@@ -137,73 +137,80 @@ struct SettingsView: View {
 				.padding(.vertical, 4)
 			}
 
-			Section("输入") {
+			Section(L("Input")) {
 				Picker(selection: $layout) {
 					ForEach(layouts, id: \.id) { Text($0.name).tag($0.id) }
 				} label: {
-					Row(title: "拼写方式", symbol: "keyboard", color: .blue)
+					Row(title: L("Typing scheme"), symbol: "keyboard", color: .blue)
 				}
 				if layout != "full" {
 					Picker(selection: $vowels) {
-						Text("aa  oo  ee").tag(0)
-						Text("oa  oo  oe").tag(1)
-						Text("a  o  e（单键）").tag(2)
+						Text(verbatim: "aa  oo  ee").tag(0)
+						Text(verbatim: "oa  oo  oe").tag(1)
+						Text(L("a  o  e (one key)")).tag(2)
 					} label: {
-						Row(title: "双拼 a o e", symbol: "character", color: .indigo)
+						Row(title: L("Shuangpin a o e"), symbol: "character", color: .indigo)
 					}
 				}
 				Picker(selection: $script) {
-					Text("简体中文").tag(0)
-					Text("繁體中文").tag(1)
+					Text(L("Simplified Chinese")).tag(0)
+					Text(L("Traditional Chinese")).tag(1)
 				} label: {
-					Row(title: "字形", symbol: "character.book.closed", color: .orange)
+					Row(title: L("Characters"), symbol: "character.book.closed",
+						color: .orange)
 				}
 				Picker(selection: $pageSize) {
-					ForEach([5, 7, 9], id: \.self) { Text("\($0) 个").tag($0) }
+					ForEach([5, 7, 9], id: \.self) { Text(L("%ld candidates", $0)).tag($0) }
 				} label: {
-					Row(title: "每页候选", symbol: "list.number", color: .gray)
+					Row(title: L("Per page"), symbol: "list.number", color: .gray)
 				}
 			}
 
 			Section {
 				Toggle(isOn: $english) {
-					Row(title: "中英混输", symbol: "textformat.abc", color: .teal)
+					Row(title: L("Mixed Chinese and English"), symbol: "textformat.abc",
+						color: .teal)
+						// Abc, as it's about English: in Chinese the symbol
+						// is 甲乙丙, too wide for its tile.
+						.environment(\.locale, Locale(identifier: "en"))
 				}
 				Toggle(isOn: $emoji) {
-					Row(title: "Emoji 候选", symbol: "face.smiling", color: .yellow)
+					Row(title: L("Emoji"), symbol: "face.smiling", color: .yellow)
 				}
 				Toggle(isOn: $fullwidth) {
-					Row(title: "全角标点", symbol: "quote.opening", color: .pink)
+					Row(title: L("Full-width punctuation"), symbol: "quote.opening",
+						color: .pink)
 				}
 			} header: {
-				Text("候选")
+				Text(L("Candidates"))
 			} footer: {
-				Text("中英混输：hello 也给出 hello。")
+				Text(L("Mixed Chinese and English: typing hello also offers hello."))
 					.foregroundStyle(.secondary)
 			}
 
 			Section {
 				Group {
 					Toggle(isOn: aiSetting($aiPicks)) {
-						Row(title: "AI 选词", symbol: "sparkles", color: .purple)
+						Row(title: L("AI picks"), symbol: "sparkles", color: .purple)
 					}
 					Toggle(isOn: aiSetting($aiComplete)) {
-						Row(title: "AI 补全 (Tab)", symbol: "text.append", color: .green)
+						Row(title: L("AI completion (Tab)"), symbol: "text.append",
+							color: .green)
 					}
 				}
 				.disabled(!aiUsable)
 				Group {
 					Picker(selection: $aiModel) {
-						Text("自动").tag("")
+						Text(L("Automatic")).tag("")
 						ForEach(models, id: \.name) { model in
-							Text("\(model.name)  \(model.size)").tag(model.name)
+							Text(verbatim: "\(model.name)  \(model.size)").tag(model.name)
 						}
 						// A chosen model that's gone: shown, so the choice is clear.
 						if !aiModel.isEmpty && !models.contains(where: { $0.name == aiModel }) {
-							Text("\(aiModel)（未找到）").tag(aiModel)
+							Text(L("%@ (not found)", aiModel)).tag(aiModel)
 						}
 					} label: {
-						Row(title: "模型", symbol: "cpu", color: .gray)
+						Row(title: L("Model"), symbol: "cpu", color: .gray)
 					}
 				}
 				.disabled(!aiInstalled)
@@ -211,23 +218,15 @@ struct SettingsView: View {
 					modelDownload
 				}
 				LabeledContent {
-					Button("在访达中显示") { revealModels() }
+					Button(L("Show in Finder")) { revealModels() }
 						.glassButton()
 				} label: {
-					Row(title: "模型文件夹", symbol: "folder.fill", color: .blue)
+					Row(title: L("Models folder"), symbol: "folder.fill", color: .blue)
 				}
 			} header: {
 				Text("AI")
 			} footer: {
-				Text(!aiSupported
-					? "AI 需要 Apple 芯片的 Mac。"
-					: aiFailed
-					? "模型没能载入，AI 已关闭。换一个模型，或在模型文件夹里删掉它再重新下载。"
-					: aiInstalled && !aiUsable
-					? "没找到所选的模型，AI 已关闭。选一个已有的模型，或下载默认的模型。"
-					: aiInstalled
-					? "在本机运行的语言模型读光标前的文字：把更通顺的候选排到第一（标 ✦），上屏后给出接下来的字，按 Tab 输入。文字不离开这台 Mac。自动：用 Qwen3-1.7B，这台 Mac 跑得慢时换小的。模型文件夹里的 MLX 模型都可以选。"
-					: "先下载模型：Qwen3 的 1.7B 和 0.8B 两个基础模型，从 Hugging Face 下载，共约 1.4 GB；用的时候约占 1 GB 内存。文字不离开这台 Mac。")
+				Text(aiFooter)
 					.foregroundStyle(.secondary)
 			}
 			.onAppear { models = installedModels() }
@@ -237,7 +236,7 @@ struct SettingsView: View {
 				aiState += 1
 			}
 
-			Section("模糊音") {
+			Section(L("Fuzzy pinyin")) {
 				ForEach(fuzzyGroups, id: \.mask) {
 					Toggle($0.name, isOn: fuzzyGroup($0.mask))
 				}
@@ -245,44 +244,46 @@ struct SettingsView: View {
 
 			Section {
 				Toggle(isOn: $cloud) {
-					Row(title: "云候选 (Google)", symbol: "cloud.fill", color: .cyan)
+					Row(title: L("Cloud candidates (Google)"), symbol: "cloud.fill",
+						color: .cyan)
 				}
 			} footer: {
-				Text("把正在输入的拼音发给 Google 输入工具，不含已上屏的文字。")
+				Text(L("Sends the pinyin being typed to Google Input Tools, never the text already entered."))
 					.foregroundStyle(.secondary)
 			}
 
 			Section {
 				LabeledContent {
-					Button("在访达中显示") { revealUserDictionary() }
+					Button(L("Show in Finder")) { revealUserDictionary() }
 						.glassButton()
 				} label: {
-					Row(title: "学到的词", symbol: "book.closed.fill", color: .brown)
+					Row(title: L("Learned words"), symbol: "book.closed.fill", color: .brown)
 				}
 			} footer: {
-				Text("轻按 Shift 切换中 / 英；在候选上按 Control-Delete 忘掉学到的词。")
+				Text(L("Tap Shift to switch between Chinese and English. Control-Delete on a candidate forgets a learned word."))
 					.foregroundStyle(.secondary)
 			}
 
 			Section {
 				Toggle(isOn: $autoUpdate) {
-					Row(title: "自动更新", symbol: "arrow.triangle.2.circlepath",
+					Row(title: L("Update automatically"), symbol: "arrow.triangle.2.circlepath",
 						color: .green)
 				}
 				LabeledContent {
 					if updater.staged != nil {
-						Button("现在安装") { updater.installNow() }
+						Button(L("Install Now")) { updater.installNow() }
 							.glassButton()
 					} else {
-						Button("检查更新…") { updater.check(manual: true) }
+						Button(L("Check for Updates…")) { updater.check(manual: true) }
 							.glassButton()
 							.disabled(updater.busy)
 					}
 				} label: {
-					Row(title: "版本 \(version)", symbol: "info.circle.fill", color: .gray)
+					Row(title: L("Version %@", version), symbol: "info.circle.fill",
+						color: .gray)
 				}
 			} header: {
-				Text("更新")
+				Text(L("Updates"))
 			} footer: {
 				Text(updateFooter)
 					.foregroundStyle(.secondary)
@@ -301,28 +302,29 @@ struct SettingsView: View {
 		if downloader.running {
 			VStack(alignment: .leading, spacing: 6) {
 				HStack {
-					Row(title: "正在下载模型", symbol: "arrow.down.circle.fill",
+					Row(title: L("Downloading models"), symbol: "arrow.down.circle.fill",
 						color: .blue)
 					Spacer()
-					Button("取消") { downloader.cancel() }
+					Button(L("Cancel")) { downloader.cancel() }
 						.glassButton()
 				}
 				ProgressView(value: Double(downloader.done),
 					total: Double(max(downloader.total, 1)))
-				Text("\(ByteCountFormatter.string(fromByteCount: downloader.done, countStyle: .file)) / \(ByteCountFormatter.string(fromByteCount: downloader.total, countStyle: .file))")
+				Text(verbatim: "\(ByteCountFormatter.string(fromByteCount: downloader.done, countStyle: .file)) / \(ByteCountFormatter.string(fromByteCount: downloader.total, countStyle: .file))")
 					.font(.caption.monospacedDigit())
 					.foregroundStyle(.secondary)
 			}
 		} else {
 			LabeledContent {
-				Button("下载模型") { downloader.start() }
+				Button(L("Download")) { downloader.start() }
 					.glassButton()
 			} label: {
 				VStack(alignment: .leading, spacing: 2) {
-					Row(title: models.isEmpty ? "下载 AI 模型" : "下载其余的模型",
+					Row(title: models.isEmpty ? L("Download the AI models")
+							: L("Download the other models"),
 						symbol: "arrow.down.circle.fill", color: .blue)
 					Text(downloader.message.isEmpty ? size
-						: "\(downloader.message) · 还差 \(size)")
+						: L("%@ · %@ to go", downloader.message, size))
 						.font(.caption)
 						.foregroundStyle(.secondary)
 				}
@@ -330,16 +332,35 @@ struct SettingsView: View {
 		}
 	}
 
+	private var aiFooter: String {
+		if !aiSupported {
+			return L("AI needs a Mac with Apple silicon.")
+		}
+		if aiFailed {
+			return L("The model didn't load, so AI is off. Choose another model, or delete it from the models folder and download it again.")
+		}
+		if aiInstalled && !aiUsable {
+			return L("The chosen model isn't there, so AI is off. Choose a model you have, or download the default ones.")
+		}
+		if aiInstalled {
+			return L("A language model on this Mac reads the text before the cursor. It moves the candidate that reads best to the front (marked ✦), and after you enter a word it shows what likely comes next; Tab takes it. Nothing you type leaves this Mac. Automatic uses Qwen3-1.7B, and a smaller model on a Mac too slow for it. Any MLX model in the models folder can be chosen.")
+		}
+		return L("Download the models first: Qwen3's 1.7B and 0.8B base models, about 1.4 GB in all, from Hugging Face. They take about 1 GB of memory while AI is on. Nothing you type leaves this Mac.")
+	}
+
+	// Sentences, each with its own stop: a space between them in English,
+	// none in Chinese.
 	private var updateFooter: String {
 		var parts: [String] = []
 		if !updater.status.isEmpty {
 			parts.append(updater.status)
 		}
 		if let last = updater.lastCheck {
-			parts.append("上次检查：" + last.formatted(date: .abbreviated, time: .shortened))
+			parts.append(L("Last checked %@.",
+				last.formatted(date: .abbreviated, time: .shortened)))
 		}
-		parts.append("从 GitHub 上的发布下载，签名核对后在空闲时换上。")
-		return parts.joined(separator: "。")
+		parts.append(L("Updates come from the releases on GitHub; each is checked against its signature and goes in while the Mac is idle."))
+		return parts.joined(separator: L(" "))
 	}
 
 	private func revealModels() {
@@ -391,7 +412,7 @@ private var settingsWindow: NSWindow?
 // A solid title bar: the form scrolls under it, and a clear one let the
 // rows show through behind the title and the window buttons.
 func styleSettingsWindow(_ window: NSWindow) {
-	window.title = "海酷拼音"
+	window.title = L("Haiku Pinyin")
 	window.styleMask = [.titled, .closable, .resizable]
 	window.titlebarAppearsTransparent = false
 }
@@ -421,8 +442,10 @@ struct ModeBubble: View {
 	var chinese: Bool
 
 	var body: some View {
-		let text = Text(chinese ? "中" : "英")
-			.font(.system(size: 16, weight: .semibold))
+		let label = chinese ? "中" : L("EN")
+		// Two letters fit the circle a size down.
+		let text = Text(label)
+			.font(.system(size: label.count > 1 ? 13 : 16, weight: .semibold))
 			.frame(width: bubbleSize, height: bubbleSize)
 		if #available(macOS 26, *) {
 			text.glassEffect(.regular, in: Circle())
