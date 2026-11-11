@@ -7,6 +7,7 @@
 #   make bench      conversion quality against tests/bench/baseline.txt
 #   make install    (Haiku) the add-on and data into ~/config/non-packaged
 #   make ibus       (Linux) build/ibus-engine-haiku-pinyin
+#   make setup      (Linux) build/haiku-pinyin-setup, the settings window (GTK 3)
 #   sudo make install-ibus      (Linux) into PREFIX (/usr), where IBus looks
 #   linux/install-user.sh       (Linux) into ~/.local, no root needed
 #   make mac        (macOS) build/HaikuPinyin.app, universal
@@ -37,9 +38,16 @@ PREFIX ?= /usr
 LIBEXECDIR ?= $(PREFIX)/libexec
 DATADIR ?= $(PREFIX)/share/haiku-pinyin
 COMPONENTDIR ?= $(PREFIX)/share/ibus/component
+APPLICATIONSDIR ?= $(PREFIX)/share/applications
+# The settings window (GTK 3): IBus's setup program for the engine, and it
+# works with the Fcitx5 addon too. Built when GTK 3's headers are found
+# (libgtk-3-dev, gtk3-devel, gtk3).
+GTK_FOUND := $(if $(LINUX),$(shell $(PKG_CONFIG) --exists gtk+-3.0 && echo yes))
+SETUP := $(BUILD)/haiku-pinyin-setup
+SETUP_SOURCES := linux/setup/Setup.cpp linux/Common.cpp
 
 all: $(ENGINE) $(BUILD)/hpcli $(BUILD)/engine_test $(if $(HAIKU),$(ADDON)) \
-	$(if $(IBUS_FOUND),$(IBUS_ENGINE))
+	$(if $(IBUS_FOUND),$(IBUS_ENGINE)) $(if $(GTK_FOUND),$(SETUP))
 
 $(OBJ)/%.o: engine/%.cpp engine/*.h
 	@mkdir -p $(OBJ)
@@ -90,22 +98,40 @@ $(IBUS_ENGINE): linux/*.cpp linux/*.h engine/*.h $(ENGINE)
 		-DHP_DATADIR='"$(DATADIR)"' -DHP_VERSION='"$(VERSION)"' \
 		$(filter %.cpp,$^) $(ENGINE) $$($(PKG_CONFIG) --libs ibus-1.0) -pthread $(LDFLAGS) -o $@
 
+setup: $(SETUP)
+
+$(SETUP): $(SETUP_SOURCES) linux/Common.h engine/*.h $(ENGINE)
+	$(CXX) $(CXXFLAGS) $$($(PKG_CONFIG) --cflags gtk+-3.0) \
+		-DHP_DATADIR='"$(DATADIR)"' -DHP_VERSION='"$(VERSION)"' \
+		$(SETUP_SOURCES) $(ENGINE) $$($(PKG_CONFIG) --libs gtk+-3.0) $(LDFLAGS) -o $@
+
 # IBus only reads components from /usr/share/ibus/component (or
-# $$IBUS_COMPONENT_PATH), so PREFIX defaults to /usr.
-install-ibus: $(IBUS_ENGINE) data
+# $$IBUS_COMPONENT_PATH), so PREFIX defaults to /usr. The settings window
+# goes beside the engine when GTK 3 is there, named in the component as its
+# setup program and in ibus-setup-haiku-pinyin.desktop for GNOME Settings.
+install-ibus: $(IBUS_ENGINE) data $(if $(GTK_FOUND),$(SETUP))
 	install -Dm755 $(IBUS_ENGINE) $(DESTDIR)$(LIBEXECDIR)/ibus-engine-haiku-pinyin
 	install -d $(DESTDIR)$(DATADIR)
 	install -m644 build/data/* linux/icon.svg $(DESTDIR)$(DATADIR)
+	install -Dm644 linux/icon.svg $(DESTDIR)$(ICONDIR)/scalable/apps/haiku-pinyin.svg
 	install -d $(DESTDIR)$(COMPONENTDIR)
 	sed -e 's|@LIBEXECDIR@|$(LIBEXECDIR)|g' -e 's|@DATADIR@|$(DATADIR)|g' \
-		-e 's|@VERSION@|$(VERSION)|g' linux/haiku-pinyin.xml.in \
-		> $(DESTDIR)$(COMPONENTDIR)/haiku-pinyin.xml
+		-e 's|@VERSION@|$(VERSION)|g' $(if $(GTK_FOUND),,-e '/<setup>/d') \
+		linux/haiku-pinyin.xml.in > $(DESTDIR)$(COMPONENTDIR)/haiku-pinyin.xml
+	$(if $(GTK_FOUND),install -m755 $(SETUP) $(DESTDIR)$(LIBEXECDIR)/haiku-pinyin-setup)
+	$(if $(GTK_FOUND),install -d $(DESTDIR)$(APPLICATIONSDIR))
+	$(if $(GTK_FOUND),sed -e 's|@LIBEXECDIR@|$(LIBEXECDIR)|g' \
+		linux/setup/ibus-setup-haiku-pinyin.desktop.in \
+		> $(DESTDIR)$(APPLICATIONSDIR)/ibus-setup-haiku-pinyin.desktop)
 	@echo "Installed. As yourself, run linux/enable.sh: it restarts IBus, adds"
 	@echo "海酷拼音 Haiku Pinyin to GNOME's input sources and switches to it."
 
 uninstall-ibus:
 	rm -f $(DESTDIR)$(LIBEXECDIR)/ibus-engine-haiku-pinyin \
-		$(DESTDIR)$(COMPONENTDIR)/haiku-pinyin.xml
+		$(DESTDIR)$(LIBEXECDIR)/haiku-pinyin-setup \
+		$(DESTDIR)$(COMPONENTDIR)/haiku-pinyin.xml \
+		$(DESTDIR)$(APPLICATIONSDIR)/ibus-setup-haiku-pinyin.desktop \
+		$(DESTDIR)$(ICONDIR)/scalable/apps/haiku-pinyin.svg
 	rm -rf $(DESTDIR)$(DATADIR)
 
 # Fcitx5 (Linux): the same engine as a Fcitx5 input method addon. Needs
@@ -204,7 +230,7 @@ sign-release:
 
 clean:
 	rm -rf $(OBJ) $(ENGINE) $(BUILD)/hpcli $(BUILD)/engine_test $(ADDON) \
-		$(IBUS_ENGINE)
+		$(IBUS_ENGINE) $(SETUP)
 
-.PHONY: all data test bench bench-update install ibus install-ibus uninstall-ibus mac install-mac mac-release \
+.PHONY: all data test bench bench-update install ibus setup install-ibus uninstall-ibus mac install-mac mac-release \
 	linux-deb sign-release clean

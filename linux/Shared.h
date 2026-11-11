@@ -28,6 +28,11 @@ extern Shared* sShared;
 // Settings.cpp: ~/.config/haiku-pinyin/settings, the data, the menu.
 void LoadSettings();
 void SaveSettings();
+// Applies the settings again whenever the file changes: the settings
+// window, Fcitx5's tool, or another engine wrote it.
+void WatchSettings();
+// The settings window, beside the engine; "" when it isn't installed.
+std::string SetupProgram();
 // Loads the dictionaries the first time; false when there are none.
 bool EnsureLoaded();
 // Hands the panel the menu; changed: it was showing, update each item.

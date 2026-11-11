@@ -12,6 +12,7 @@ Source1:        %{url}/releases/download/v%{version}/%{name}-data-%{version}.tar
 BuildRequires:  gcc-c++
 BuildRequires:  make
 BuildRequires:  pkgconfig(ibus-1.0)
+BuildRequires:  pkgconfig(gtk+-3.0)
 BuildRequires:  pkgconfig(Fcitx5Core)
 BuildRequires:  pkgconfig(Fcitx5Config)
 BuildRequires:  pkgconfig(Fcitx5Utils)
@@ -43,8 +44,8 @@ Recommends:     libnotify
 
 %description -n ibus-haiku-pinyin %_description
 
-The IBus engine. Add it under Settings > Keyboard > Input Sources >
-Chinese, or run haiku-pinyin-enable once (GNOME).
+The IBus engine and its settings window. Add it under Settings > Keyboard >
+Input Sources > Chinese, or run haiku-pinyin-enable once (GNOME).
 
 %package -n     fcitx5-haiku-pinyin
 Summary:        Chinese pinyin and shuangpin input method for Fcitx5
@@ -68,7 +69,7 @@ touch build/data/*
 
 %build
 %set_build_flags
-%make_build ibus fcitx5
+%make_build ibus setup fcitx5
 
 %install
 %set_build_flags
@@ -88,6 +89,8 @@ make test
 
 %files -n ibus-haiku-pinyin
 %{_libexecdir}/ibus-engine-haiku-pinyin
+%{_libexecdir}/haiku-pinyin-setup
+%{_datadir}/applications/ibus-setup-haiku-pinyin.desktop
 %{_datadir}/ibus/component/%{name}.xml
 %{_bindir}/haiku-pinyin-enable
 

@@ -1,5 +1,8 @@
 // 海酷拼音 Haiku Pinyin for Linux: the settings, where the data is, and the
-// menu in the top bar that changes them.
+// menu in the top bar that changes them. The settings window
+// (setup/Setup.cpp) changes the file, which the engine watches.
+
+#include <unistd.h>
 
 #include <cstdlib>
 #include <cstring>
@@ -51,6 +54,81 @@ void
 SaveSettings()
 {
 	WriteSettings(sShared->engine.GetOptions(), sShared->engine.Chinese());
+}
+
+
+// The file changed. Its own saves come back here too, and change nothing.
+static void
+SettingsChanged(GFileMonitor*, GFile*, GFile*, GFileMonitorEvent event,
+	gpointer)
+{
+	if (event == G_FILE_MONITOR_EVENT_DELETED)
+		return;
+	haikupinyin::Options options;
+	bool chinese = true;
+	ReadSettings(&options, &chinese);
+	if (!sShared->loaded) {
+		sShared->savedOptions = options;
+		sShared->savedChinese = chinese;
+		return;
+	}
+	haikupinyin::Engine& engine = sShared->engine;
+	if (SameSettings(options, engine.GetOptions()) && chinese == engine.Chinese())
+		return;
+	IBusEngine* shown = sShared->focused != nullptr ? sShared->focused
+		: sShared->last;
+	if (sShared->last != nullptr)
+		Cancel(sShared->last);
+	else
+		engine.Reset();
+	engine.SetOptions(options);
+	engine.SetChinese(chinese);
+	if (shown != nullptr)
+		UpdateProperties(shown, true);
+}
+
+
+void
+WatchSettings()
+{
+	GFile* file = g_file_new_for_path((ConfigDirectory() + "/settings").c_str());
+	// Kept for the life of the engine.
+	GFileMonitor* monitor = g_file_monitor_file(file, G_FILE_MONITOR_NONE,
+		nullptr, nullptr);
+	g_object_unref(file);
+	if (monitor != nullptr) {
+		g_signal_connect(monitor, "changed", G_CALLBACK(SettingsChanged),
+			nullptr);
+	}
+}
+
+
+std::string
+SetupProgram()
+{
+	char self[4096];
+	ssize_t length = readlink("/proc/self/exe", self, sizeof(self) - 1);
+	if (length <= 0)
+		return std::string();
+	std::string path(self, size_t(length));
+	path = path.substr(0, path.rfind('/') + 1) + "haiku-pinyin-setup";
+	return access(path.c_str(), X_OK) == 0 ? path : std::string();
+}
+
+
+static void
+OpenSetup()
+{
+	std::string program = SetupProgram();
+	if (program.empty())
+		return;
+	const gchar* argv[] = {program.c_str(), nullptr};
+	GError* error = nullptr;
+	if (!g_spawn_async(nullptr, const_cast<gchar**>(argv), nullptr,
+			G_SPAWN_DEFAULT, nullptr, nullptr, nullptr, &error)) {
+		g_warning("Haiku Pinyin: %s", error->message);
+		g_clear_error(&error);
+	}
 }
 
 
@@ -195,6 +273,11 @@ BuildProperties()
 	}
 	ibus_prop_list_append(list, NewProperty("words", PROP_TYPE_MENU,
 		kWordsLabel, false, words));
+
+	// The settings window, when it's installed.
+	static const bool sSetup = !SetupProgram().empty();
+	if (sSetup)
+		ibus_prop_list_append(list, NewProperty("setup", PROP_TYPE_NORMAL, "设置…"));
 	return list;
 }
 
@@ -244,6 +327,10 @@ PropertyActivate(IBusEngine* engine, const gchar* name, guint state)
 
 	if (property == "InputMode") {
 		ToggleChinese(engine);
+		return;
+	}
+	if (property == "setup") {
+		OpenSetup();
 		return;
 	}
 	if (Words().Activate(property))

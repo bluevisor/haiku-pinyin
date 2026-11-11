@@ -7,6 +7,13 @@ to the version.
 
 ## Unreleased
 
+- **Linux: a settings window.** Every setting in the top-bar menu, the 词库
+  actions, and **Report a problem**, which opens a new GitHub issue with the
+  version, the system and the settings filled in (never anything you typed).
+  It opens from 设置… in the IBus menu, the gear by the input source in GNOME
+  Settings, and `ibus-setup`; changes take effect at once, with no restart.
+  It works with Fcitx5 too, beside Fcitx5's own configuration tool. Chinese,
+  or English when the system's language isn't Chinese.
 - **Linux: Fcitx5.** 海酷拼音 also comes as a Fcitx5 addon now (KDE Plasma,
   and wherever Fcitx5 runs), doing all the IBus engine does: inline
   composition, the candidate window, Shift for 中/英, 云候选, the words it

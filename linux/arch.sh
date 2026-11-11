@@ -32,7 +32,7 @@ sed -e "s|@VERSION@|$version|" -e "s|@SOURCE_SHA256@|$(sum "$out/$source")|" \
 # pacman's download sandbox fails under emulation: --disable-sandbox.
 pacman='pacman -Syu --noconfirm --needed --disable-sandbox'
 docker run --rm --platform linux/amd64 -v "$PWD/$out":/out archlinux:latest sh -ec "
-	$pacman base-devel ibus fcitx5 pkgconf >/dev/null 2>&1
+	$pacman base-devel ibus fcitx5 gtk3 pkgconf >/dev/null 2>&1
 	useradd -m builder
 	cp -R /out /home/builder/pkg && chown -R builder /home/builder/pkg
 	cd /home/builder/pkg

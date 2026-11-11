@@ -10,6 +10,7 @@
 #include <unistd.h>
 
 #include "../engine/Engine.h"
+#include "../engine/Report.h"
 #include "../engine/VMode.h"
 
 using namespace haikupinyin;
@@ -470,6 +471,49 @@ TestImport()
 }
 
 
+static bool
+Has(const std::string& text, const std::string& part)
+{
+	return text.find(part) != std::string::npos;
+}
+
+
+// The bug report link: the template's fields, escaped, and the settings.
+static void
+TestReport()
+{
+	Options options;
+	options.layout = "xiaohe";
+	options.cloud = true;
+	options.fuzzy = kFuzzyRetroflex | kFuzzyNasal;
+	std::string url = ReportUrl("Linux, IBus", "0.1.20",
+		"Ubuntu 24.04 & GNOME", options);
+	static const char* const kParts[] = {
+		"/issues/new?template=bug_report.yml&",
+		"&platform=Linux%2C%20IBus&",
+		"&version=0.1.20&",
+		"&system=Ubuntu%2024.04%20%26%20GNOME&",
+		// 双拼 · 小鹤, as the template's dropdown has it.
+		"&layout=%E5%8F%8C%E6%8B%BC%20%C2%B7%20%E5%B0%8F%E9%B9%A4&",
+		"&settings=",
+	};
+	for (const char* part : kParts)
+		Expect(part, Has(url, part) ? part : url, part);
+	Expect("report full", ReportLayout("full"), "全拼 Full pinyin");
+	Expect("report unknown layout", ReportLayout("nope"), "全拼 Full pinyin");
+
+	std::string settings = ReportSettings(options);
+	for (const char* part : {"云候选: on\n",
+			"模糊音: z=zh c=ch s=sh, an=ang en=eng in=ing\n",
+			"双拼 a o e: aa oo ee"}) {
+		Expect(part, Has(settings, part) ? part : settings, part);
+	}
+	options.layout = "full";
+	Expect("report: no a o e in full pinyin",
+		Has(ReportSettings(options), "a o e") ? "there" : "not", "not");
+}
+
+
 int
 main(int argc, char** argv)
 {
@@ -882,6 +926,7 @@ main(int argc, char** argv)
 
 	TestPhrases();
 	TestImport();
+	TestReport();
 
 	printf(sFailures == 0 ? "all passed\n" : "%d failed\n", sFailures);
 	return sFailures == 0 ? 0 : 1;

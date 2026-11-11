@@ -140,6 +140,17 @@ WriteSettings(const haikupinyin::Options& options, bool chinese)
 }
 
 
+bool
+SameSettings(const haikupinyin::Options& a, const haikupinyin::Options& b)
+{
+	return a.layout == b.layout && a.script == b.script
+		&& a.pageSize == b.pageSize
+		&& a.fullwidthPunctuation == b.fullwidthPunctuation
+		&& a.emoji == b.emoji && a.english == b.english && a.cloud == b.cloud
+		&& a.fuzzy == b.fuzzy && a.vowels == b.vowels;
+}
+
+
 std::vector<std::string>
 DataDirectories()
 {

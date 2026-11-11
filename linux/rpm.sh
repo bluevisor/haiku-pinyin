@@ -27,7 +27,7 @@ sed -e "s|@VERSION@|$version|g" -e "s|@DATE@|$(LC_ALL=C date -u '+%a %b %d %Y')|
 	linux/fedora/haiku-pinyin.spec.in > "$out/haiku-pinyin.spec"
 
 docker run --rm -v "$PWD/$out":/out fedora:latest sh -ec '
-	dnf -q -y install rpm-build gcc-c++ make "pkgconfig(ibus-1.0)" \
+	dnf -q -y install rpm-build gcc-c++ make "pkgconfig(ibus-1.0)" "pkgconfig(gtk+-3.0)" \
 		"pkgconfig(Fcitx5Core)" "pkgconfig(Fcitx5Config)" "pkgconfig(Fcitx5Utils)" \
 		>/dev/null
 	top=/root/rpmbuild

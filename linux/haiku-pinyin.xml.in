@@ -21,6 +21,7 @@
 			<description>Chinese pinyin and shuangpin input: sentences, 联想, 模糊音, emoji, 简/繁</description>
 			<rank>99</rank>
 			<symbol>中</symbol>
+			<setup>@LIBEXECDIR@/haiku-pinyin-setup</setup>
 		</engine>
 	</engines>
 </component>
