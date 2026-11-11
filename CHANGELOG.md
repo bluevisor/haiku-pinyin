@@ -7,6 +7,20 @@ to the version.
 
 ## Unreleased
 
+- **macOS**: the settings window, the 中/英 bubble, model downloads and
+  update messages follow the system's language, as the input menu does:
+  English, 简体 or 繁體.
+- **macOS**: on an Apple silicon Mac with no AI model, a small card offers
+  the on-device AI once, after you've typed a word and paused. It never takes
+  the keyboard, goes at the next key, and Set Up… opens the settings at the
+  download.
+- **macOS**: **Diagnostics → Copy** in the settings copies what a bug report
+  needs (version, Mac, settings, AI and update state, the AI's log), never
+  what you type or the words it learned.
+- **macOS**: VoiceOver reads the highlighted candidate and its place on the
+  page as it changes, and can pick any candidate.
+- **macOS**: a chosen AI model that's been deleted now shows the AI off, with
+  a note saying so; it showed on while nothing ran.
 - **云候选 is off until you turn it on**, on macOS, Linux and Haiku. Cloud
   candidates send the pinyin you're composing to Google Input Tools, so a new
   install no longer does that before you agree. (On the Mac, 0.1.17's
