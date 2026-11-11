@@ -90,6 +90,17 @@ Engine::SetUserDictionary(const std::string& path)
 {
 	fUserPath = path;
 	fUser.Load(path, fLexicon.GetSyllables());
+	size_t slash = path.rfind('/');
+	SetPhrasesFile((slash == std::string::npos ? std::string()
+		: path.substr(0, slash + 1)) + "phrases.txt");
+}
+
+
+// As a composition starts: the files the user may have changed meanwhile.
+void
+Engine::_Refresh()
+{
+	fPhrases.Refresh();
 }
 
 
@@ -199,6 +210,7 @@ Engine::_ProcessKey(Key key, char32_t character, uint32_t modifiers)
 	// there it's Shift+V.
 	bool full = fOptions.layout == "full";
 	if ((character == 'v' && full) || (character == 'V' && !full)) {
+		_Refresh();
 		fKeys = "v";
 		fUsed = 0;
 		fVMode = true;
@@ -206,6 +218,7 @@ Engine::_ProcessKey(Key key, char32_t character, uint32_t modifiers)
 		return true;
 	}
 	if (character >= 'a' && character <= 'z') {
+		_Refresh();
 		fKeys = std::string(1, char(character));
 		fUsed = 0;
 		_Update();
@@ -399,6 +412,7 @@ Engine::_UpdateV()
 	int consumed = int(fKeys.size());
 	for (const std::string& text : texts)
 		fCandidates.push_back(Candidate{text, consumed, 0, {}, false, ""});
+	_PlacePhrases();
 	fSpelled = fKeys;
 	fHighlight = 0;
 	return true;
@@ -426,6 +440,7 @@ Engine::_Update()
 	fCandidates = fDecoder.Candidates(fGraph, kCandidateLimit);
 	_AddEnglish();
 	_AddEmoji();
+	_PlacePhrases();
 	fSpelled = fDecoder.Spelled(fGraph);
 	fHighlight = 0;
 }
@@ -458,11 +473,37 @@ Engine::_AddEmoji()
 }
 
 
+// Custom phrases for exactly the keys typed go at their positions, in place
+// of the same text anywhere else. Again after the cloud moves things.
+void
+Engine::_PlacePhrases()
+{
+	fCandidates.erase(std::remove_if(fCandidates.begin(), fCandidates.end(),
+		[](const Candidate& candidate) { return candidate.phrase; }),
+		fCandidates.end());
+	if (!fPicks.empty() || fPhrases.Size() == 0)
+		return;
+	std::vector<Phrases::Phrase> phrases = fPhrases.Find(fKeys);
+	for (const Phrases::Phrase& phrase : phrases) {
+		fCandidates.erase(std::remove_if(fCandidates.begin(),
+			fCandidates.end(), [&](const Candidate& candidate) {
+				return candidate.text == phrase.text;
+			}), fCandidates.end());
+	}
+	for (const Phrases::Phrase& phrase : phrases) {
+		Candidate candidate{phrase.text, int(fKeys.size()), 0, {}, false, ""};
+		candidate.phrase = true;
+		size_t at = std::min(size_t(phrase.position - 1), fCandidates.size());
+		fCandidates.insert(fCandidates.begin() + at, candidate);
+	}
+}
+
+
 void
 Engine::_Select(const Candidate& candidate)
 {
 	Pick pick{candidate.text, candidate.consumed, candidate.key,
-		candidate.cost, candidate.tail};
+		candidate.cost, candidate.tail, candidate.phrase};
 	// A separator right after the pick belongs to it.
 	while (fUsed + pick.consumed < fKeys.size()
 		&& fKeys[fUsed + pick.consumed] == '\'') {
@@ -480,12 +521,18 @@ Engine::_Select(const Candidate& candidate)
 void
 Engine::_Finish(const std::string& tail)
 {
-	std::string text;
+	std::string text, shown, run;
 	std::vector<SyllableId> key;
 	float cost = 0;
 	bool learnable = !fPicks.empty();
 	for (const Pick& pick : fPicks) {
 		text += pick.text;
+		// Custom phrases go as written, never converted.
+		if (pick.phrase) {
+			shown += _Convert(run) + pick.text;
+			run.clear();
+		} else
+			run += pick.text;
 		key.insert(key.end(), pick.key.begin(), pick.key.end());
 		cost += pick.cost;
 		if (pick.key.empty())
@@ -499,7 +546,7 @@ Engine::_Finish(const std::string& tail)
 	if (!fPicks.empty() && ++fUnsaved >= kSaveEvery)
 		SaveUserDictionary();
 
-	_Commit(_Convert(text) + tail, text + tail);
+	_Commit(shown + _Convert(run) + tail, text + tail);
 	std::string last = fPicks.empty() || !tail.empty() ? std::string()
 		: fPicks.back().tail;
 	Reset();
@@ -663,6 +710,7 @@ Engine::SetCloudResult(const std::string& query, const std::string& text)
 	if (characters == best.key.size())
 		cloud.key = best.key;
 	fCandidates.insert(fCandidates.begin() + 1, cloud);
+	_PlacePhrases();
 	fRevision++;
 	return true;
 }
@@ -903,7 +951,9 @@ Engine::PageCandidates() const
 	size_t first = size_t(Page()) * fOptions.pageSize;
 	for (size_t i = first;
 			i < fCandidates.size() && i < first + fOptions.pageSize; i++) {
-		page.push_back(_Convert(fCandidates[i].text));
+		const Candidate& candidate = fCandidates[i];
+		page.push_back(candidate.phrase ? candidate.text
+			: _Convert(candidate.text));
 	}
 	return page;
 }

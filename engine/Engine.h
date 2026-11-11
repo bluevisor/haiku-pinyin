@@ -12,6 +12,7 @@
 #include "Converter.h"
 #include "Decoder.h"
 #include "Lexicon.h"
+#include "Phrases.h"
 #include "Spelling.h"
 #include "UserDict.h"
 
@@ -74,9 +75,17 @@ public:
 	bool Load(const std::string& dataDirectory, std::string* error = nullptr);
 	bool Loaded() const { return fLexicon.Loaded(); }
 
+	// Also sets the custom phrases file: phrases.txt in the same folder.
 	void SetUserDictionary(const std::string& path);
 	bool SaveUserDictionary();
 	UserDict& UserDictionary() { return fUser; }
+
+	// Custom phrases (Phrases.h), read again when the file changes, as a
+	// composition starts.
+	void SetPhrasesFile(const std::string& path) { fPhrases.SetPath(path); }
+	const std::string& PhrasesFile() const { return fPhrases.Path(); }
+	Phrases& CustomPhrases() { return fPhrases; }
+
 
 	const Options& GetOptions() const { return fOptions; }
 	void SetOptions(const Options& options);
@@ -165,6 +174,7 @@ private:
 		std::vector<SyllableId> key;
 		float cost;
 		std::string tail;
+		bool phrase;
 	};
 
 	bool _ProcessKey(Key key, char32_t character, uint32_t modifiers);
@@ -178,6 +188,8 @@ private:
 	bool _UpdateV();
 	void _AddEmoji();
 	void _AddEnglish();
+	void _PlacePhrases();
+	void _Refresh();
 	void _Select(const Candidate& candidate);
 	void _Finish(const std::string& tail);
 	void _Move(int delta);
@@ -193,6 +205,7 @@ private:
 	std::unordered_map<std::string, std::vector<std::string>> fEmoji;
 	UserDict fUser;
 	std::string fUserPath;
+	Phrases fPhrases;
 	int fUnsaved = 0;
 	Bigram fBigram;
 	std::vector<std::string> fEnglish;		// sorted, ignoring case
