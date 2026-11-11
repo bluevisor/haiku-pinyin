@@ -15,6 +15,12 @@ typedef void (^HPCompleteHandler)(NSString* text);
 NSString* HPAIModelDirectory(void);
 // Whether the helper and a model are there to start.
 bool HPAIAvailable(void);
+// Available, and the model didn't fail to load: the settings show the AI
+// off when it isn't. HPAIStateChanged is posted when this may have changed.
+extern "C" bool HPAIUsable(void);
+// The model failed to load (a broken download, say).
+extern "C" bool HPAIFailed(void);
+extern NSString* const HPAIStateChanged;
 // Starts, stops or restarts the helper to match the settings (aiPicks,
 // aiComplete, aiModel: a folder in the model directory, "" for the default).
 void HPAIUpdate(void);

@@ -16,6 +16,9 @@ static NSFileHandle* sInput;
 static dispatch_queue_t sWrites;	// so a stuck helper can't block typing
 static bool sReady;
 static NSDate* sStarted;
+// The model failed to load: not tried again until the models or the choice
+// change, as loading a broken one over and over only wastes memory and time.
+static bool sFailed;
 static int sNextID = 1;
 static NSMutableDictionary<NSNumber*, id>* sHandlers;	// id -> block
 static NSMutableDictionary<NSNumber*, NSString*>* sOps;	// id -> op
@@ -72,6 +75,34 @@ HPAIAvailable()
 }
 
 
+NSString* const HPAIStateChanged = @"HPAIStateChanged";
+
+
+extern "C" bool
+HPAIUsable()
+{
+	return HPAIAvailable() && !sFailed;
+}
+
+
+extern "C" bool
+HPAIFailed()
+{
+	return sFailed;
+}
+
+
+static void
+SetFailed(bool failed)
+{
+	if (sFailed == failed)
+		return;
+	sFailed = failed;
+	[NSNotificationCenter.defaultCenter postNotificationName:HPAIStateChanged
+		object:nil];
+}
+
+
 bool
 HPAIReady()
 {
@@ -101,6 +132,7 @@ Received(NSDictionary* line)
 	}
 	if ([line[@"event"] isEqual:@"failed"]) {
 		sReady = false;
+		SetFailed(true);
 		return;
 	}
 	NSNumber* number = line[@"id"];
@@ -133,7 +165,8 @@ Received(NSDictionary* line)
 static void
 Start(bool force)
 {
-	if (!force && sStarted != nil && -sStarted.timeIntervalSinceNow < kRestartDelay)
+	if (sFailed
+		|| (!force && sStarted != nil && -sStarted.timeIntervalSinceNow < kRestartDelay))
 		return;
 	NSString* choice = Choice();
 	NSString* model;
@@ -202,6 +235,9 @@ Start(bool force)
 		dispatch_async(dispatch_get_main_queue(), ^{
 			if (sTask == ended) {
 				NSLog(@"Haiku Pinyin: the AI helper quit (%d)", ended.terminationStatus);
+				// Gone before its model loaded: it would only fail again.
+				if (!sReady)
+					SetFailed(true);
 				Forget();
 			}
 		});
@@ -211,6 +247,7 @@ Start(bool force)
 	sStarted = NSDate.date;
 	if (![task launchAndReturnError:&error]) {
 		NSLog(@"Haiku Pinyin: can't start the AI helper: %@", error);
+		SetFailed(true);
 		return;
 	}
 	sTask = task;
@@ -238,11 +275,17 @@ HPAIUpdate()
 	NSUserDefaults* defaults = NSUserDefaults.standardUserDefaults;
 	bool wanted = [defaults boolForKey:@"aiPicks"]
 		|| [defaults boolForKey:@"aiComplete"];
-	if (!wanted)
+	if (!wanted) {
 		Stop();
-	else if (sTask == nil)
-		Start(false);
-	else if (![sChoice isEqual:Choice()]) {
+		return;
+	}
+	// Another model chosen: worth a try even after one failed.
+	bool changed = ![sChoice isEqual:Choice()];
+	if (changed)
+		SetFailed(false);
+	if (sTask == nil)
+		Start(changed);
+	else if (changed) {
 		Stop();
 		Start(true);
 	}
@@ -255,6 +298,7 @@ extern "C" void
 HPAIModelsChanged(void)
 {
 	Stop();
+	SetFailed(false);
 	NSUserDefaults* defaults = NSUserDefaults.standardUserDefaults;
 	if ([defaults boolForKey:@"aiPicks"] || [defaults boolForKey:@"aiComplete"])
 		Start(true);
