@@ -14,6 +14,11 @@ to the version.
   Settings, and `ibus-setup`; changes take effect at once, with no restart.
   It works with Fcitx5 too, beside Fcitx5's own configuration tool. Chinese,
   or English when the system's language isn't Chinese.
+- **Linux packages**: the apt release key moved to
+  `/etc/apt/keyrings/haiku-pinyin-archive-keyring.gpg`, a conffile like the
+  apt source beside it. `apt remove haiku-pinyin-data` used to delete the
+  key but keep the source, so every `apt update` after it warned
+  `NO_PUBKEY`; now remove keeps both, working, and `apt purge` takes both.
 - **Haiku: a settings window.** 设置… in the Deskbar menu opens it: the
   menu's settings in Haiku's own boxes, the 词库 actions, and Report a
   problem (the same prefilled GitHub issue). Changes take effect at once,

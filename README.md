@@ -88,12 +88,14 @@ fcitx5 -rd                 # as yourself: restarts Fcitx5
 
 `haiku-pinyin-data` also adds the project's apt repository and its release
 key (`/etc/apt/sources.list.d/haiku-pinyin.sources`,
-`/usr/share/keyrings/haiku-pinyin-archive-keyring.gpg`), so `sudo apt update
+`/etc/apt/keyrings/haiku-pinyin-archive-keyring.gpg`), so `sudo apt update
 && sudo apt upgrade` brings each new release, and apt refuses one that isn't
 signed with that key. The repository is the latest GitHub release itself;
 once it's set up, `sudo apt install fcitx5-haiku-pinyin` (or `haiku-pinyin`)
 works too. Upgrading from a release that had just the one `haiku-pinyin`
-package brings in `haiku-pinyin-data` on its own.
+package brings in `haiku-pinyin-data` on its own. Both files are
+configuration: `apt remove` leaves them, still working together, and
+`apt purge haiku-pinyin-data` takes them away.
 
 **Arch**: `make linux-arch` writes an AUR-ready `PKGBUILD` (in `dist/arch/`)
 that builds `ibus-haiku-pinyin`, `fcitx5-haiku-pinyin` and

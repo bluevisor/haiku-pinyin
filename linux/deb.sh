@@ -20,7 +20,9 @@
 #                        and the release key (tools/release-key.asc), so apt
 #                        upgrade brings new versions of either, checked
 #                        against that key; tools/sign-release.sh makes the
-#                        repository. It takes these over from the
+#                        repository. Both are conffiles in /etc/apt, so
+#                        apt remove leaves the pair working and apt purge
+#                        takes both. It takes these over from the
 #                        haiku-pinyin packages from before the split
 #                        (Replaces), conffile and all.
 set -e
@@ -54,7 +56,7 @@ for arch in $archs; do
 		make install-fcitx5 DESTDIR=$root >/dev/null
 		install -Dm755 linux/enable.sh $root/usr/bin/haiku-pinyin-enable
 		install -Dm644 build/archive-keyring.gpg \
-			$root/usr/share/keyrings/haiku-pinyin-archive-keyring.gpg
+			$root/etc/apt/keyrings/haiku-pinyin-archive-keyring.gpg
 		install -Dm644 linux/haiku-pinyin.sources \
 			$root/etc/apt/sources.list.d/haiku-pinyin.sources
 		addon=$(cd $root && echo usr/lib/*/fcitx5/libhaiku-pinyin.so)
@@ -105,7 +107,7 @@ for arch in $archs; do
 
 		if [ "$DATA" = yes ]; then
 			package haiku-pinyin-data all usr/share/haiku-pinyin usr/share/icons \
-				usr/share/keyrings etc/apt <<EOF
+				etc/apt <<EOF
 Breaks: haiku-pinyin (<< $VERSION)
 Replaces: haiku-pinyin (<< $VERSION)
 Description: 海酷拼音 Haiku Pinyin, a Chinese input method: its data
@@ -114,7 +116,8 @@ Description: 海酷拼音 Haiku Pinyin, a Chinese input method: its data
  Adds the project apt repository, signed with the release key, so apt
  upgrade brings new versions.
 EOF
-			echo /etc/apt/sources.list.d/haiku-pinyin.sources \
+			printf "%s\n" /etc/apt/sources.list.d/haiku-pinyin.sources \
+				/etc/apt/keyrings/haiku-pinyin-archive-keyring.gpg \
 				> /w/pkg/haiku-pinyin-data/DEBIAN/conffiles
 			build haiku-pinyin-data all
 		fi

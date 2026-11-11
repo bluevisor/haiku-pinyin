@@ -74,10 +74,12 @@ fcitx5 -rd                 # 以你自己的帳號執行：重新啟動 Fcitx5
 
 `haiku-pinyin-data` 會加入本專案的 apt 套件庫和發布金鑰
 （`/etc/apt/sources.list.d/haiku-pinyin.sources`、
-`/usr/share/keyrings/haiku-pinyin-archive-keyring.gpg`），之後
+`/etc/apt/keyrings/haiku-pinyin-archive-keyring.gpg`），之後
 `sudo apt update && sudo apt upgrade` 就能升級到新版本，
 沒有用這把金鑰簽署的套件 apt 會拒絕安裝。套件庫就是 GitHub 上最新的 Release；
 設定好之後也可以直接 `sudo apt install fcitx5-haiku-pinyin`（或 `haiku-pinyin`）。
+這兩個檔案屬於設定：`apt remove` 會保留它們（仍可使用），
+`apt purge haiku-pinyin-data` 才會刪除。
 
 **Arch**：`make linux-arch` 會在 `dist/arch/` 產生可以直接送上 AUR 的
 `PKGBUILD`，從 Release 的原始碼和資料封存檔建置 `ibus-haiku-pinyin`、
