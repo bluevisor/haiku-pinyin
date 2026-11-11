@@ -4,7 +4,7 @@
 //                            offers to install itself
 //   HaikuPinyin --install    registers the method and enables it
 //   HaikuPinyin --select     switches to it
-//   HaikuPinyin --remove     disables it
+//   HaikuPinyin --remove     switches away from it and disables it
 //   HaikuPinyin --update     updates this copy now, if there's a newer release
 // For testing the install from the download: HP_INPUT_METHODS=<folder>
 // installs there instead, without registering it with the system, and
@@ -57,6 +57,9 @@ SourceID(id source)
 // The hidden 英 mode has to be on for the toggle to select it. The server
 // checks as it starts too: the method may have been added in Settings, or
 // updated from a version without the mode (registering again reads it).
+// macOS 26.7 answers noErr and leaves it off (Apple's own input modes too;
+// only keyboard layouts go on): the toggle then stays inside the 中 mode.
+// The mode's default state is on, for a method added in Settings.
 static void
 EnableEnglishMode()
 {
@@ -106,6 +109,17 @@ Command(const char* command)
 		return 1;
 	}
 	if (strcmp(command, "--remove") == 0) {
+		// Never left typing in it (中 or 英) as it's deleted: to the English
+		// layout under it first.
+		id current = CFBridgingRelease(TISCopyCurrentKeyboardInputSource());
+		NSString* bundle = (__bridge NSString*)TISGetInputSourceProperty(
+			(__bridge TISInputSourceRef)current, kTISPropertyBundleID);
+		if ([bundle isEqualToString:NSBundle.mainBundle.bundleIdentifier]) {
+			id english = CFBridgingRelease(
+				TISCopyCurrentASCIICapableKeyboardLayoutInputSource());
+			if (english != nil)
+				TISSelectInputSource((__bridge TISInputSourceRef)english);
+		}
 		for (id source in Sources())
 			TISDisableInputSource((__bridge TISInputSourceRef)source);
 		return 0;

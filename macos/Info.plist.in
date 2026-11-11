@@ -103,15 +103,14 @@
 				<key>tsInputModePrimaryInScriptKey</key>
 				<false/>
 				<key>tsInputModeDefaultStateKey</key>
-				<false/>
-				<key>tsInputModeIsVisibleKey</key>
 				<true/>
+				<key>tsInputModeIsVisibleKey</key>
+				<false/>
 			</dict>
 		</dict>
 		<key>tsVisibleInputModeOrderedArrayKey</key>
 		<array>
 			<string>com.bluevisor.inputmethod.HaikuPinyin.Chinese</string>
-			<string>com.bluevisor.inputmethod.HaikuPinyin.English</string>
 		</array>
 	</dict>
 </dict>
