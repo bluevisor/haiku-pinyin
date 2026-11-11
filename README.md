@@ -29,7 +29,7 @@ The features below work on all three, except where marked.
   …); Shift+V in shuangpin
 - **模糊音**: z/zh c/ch s/sh, an/ang en/eng in/ing, n/l f/h r/l, each optional
 - **中英混输**: `hello` also offers *hello*; nonsense pinyin offers English first
-- **Cloud candidates** (Google Input Tools), on by default (云候选 turns them off), marked ☁
+- Optional **cloud candidates** (Google Input Tools), off until you turn on 云候选, marked ☁
 - Emoji among the candidates: 太阳 → 🌞, 猫 → 🐱 (monochrome, via Noto Emoji)
 - Full-width punctuation (`,` → `，`, `"` → `“”` or `「」`), left alone after digits
 - Shift tap switches 中/英; Caps Lock types English
@@ -216,8 +216,8 @@ Terminal; [Temino](https://github.com/bluevisor/temino) 0.2.4+) show the
 pinyin inline; everywhere else the committed text arrives as typing.
 
 **Cloud candidates** send the pinyin of each composition, but nothing you've
-committed, to Google Input Tools. They're on by default; turn off 云候选 in
-the settings to keep everything on the machine.
+committed, to Google Input Tools. They're off until you turn on 云候选, so
+by default nothing you type leaves the machine.
 
 ## Layout
 
