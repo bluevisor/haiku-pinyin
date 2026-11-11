@@ -170,3 +170,15 @@
 "Done" = "完成";
 "Open on GitHub" = "在 GitHub 上打开";
 "That's too long for a link, so it's on the clipboard: paste it into the issue that opened, under Diagnostics." = "内容太长，放不进链接，已拷贝到剪贴板：请粘贴到刚打开的问题页的“诊断信息”里。";
+
+"Sync" = "同步";
+"Sync folder" = "同步文件夹";
+"Off" = "关闭";
+"Turn Off" = "关闭";
+"Choose…" = "选择…";
+"Couldn't save the sync folder." = "没能保存同步文件夹。";
+"Pick a folder your own sync tool syncs (iCloud Drive, Dropbox, Syncthing, Nextcloud, a network share) to keep learned words and custom phrases alike on your Macs and PCs. Each one writes only its own files there. The folder holds the words it learned: anyone who can see it can read them. Haiku Pinyin itself sends nothing anywhere." = "选一个你自己的同步工具（iCloud 云盘、Dropbox、Syncthing、Nextcloud、网络共享）同步的文件夹，学到的词和自定义短语就在你的几台 Mac 和电脑之间保持一致。每台只在那里写自己的文件。这个文件夹里有你学到的词：能看到它的人都能读到。海酷拼音自己不上传任何东西。";
+"Choose a Sync Folder" = "选择同步文件夹";
+"A folder your sync tool keeps on each computer, such as one in iCloud Drive or Dropbox" = "你的同步工具在每台电脑上都有的文件夹，比如 iCloud 云盘或 Dropbox 里的";
+"Choose" = "选择";
+"iCloud Drive" = "iCloud 云盘";

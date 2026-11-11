@@ -8,7 +8,9 @@
 
 #include "../engine/Engine.h"
 
+class BButton;
 class BCheckBox;
+class BFilePanel;
 class BMenuField;
 class BStringView;
 
@@ -34,12 +36,16 @@ public:
 								SettingsWindow(BMessenger method,
 									const haikupinyin::Options& options);
 
+	virtual						~SettingsWindow();
+
 	virtual	void				MessageReceived(BMessage* message);
 
 private:
 			void				_Show(const haikupinyin::Options& options);
 			haikupinyin::Options	_Chosen() const;
 			void				_Report();
+			void				_ShowSync();
+			void				_ChooseSync();
 
 			BMessenger			fMethod;
 			haikupinyin::Options	fOptions;
@@ -52,4 +58,7 @@ private:
 			BCheckBox*			fEnglish;
 			BCheckBox*			fCloud;
 			BCheckBox*			fFuzzy[3];
+			BStringView*		fSyncFolder;
+			BButton*			fSyncOff;
+			BFilePanel*			fSyncPanel;
 };

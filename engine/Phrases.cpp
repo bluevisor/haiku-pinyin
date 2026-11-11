@@ -20,10 +20,13 @@ FileStamp::Of(const std::string& path)
 	if (path.empty() || stat(path.c_str(), &info) != 0)
 		return stamp;
 	stamp.seconds = int64_t(info.st_mtime);
+	stamp.changedSeconds = int64_t(info.st_ctime);
 #if defined(__APPLE__)
 	stamp.nanoseconds = int64_t(info.st_mtimespec.tv_nsec);
+	stamp.changedNanoseconds = int64_t(info.st_ctimespec.tv_nsec);
 #else
 	stamp.nanoseconds = int64_t(info.st_mtim.tv_nsec);
+	stamp.changedNanoseconds = int64_t(info.st_ctim.tv_nsec);
 #endif
 	stamp.size = int64_t(info.st_size);
 	stamp.inode = uint64_t(info.st_ino);
@@ -35,7 +38,9 @@ bool
 FileStamp::operator==(const FileStamp& other) const
 {
 	return seconds == other.seconds && nanoseconds == other.nanoseconds
-		&& size == other.size && inode == other.inode;
+		&& size == other.size && inode == other.inode
+		&& changedSeconds == other.changedSeconds
+		&& changedNanoseconds == other.changedNanoseconds;
 }
 
 

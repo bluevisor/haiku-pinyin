@@ -50,6 +50,13 @@ private let aiState = ProcessInfo.processInfo.environment["SNAPSHOT_AI"] ?? ""
 	_ skipped: UnsafeMutablePointer<Int32>, _ problem: UnsafeMutablePointer<Int32>)
 	-> UnsafePointer<CChar> { UnsafePointer(strdup("")!) }
 @_cdecl("HPExportWords") func exportWordsStub(_ path: UnsafePointer<CChar>) -> Int32 { 0 }
+// SNAPSHOT_SYNC=<folder> shows sync on, through it.
+@_cdecl("HPSyncFolder") func syncFolderStub() -> UnsafePointer<CChar> {
+	UnsafePointer(strdup(ProcessInfo.processInfo.environment["SNAPSHOT_SYNC"] ?? "")!)
+}
+@_cdecl("HPSetSyncFolder") func setSyncFolderStub(_ folder: UnsafePointer<CChar>) -> Bool {
+	true
+}
 
 @main
 struct SnapshotSettings {
@@ -203,6 +210,17 @@ struct SnapshotSettings {
 	// permission. CGWindowListCreateImage is unavailable to Swift now: reach
 	// it through dlsym.
 	static func capture(_ window: NSWindow, to path: String) {
+		// SNAPSHOT_CACHE=1: the view draws itself into a bitmap, without the
+		// window server, which shows nothing while the screen is locked. No
+		// title bar or glass, then.
+		if ProcessInfo.processInfo.environment["SNAPSHOT_CACHE"] != nil,
+			let view = window.contentView,
+			let bitmap = view.bitmapImageRepForCachingDisplay(in: view.bounds) {
+			view.cacheDisplay(in: view.bounds, to: bitmap)
+			FileManager.default.createFile(atPath: path,
+				contents: bitmap.representation(using: .png, properties: [:]))
+			return
+		}
 		typealias Capture = @convention(c) (CGRect, UInt32, UInt32, UInt32)
 			-> Unmanaged<CGImage>?
 		guard let symbol = dlsym(UnsafeMutableRawPointer(bitPattern: -2),

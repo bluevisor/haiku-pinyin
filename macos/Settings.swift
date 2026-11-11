@@ -296,6 +296,7 @@ struct SettingsView: View {
 			}
 
 			WordsSection()	// Words.swift
+			SyncSection()
 
 			Section {
 				Toggle(isOn: $autoUpdate) {
