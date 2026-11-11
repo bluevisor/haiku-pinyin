@@ -27,8 +27,9 @@ and the places to check it are at the end.
   anything.
 - **Diagnostics**: the Mac's **Copy** puts a report on your clipboard and
   nothing more (see [below](#copy-diagnostics)).
-- **Problem reports**: the Mac's **Report a Problem…** opens a GitHub issue
-  in your browser for you to send, or not (see [below](#report-a-problem)).
+- **Problem reports**: **Report a Problem…** in the settings window (Mac,
+  Linux, Haiku) opens a GitHub issue in your browser for you to send, or not
+  (see [below](#report-a-problem)).
 
 ## Cloud candidates (云候选)
 
@@ -136,6 +137,12 @@ sends nothing itself, and there's no server.**
   reads the folder, and remembers when settings last opened
   (`crashesCheckedAt` in the settings).
 
+**报告问题…** in the settings window on Linux and Haiku does less: it opens
+the same form in your browser with the version, the system (distribution,
+desktop and architecture, or the Haiku revision) and the settings filled in.
+No logs, no crash reports, nothing you typed or learned, and nothing reaches
+GitHub until you submit it.
+
 ## On your machine
 
 | | Learned words | Settings | Other |
@@ -170,7 +177,7 @@ browser and has no analytics, cookies, or outside fonts or scripts.
 | AI helper (local only) | `macos/AI.mm`, `macos/ai/Sources/main.swift` |
 | apt repository | `linux/haiku-pinyin.sources`, `linux/deb.sh` |
 | Diagnostics | `macos/Diagnostics.swift` |
-| Problem reports | `macos/Report.swift` (opens the browser; no request of its own) |
+| Problem reports | `macos/Report.swift`; the link on Linux and Haiku: `engine/Report.cpp`, opened by `linux/setup/Setup.cpp` and `haiku/SettingsWindow.cpp` (the browser; no request of their own) |
 
 Nothing else in `engine/`, `macos/`, `linux/` or `haiku/` opens a network
 connection. If a change adds one, it updates this page in the same pull
