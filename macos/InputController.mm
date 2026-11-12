@@ -544,6 +544,8 @@ CloudAnswer(NSData* data, NSString* query)
 	if (!sEngine->Composing() && key == Key::kCharacter && sEngine->Chinese())
 		[self readContext];
 	bool used = sEngine->ProcessKey(key, character, modifiers);
+	if (sEngine->TakeScriptToggled())
+		[self scriptToggled];
 	// Escape just takes a completion away.
 	if (offered && key == Key::kEscape)
 		used = true;
@@ -602,6 +604,22 @@ CloudAnswer(NSData* data, NSString* query)
 }
 
 
+// Control-Shift-F switched 简/繁 (the engine took it): saved as the
+// setting, which the defaults observer then finds already applied, and
+// shown like 中/英.
+- (void)scriptToggled
+{
+	bool traditional
+		= sEngine->GetOptions().script != haikupinyin::Script::kSimplified;
+	HPDebug(@"Control-Shift-F: %s", traditional ? "繁" : "简");
+	[NSUserDefaults.standardUserDefaults setInteger:traditional ? 1 : 0
+		forKey:@"script"];
+	NSRect line = NSZeroRect;
+	[self.textClient attributesForCharacterIndex:0 lineHeightRectangle:&line];
+	HPShowScriptBubble(traditional, line.origin.x, line.origin.y);
+}
+
+
 // #pragma mark - focus
 
 
@@ -635,6 +653,7 @@ CloudAnswer(NSData* data, NSString* query)
 	[self takeClient:sender];
 	if (!sLoaded || sLast != self)
 		return;
+	HPDebug(@"commitComposition, composing %d", sEngine->Composing());
 	if (sEngine->Composing())
 		sEngine->ProcessKey(Key::kReturn, 0, 0);
 	sEngine->ClearContext();
@@ -677,6 +696,9 @@ Menu(NSString* english, NSString* simplified, NSString* traditional)
 				@"切换到英文 (Shift)", @"切換到英文 (Shift)")
 		action:@selector(toggleFromMenu:) keyEquivalent:@""]];
 	// 简体 / 繁體, ticked: the same setting as 字形 in the settings window.
+	// No key equivalent for Control-Shift-F: IMK makes an input menu item's
+	// key a live shortcut, which ends the word before the action, so the
+	// engine (which keeps the word) never gets the key.
 	[menu addItem:NSMenuItem.separatorItem];
 	NSInteger script = [NSUserDefaults.standardUserDefaults
 		integerForKey:@"script"];

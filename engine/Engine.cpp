@@ -372,10 +372,45 @@ Engine::SetChinese(bool chinese)
 
 
 bool
+Engine::IsScriptToggle(Key key, char32_t character, uint32_t modifiers)
+{
+	return key == Key::kCharacter && (character == 'f' || character == 'F')
+		&& (modifiers & (kShift | kControl | kCommand | kOption))
+			== (kShift | kControl);
+}
+
+
+void
+Engine::ToggleScript()
+{
+	if (fOptions.script == Script::kSimplified)
+		fOptions.script = fLastTraditional;
+	else {
+		fLastTraditional = fOptions.script;
+		fOptions.script = Script::kSimplified;
+	}
+	fScriptToggled = true;
+}
+
+
+bool
+Engine::TakeScriptToggled()
+{
+	bool toggled = fScriptToggled;
+	fScriptToggled = false;
+	return toggled;
+}
+
+
+bool
 Engine::ProcessKey(Key key, char32_t character, uint32_t modifiers)
 {
 	if (!Loaded())
 		return false;
+	if (IsScriptToggle(key, character, modifiers)) {
+		ToggleScript();
+		return true;
+	}
 	// A completion on offer: Tab takes it, any other key drops it.
 	if (!fSuggestion.empty()) {
 		std::string suggestion;

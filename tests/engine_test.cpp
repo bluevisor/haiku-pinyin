@@ -1333,6 +1333,54 @@ main(int argc, char** argv)
 			"passed");
 	}
 
+	// Control+Shift+F: 简 ↔ 繁, mid-word too, and in English.
+	{
+		Engine engine;
+		engine.Load(sData);
+		const uint32_t kKeys = kControl | kShift;
+		Type(engine, "zhongguo");
+		Expect("toggle used",
+			engine.ProcessKey(Key::kCharacter, 'F', kKeys) ? "used" : "passed",
+			"used");
+		Expect("toggle mid-word", First(engine), "中國");
+		Expect("toggle keeps the word", engine.Composing() ? "composing" : "done",
+			"composing");
+		Expect("toggle reported", engine.TakeScriptToggled() ? "yes" : "no",
+			"yes");
+		Expect("toggle reported once", engine.TakeScriptToggled() ? "yes" : "no",
+			"no");
+		engine.ProcessKey(Key::kSpace, 0, 0);
+		Expect("toggle commit", engine.TakeCommit(), "中國");
+		Type(engine, "\"");
+		Expect("toggle quotes", engine.TakeCommit(), "「");
+		engine.ProcessKey(Key::kCharacter, 'f', kKeys);
+		Type(engine, "zhongguo");
+		Expect("toggle back", First(engine), "中国");
+		engine.ProcessKey(Key::kEscape, 0, 0);
+		Expect("toggle not Control+F",
+			engine.ProcessKey(Key::kCharacter, 'f', kControl) ? "used" : "passed",
+			"passed");
+		Expect("toggle not with Option",
+			engine.ProcessKey(Key::kCharacter, 'f', kKeys | kOption)
+				? "used" : "passed",
+			"passed");
+		// Back to the traditional it came from.
+		Options options;
+		options.script = Script::kTaiwan;
+		engine.SetOptions(options);
+		engine.ProcessKey(Key::kCharacter, 'F', kKeys);
+		engine.ProcessKey(Key::kCharacter, 'F', kKeys);
+		Expect("toggle keeps Taiwan",
+			engine.GetOptions().script == Script::kTaiwan ? "taiwan" : "other",
+			"taiwan");
+		engine.SetChinese(false);
+		Expect("toggle in English",
+			engine.ProcessKey(Key::kCharacter, 'F', kKeys) ? "used" : "passed",
+			"used");
+		Expect("toggle in English switches",
+			engine.GetOptions().script == Script::kSimplified ? "简" : "繁", "简");
+	}
+
 	TestPhrases();
 	TestImport();
 	TestSync();

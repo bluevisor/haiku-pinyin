@@ -123,6 +123,14 @@ public:
 	bool Chinese() const { return fChinese; }
 	void SetChinese(bool chinese);
 
+	// Control+Shift+F switches 简体 ↔ 繁體, as in Sogou and Microsoft
+	// Pinyin: ProcessKey takes it, in English as well, and mid-word the
+	// candidates change at once. TakeScriptToggled() says it happened, once,
+	// for the front end to save the new script as the setting.
+	static bool IsScriptToggle(Key key, char32_t character, uint32_t modifiers);
+	void ToggleScript();
+	bool TakeScriptToggled();
+
 	// True when the key was used. Whether or not it was, there may be text
 	// to commit first (a punctuation key commits the sentence before it).
 	bool ProcessKey(Key key, char32_t character, uint32_t modifiers);
@@ -255,6 +263,8 @@ private:
 
 	Options fOptions;
 	bool fChinese = true;
+	bool fScriptToggled = false;
+	Script fLastTraditional = Script::kTraditional;	// what 繁 toggles back to
 
 	std::string fKeys;			// everything typed in this composition
 	size_t fUsed = 0;			// keys taken by picks

@@ -111,6 +111,10 @@ public:
 	void save() override;
 
 	bool Chinese() const;
+	bool Traditional() const
+	{
+		return fEngine.GetOptions().script != haikupinyin::Script::kSimplified;
+	}
 	void ToggleChinese(fcitx::InputContext* context);
 	// From the candidate window: a click, the page arrows, the scroll wheel.
 	void Select(fcitx::InputContext* context, int index);
@@ -125,6 +129,7 @@ private:
 	void _ShowCandidates(fcitx::InputContext* context);
 	void _Clear(fcitx::InputContext* context);
 	void _AskCloud();
+	void _ShowScript(fcitx::InputContext* context);
 
 	fcitx::Instance* fInstance;
 	haikupinyin::Engine fEngine;
@@ -132,6 +137,8 @@ private:
 	bool fSavedChinese = true;
 	bool fLoaded = false;
 	bool fLoadFailed = false;
+	// While Fcitx5 asks for the sub-mode to show the new 简/繁.
+	bool fShowingScript = false;
 	HaikuPinyinConfig fConfig;
 	ModeAction fModeAction;
 	// The context the engine state is for.

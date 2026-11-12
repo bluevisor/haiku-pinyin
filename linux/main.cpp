@@ -376,6 +376,11 @@ ProcessKeyEvent(IBusEngine* engine, guint keyval, guint keycode, guint state)
 
 	bool used = pinyin.ProcessKey(key, character, modifiers);
 	Sync(engine);
+	// Control+Shift+F switched 简/繁: the menu shows it, and it's saved.
+	if (pinyin.TakeScriptToggled()) {
+		UpdateProperties(engine, true);
+		SaveSettings();
+	}
 	if (used)
 		self->swallowed->insert(keycode);
 	return used ? TRUE : FALSE;

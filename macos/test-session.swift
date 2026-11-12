@@ -154,6 +154,27 @@ final class Pad: NSObject, NSApplicationDelegate {
 		usleep(400_000)
 	}
 
+	// Control-Shift-F, the 简/繁 key.
+	func controlShiftF() {
+		focused()
+		post(keyCodes["f"]!, true, [.control, .shift])
+		post(keyCodes["f"]!, false, [.control, .shift])
+		usleep(400_000)
+	}
+
+	// The method's own setting, as it saved it.
+	func expectSetting(_ key: String, _ want: Int, _ when: String) {
+		var got: Int?
+		for _ in 0..<20 {
+			CFPreferencesAppSynchronize("com.bluevisor.inputmethod.HaikuPinyin" as CFString)
+			got = CFPreferencesCopyAppValue(key as CFString,
+				"com.bluevisor.inputmethod.HaikuPinyin" as CFString) as? Int
+			if got == want { return }
+			usleep(100_000)
+		}
+		finish("\(when): \(key) is \(got.map(String.init) ?? "unset"), not \(want)")
+	}
+
 	var previous: TISInputSource?
 	var report = ""
 	let output = CommandLine.arguments.count > 1 ? CommandLine.arguments[1]
@@ -190,6 +211,8 @@ final class Pad: NSObject, NSApplicationDelegate {
 
 		if phase == "shuangpin" {
 			shuangpin()
+		} else if phase == "script" {
+			script()
 		} else if phase == "ai" {
 			ai()
 		} else {
@@ -244,6 +267,16 @@ extension Pad {
 		k(kEscape)							// gone, never typed
 		t("beijingda"); k(kSpace)			// 北京大
 		usleep(800_000); t(",")				// typing on: the gray 学 goes
+	}
+
+	// Control-Shift-F switches 简/繁, mid-word too, and saves it.
+	func script() {
+		t("zhongguo"); controlShiftF(); k(kSpace)	// 中國, switched mid-word
+		expectSetting("script", 1, "after Control-Shift-F")
+		t("xuexi"); k(kSpace)				// 學習
+		controlShiftF()
+		expectSetting("script", 0, "after a second Control-Shift-F")
+		t("xuexi"); k(kSpace)				// 学习
 	}
 
 	// 拼音加加, a o e one key each.

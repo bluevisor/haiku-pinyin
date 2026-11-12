@@ -19,6 +19,7 @@
 "Traditional Chinese" = "繁体中文";
 "Per page" = "每页候选";
 "%ld candidates" = "%ld 个";
+"Control-Shift-F switches between simplified and traditional as you type." = "打字时按 Control-Shift-F 切换简体与繁体。";
 "Candidates" = "候选";
 "Mixed Chinese and English" = "中英混输";
 "Emoji" = "Emoji 候选";

@@ -20,7 +20,7 @@ you pick, and inline composition. One engine, three native front ends.
 The features below work on all three, except where marked.
 
 - **Full pinyin** and **shuangpin**: 拼音加加, 小鹤, 自然码, 微软, 智能ABC
-- **简体 / 繁體** output
+- **简体 / 繁體** output; Ctrl+Shift+F switches between them as you type
 - **Sentences scored with word pairs** (a bigram model from libpinyin), with the
   last word you typed as context: `wozaixuexizhongwen` → 我在学习中文
 - **AI** (macOS, Apple silicon): a small language model on the Mac reads the
@@ -269,6 +269,7 @@ on a Mac with Control+Space or 🌐.
 | Tab | (Mac, AI) take the gray completion; Escape or any other key drops it |
 | `v` | v-mode (Shift+V in shuangpin): see below |
 | Shift (tap) | 中 / 英 |
+| Ctrl+Shift+F | 简体 / 繁體, mid-word too (Control-Shift-F on the Mac) |
 | Caps Lock | English while it's on |
 
 Clicks, the scroll wheel and the page arrows work in the candidate window.
