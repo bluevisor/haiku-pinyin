@@ -61,8 +61,8 @@ SourceID(id source)
 }
 
 
-static bool ModeEnabled();
 static bool SourceEnabled(NSString* sourceID);
+static int Run(NSString* path, NSArray<NSString*>* arguments);
 static int Guide();
 
 
@@ -86,8 +86,13 @@ Command(const char* command)
 		}
 		if (status != noErr)
 			return 1;
-		return ModeEnabled() ? 0 : 2;
+		// Asked in a fresh process: after TISEnableInputSource this one's
+		// view says it's on even when macOS left it off.
+		return Run(NSBundle.mainBundle.executablePath, @[@"--enabled"]) == 0
+			? 0 : 2;
 	}
+	if (strcmp(command, "--enabled") == 0)
+		return SourceEnabled(kMode) ? 0 : 1;
 	if (strcmp(command, "--guide") == 0)
 		return Guide();
 	if (strcmp(command, "--select") == 0) {
@@ -155,21 +160,9 @@ Run(NSString* path, NSArray<NSString*>* arguments)
 }
 
 
-static bool
-ModeEnabled()
-{
-	for (id source in Sources()) {
-		if (![SourceID(source) isEqualToString:kMode])
-			continue;
-		CFBooleanRef enabled = (CFBooleanRef)TISGetInputSourceProperty(
-			(__bridge TISInputSourceRef)source, kTISPropertyInputSourceIsEnabled);
-		return enabled != nullptr && CFBooleanGetValue(enabled);
-	}
-	return false;
-}
-
-
-// On the enabled list (a fresh one: System Settings changes it).
+// On the enabled list (a fresh one: System Settings changes it). The
+// mode's IsEnabled property isn't enough: it stays true after the person
+// removes the method (macOS 26).
 static bool
 SourceEnabled(NSString* sourceID)
 {
@@ -381,9 +374,26 @@ Guide()
 			kTISNotifyEnabledKeyboardInputSourcesChanged
 		object:nil queue:NSOperationQueue.mainQueue
 		usingBlock:^(NSNotification*) { check(); }];
+	// Not activated, since System Settings is where the clicks go, but
+	// floating, or it hides behind Settings (an inactive app's alert sits
+	// at the normal level). In the top-right corner, clear of Settings.
+	void (^raise)(void) = ^{
+		NSWindow* window = alert.window;
+		window.level = NSFloatingWindowLevel;
+		window.collectionBehavior |= NSWindowCollectionBehaviorMoveToActiveSpace;
+		// The screen in use, where Settings opens (the alert's own can be
+		// another display).
+		NSRect screen = NSScreen.mainScreen.visibleFrame;
+		[window setFrameTopLeftPoint:NSMakePoint(
+			NSMaxX(screen) - window.frame.size.width - 20, NSMaxY(screen) - 20)];
+		[window orderFrontRegardless];
+	};
 	NSModalResponse response;
-	// Not brought to the front: System Settings is where the clicks go.
 	for (;;) {
+		// Once the alert is up: runModal sets its own level and position.
+		NSTimer* raiser = [NSTimer timerWithTimeInterval:0.05 repeats:NO
+			block:^(NSTimer*) { raise(); }];
+		[NSRunLoop.mainRunLoop addTimer:raiser forMode:NSRunLoopCommonModes];
 		response = [alert runModal];
 		if (response != NSAlertSecondButtonReturn)
 			break;
