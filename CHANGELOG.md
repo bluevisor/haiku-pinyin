@@ -7,6 +7,10 @@ to the version.
 
 ## Unreleased
 
+- **Ctrl+Shift+F switches 简体 / 繁體** as you type, on Mac, Linux and Haiku,
+  the key Sogou and Microsoft Pinyin use. Halfway through a word the
+  candidates change at once. It's saved as the setting; on the Mac a 简 or 繁
+  shows by the text, as 中/英 does, and the input menu shows the key.
 - **Sync between machines.** Pick a folder your own sync tool already keeps
   alike (iCloud Drive, Dropbox, Syncthing, Nextcloud, a network share) under
   同步 in the settings window, on Mac, Linux and Haiku, and the words it

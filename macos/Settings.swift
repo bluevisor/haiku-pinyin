@@ -167,7 +167,7 @@ struct SettingsView: View {
 				}
 			}
 
-			Section(L("Input")) {
+			Section {
 				Picker(selection: $layout) {
 					ForEach(layouts, id: \.id) { Text($0.name).tag($0.id) }
 				} label: {
@@ -194,6 +194,11 @@ struct SettingsView: View {
 				} label: {
 					Row(title: L("Per page"), symbol: "list.number", color: .gray)
 				}
+			} header: {
+				Text(L("Input"))
+			} footer: {
+				Text(L("Control-Shift-F switches between simplified and traditional as you type."))
+					.foregroundStyle(.secondary)
 			}
 
 			Section {
@@ -515,16 +520,15 @@ func showSettings(at section: String?) {
 	settingsWindow?.makeKeyAndOrderFront(nil)
 }
 
-// #pragma mark - the 中/英 bubble
+// #pragma mark - the 中/英 and 简/繁 bubble
 
 // A circle, so the glyph has the same space on every side.
 private let bubbleSize: CGFloat = 30
 
 struct ModeBubble: View {
-	var chinese: Bool
+	var label: String
 
 	var body: some View {
-		let label = chinese ? "中" : L("EN")
 		// Two letters fit the circle a size down.
 		let text = Text(label)
 			.font(.system(size: label.count > 1 ? 13 : 16, weight: .semibold))
@@ -551,7 +555,7 @@ private func makeBubble() -> NSPanel {
 	panel.backgroundColor = .clear
 	panel.hasShadow = true
 	panel.ignoresMouseEvents = true
-	let view = NSHostingView(rootView: ModeBubble(chinese: true))
+	let view = NSHostingView(rootView: ModeBubble(label: "中"))
 	panel.contentView = view
 	bubbleView = view
 	return panel
@@ -561,9 +565,19 @@ private func makeBubble() -> NSPanel {
 // screen coordinates, for a moment.
 @_cdecl("HPShowModeBubble")
 public func showModeBubble(_ chinese: Bool, _ x: Double, _ y: Double) {
+	showBubble(chinese ? "中" : L("EN"), x, y)
+}
+
+// The same for 简 or 繁, after Control-Shift-F.
+@_cdecl("HPShowScriptBubble")
+public func showScriptBubble(_ traditional: Bool, _ x: Double, _ y: Double) {
+	showBubble(traditional ? "繁" : "简", x, y)
+}
+
+private func showBubble(_ label: String, _ x: Double, _ y: Double) {
 	let panel = bubble ?? makeBubble()
 	bubble = panel
-	bubbleView?.rootView = ModeBubble(chinese: chinese)
+	bubbleView?.rootView = ModeBubble(label: label)
 	var origin = NSPoint(x: x, y: y - bubbleSize - 4)
 	if x == 0 && y == 0 {
 		// The client didn't say where its text is: by the pointer.

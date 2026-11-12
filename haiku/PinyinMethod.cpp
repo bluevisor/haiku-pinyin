@@ -327,6 +327,12 @@ PinyinMethod::Filter(BMessage* message, BList* outList)
 		return B_DISPATCH_MESSAGE;
 
 	bool used = _HandleKey(message);
+	// Control+Shift+F switched 简/繁: the menu shows it, and it's saved.
+	if (fEngine.TakeScriptToggled()) {
+		_UpdateMenu();
+		_SaveSettings();
+		_UpdateSettingsWindow();
+	}
 	BList events;
 	_Sync(&events);
 	if (used)
@@ -395,6 +401,14 @@ PinyinMethod::_HandleKey(BMessage* message)
 
 	if (key == Key::kTab && (modifiers & haikupinyin::kShift) != 0)
 		key = Key::kPageUp;
+	// With Control, bytes is a control character (Control+F is 0x06): the
+	// 简/繁 key goes by the key's own character.
+	char32_t raw = (char32_t)message->GetInt32("raw_char", 0);
+	if (key == Key::kOther
+		&& haikupinyin::Engine::IsScriptToggle(Key::kCharacter, raw, modifiers)) {
+		key = Key::kCharacter;
+		character = raw;
+	}
 	return fEngine.ProcessKey(key, character, modifiers);
 }
 

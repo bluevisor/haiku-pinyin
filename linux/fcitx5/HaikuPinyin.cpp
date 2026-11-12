@@ -511,6 +511,15 @@ HaikuPinyinEngine::keyEvent(const fcitx::InputMethodEntry&,
 
 	bool used = fEngine.ProcessKey(key, character, modifiers);
 	_Sync(context);
+	// Control+Shift+F switched 简/繁: saved, and said for a moment.
+	if (fEngine.TakeScriptToggled()) {
+		bool traditional
+			= fEngine.GetOptions().script != haikupinyin::Script::kSimplified;
+		ConfigFromOptions(fEngine.GetOptions(), &fConfig);
+		WriteSettings(fEngine.GetOptions(), fEngine.Chinese());
+		fInstance->showCustomInputMethodInformation(context,
+			traditional ? "繁" : "简");
+	}
 	if (used) {
 		fSwallowed.insert(raw.code());
 		event.filterAndAccept();

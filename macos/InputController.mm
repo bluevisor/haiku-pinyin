@@ -544,6 +544,8 @@ CloudAnswer(NSData* data, NSString* query)
 	if (!sEngine->Composing() && key == Key::kCharacter && sEngine->Chinese())
 		[self readContext];
 	bool used = sEngine->ProcessKey(key, character, modifiers);
+	if (sEngine->TakeScriptToggled())
+		[self scriptToggled];
 	// Escape just takes a completion away.
 	if (offered && key == Key::kEscape)
 		used = true;
@@ -599,6 +601,22 @@ CloudAnswer(NSData* data, NSString* query)
 	NSRect line = NSZeroRect;
 	[self.textClient attributesForCharacterIndex:0 lineHeightRectangle:&line];
 	HPShowModeBubble(sEngine->Chinese(), line.origin.x, line.origin.y);
+}
+
+
+// Control-Shift-F switched 简/繁 (the engine took it): saved as the
+// setting, which the defaults observer then finds already applied, and
+// shown like 中/英.
+- (void)scriptToggled
+{
+	bool traditional
+		= sEngine->GetOptions().script != haikupinyin::Script::kSimplified;
+	HPDebug(@"Control-Shift-F: %s", traditional ? "繁" : "简");
+	[NSUserDefaults.standardUserDefaults setInteger:traditional ? 1 : 0
+		forKey:@"script"];
+	NSRect line = NSZeroRect;
+	[self.textClient attributesForCharacterIndex:0 lineHeightRectangle:&line];
+	HPShowScriptBubble(traditional, line.origin.x, line.origin.y);
 }
 
 
@@ -677,6 +695,7 @@ Menu(NSString* english, NSString* simplified, NSString* traditional)
 				@"切换到英文 (Shift)", @"切換到英文 (Shift)")
 		action:@selector(toggleFromMenu:) keyEquivalent:@""]];
 	// 简体 / 繁體, ticked: the same setting as 字形 in the settings window.
+	// The other one shows Control-Shift-F, the key that switches to it.
 	[menu addItem:NSMenuItem.separatorItem];
 	NSInteger script = [NSUserDefaults.standardUserDefaults
 		integerForKey:@"script"];
@@ -689,6 +708,11 @@ Menu(NSString* english, NSString* simplified, NSString* traditional)
 		item.tag = i;
 		item.state = script == i
 			? NSControlStateValueOn : NSControlStateValueOff;
+		if (script != i) {
+			item.keyEquivalent = @"f";
+			item.keyEquivalentModifierMask
+				= NSEventModifierFlagControl | NSEventModifierFlagShift;
+		}
 		[menu addItem:item];
 	}
 	return menu;

@@ -1,7 +1,8 @@
 #!/bin/sh
 # Dev only: types through 海酷拼音 in a test window on this Mac and prints
 # what arrived (macos/test-session.swift): full pinyin with the default
-# settings, then 拼音加加 shuangpin. Install it first (macos/install.sh).
+# settings, 拼音加加 shuangpin, Control-Shift-F for 简/繁, then the AI.
+# Install it first (macos/install.sh).
 set -e
 cd "$(dirname "$0")/.."
 app=build/HPSessionTest.app
@@ -74,6 +75,7 @@ pass full "中国人，hello 你好。bjdx入
 pass shuangpin "中国，啥玩意儿啊为什么
 nihd输入法中国
 饿我壹拾贰" layout -string pyjj vowels -int 2
+pass script "中國學習学习" layout -string full
 # Needs the models (macos/ai/fetch-models.sh); skipped without them.
 if [ -f "$HOME/Library/Application Support/HaikuPinyin/models/Qwen3-1.7B-Base-4bit/config.json" ]; then
 	pass ai "我妹妹说她

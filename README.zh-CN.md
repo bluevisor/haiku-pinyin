@@ -134,7 +134,7 @@ haiku_pinyin_restart      # 重启 input_server；运行时不要打开 Deskbar 
 除非特别注明，下面的功能三个平台都有。
 
 - **全拼**和**双拼**：拼音加加、小鹤、自然码、微软、智能ABC
-- **简体 / 繁體**输出
+- **简体 / 繁體**输出，打字时按 Ctrl+Shift+F 切换
 - **整句输入**，用词对（来自 libpinyin 的二元语法模型）打分，
   并参考你上一个打的词：`wozaixuexizhongwen` → 我在学习中文
 - **AI**（macOS，Apple 芯片）：Mac 上的小语言模型读光标前的文字，
@@ -216,6 +216,7 @@ Mac 上用 Control+空格 或 🌐 键。
 | Tab | （Mac，AI）采用灰色补全；Esc 或其他键放弃 |
 | `v` | v 模式（双拼下 Shift+V），见下 |
 | Shift（轻按） | 中 / 英 |
+| Ctrl+Shift+F | 简体 / 繁體，打到一半也行（Mac 上是 Control-Shift-F） |
 | Caps Lock | 打开时输入英文 |
 
 候选窗口里可以点击、滚动滚轮、点翻页箭头。
