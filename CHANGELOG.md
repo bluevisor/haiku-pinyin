@@ -7,6 +7,12 @@ to the version.
 
 ## Unreleased
 
+- **Mac: the installers walk you through adding it.** macOS 26 lets only
+  you add an input method to your input sources (a program's request is
+  ignored), so the first install opens System Settings › Keyboard, says what
+  to click, and waits; the moment Haiku Pinyin is in the list it switches to
+  it and says it's ready. The installer package does the same, where before
+  it only listed the steps on its last page.
 - **Mac: settings changed from outside take effect at once.** A
   `defaults write`, a tool that syncs preferences or another copy's settings
   window used to reach the running input method only after it restarted.

@@ -153,13 +153,15 @@ On a Mac it's an InputMethodKit input method (macOS 13 or later, Apple
 silicon or Intel). Download `HaikuPinyin-<version>.pkg` from the
 [releases](https://github.com/bluevisor/haiku-pinyin/releases) and open it:
 the installer puts it in `~/Library/Input Methods` for you alone (no admin
-password), adds it to the input menu and switches to it. Or download
+password) and switches to it. Or download
 `HaikuPinyin-<version>.dmg`, open it and open **HaikuPinyin**: it offers to
-install itself into
-`~/Library/Input Methods`, adds itself to the input menu and switches to it.
-When macOS wants that done by hand, it says so and opens the place: System
-Settings → Keyboard → Input Sources → Edit… → **+** → Chinese, Simplified →
-**Haiku Pinyin**. Both installers speak the system's language: English, 简体
+install itself into `~/Library/Input Methods` and switches to it.
+
+The first time, you add it to your input sources yourself: macOS 26 lets
+only you do that. Either installer opens System Settings › Keyboard, says
+what to click (Input Sources: Edit… → **+** → Chinese, Simplified → **Haiku
+Pinyin** → Add) and waits; the moment it's there, it switches to it and
+says it's ready. Updates keep it in the list. Both installers speak the system's language: English, 简体
 or 繁體 Chinese. Switch to it with Control+Space or 🌐. Both are signed
 (the package with a Developer ID Installer certificate) and notarized, and it
 keeps itself up to date: once a day it looks for a newer
