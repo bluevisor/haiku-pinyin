@@ -19,6 +19,11 @@ pkill -x HaikuPinyin || true
 mkdir -p "$HOME/Library/Input Methods"
 rm -rf "$dest"
 cp -R build/HaikuPinyin.app "$dest"
-"$dest/Contents/MacOS/HaikuPinyin" --install >/dev/null 2>&1
+status=0
+"$dest/Contents/MacOS/HaikuPinyin" --install >/dev/null 2>&1 || status=$?
+if [ "$status" = 2 ]; then
+	open -n "$dest" --args --guide
+	exit 0
+fi
 echo "Installed. If it's new, add it: System Settings → Keyboard → Input Sources"
 echo "→ Edit… → + → Chinese, Simplified → Haiku Pinyin."
