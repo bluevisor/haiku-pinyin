@@ -513,17 +513,44 @@ HaikuPinyinEngine::keyEvent(const fcitx::InputMethodEntry&,
 	_Sync(context);
 	// Control+Shift+F switched 简/繁: saved, and said for a moment.
 	if (fEngine.TakeScriptToggled()) {
-		bool traditional
-			= fEngine.GetOptions().script != haikupinyin::Script::kSimplified;
 		ConfigFromOptions(fEngine.GetOptions(), &fConfig);
 		WriteSettings(fEngine.GetOptions(), fEngine.Chinese());
-		fInstance->showCustomInputMethodInformation(context,
-			traditional ? "繁" : "简");
+		_ShowScript(context);
 	}
 	if (used) {
 		fSwallowed.insert(raw.code());
 		event.filterAndAccept();
 	}
+}
+
+
+// showCustomInputMethodInformation came in Fcitx5 5.1.11 (Ubuntu 24.04 has
+// 5.1.7): false when there's none, as a template only uses it if it's there.
+template <typename FcitxInstance>
+static bool
+ShowInformation(FcitxInstance* instance, fcitx::InputContext* context,
+	const std::string& text)
+{
+	if constexpr (requires { instance->showCustomInputMethodInformation(
+			context, text); }) {
+		instance->showCustomInputMethodInformation(context, text);
+		return true;
+	} else
+		return false;
+}
+
+
+// 简 or 繁 where Fcitx5 says which input method is on, for a moment.
+void
+HaikuPinyinEngine::_ShowScript(fcitx::InputContext* context)
+{
+	if (ShowInformation(fInstance, context, Traditional() ? "繁" : "简"))
+		return;
+	// Before 5.1.11: its own notice, which asks the sub-mode (简体中文 or
+	// 繁體中文), or with compact information the label (简 or 繁).
+	fShowingScript = true;
+	fInstance->showInputMethodInformation(context);
+	fShowingScript = false;
 }
 
 
@@ -569,6 +596,8 @@ HaikuPinyinEngine::reset(const fcitx::InputMethodEntry&,
 std::string
 HaikuPinyinEngine::subMode(const fcitx::InputMethodEntry&, fcitx::InputContext&)
 {
+	if (fShowingScript)
+		return Traditional() ? "繁體中文" : "简体中文";
 	return Chinese() ? "中文" : "English";
 }
 
@@ -577,6 +606,8 @@ std::string
 HaikuPinyinEngine::subModeLabelImpl(const fcitx::InputMethodEntry&,
 	fcitx::InputContext&)
 {
+	if (fShowingScript)
+		return Traditional() ? "繁" : "简";
 	return Chinese() ? "中" : "英";
 }
 

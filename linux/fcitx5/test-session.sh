@@ -191,6 +191,18 @@ grep -q "	时	shi$" "$config/haiku-pinyin/user.dict" \
 	&& echo "ok   learned words saved to ~/.config/haiku-pinyin/user.dict" \
 	|| { echo "FAIL nothing learned"; failed=1; }
 
+echo "== Ctrl+Shift+F: 简体 ↔ 繁體"
+setup full alone
+start alone
+t zhongguo; k ctrl+shift+f; k space		# mid-word: 中國 at once
+grep -q '^script=1$' "$config/haiku-pinyin/settings" && echo "ok   繁體 saved" \
+	|| { echo "FAIL 繁體 not saved"; failed=1; }
+k ctrl+shift+f; t zhongguo; k space		# nothing typed: back to 简体
+grep -q '^script=0$' "$config/haiku-pinyin/settings" && echo "ok   简体 saved" \
+	|| { echo "FAIL 简体 not saved"; failed=1; }
+stop
+check "Ctrl+Shift+F" "$file" "中國中国"
+
 echo "== 词库, chosen in the status area"
 # Stand-ins for the file dialog (answering with what /tmp/hp-chosen names),
 # the notifications and the file opener, which note what they were given.
