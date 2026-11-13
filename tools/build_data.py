@@ -296,6 +296,12 @@ def build_english():
 	for word, _, _ in read_rime_dict(os.path.join(SOURCES, "en.dict.yaml")):
 		if re.fullmatch(r"[A-Za-z]{2,}", word):
 			words.add(word)
+	extra = os.path.join(ROOT, "tools", "english-extra.txt")
+	with open(extra, encoding="utf-8") as f:
+		for line in f:
+			word = line.strip()
+			if word and not word.startswith("#"):
+				words.add(word)
 	with open(os.path.join(OUT, "english.txt"), "w", encoding="utf-8") as f:
 		f.writelines(w + "\n" for w in sorted(words, key=lambda w: (w.lower(), w)))
 	print(f"english.txt: {len(words)} words")

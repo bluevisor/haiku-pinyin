@@ -45,6 +45,8 @@ struct Candidate {
 	std::string tail;	// the last word, the context for what follows
 	bool raw = false;	// keys no word explains are in it
 	bool guessed = false;	// some syllables were abbreviated or unfinished
+	int syllables = 0;		// spelled
+	int rawKeys = 0;		// keys no word explains
 	bool cloud = false;	// from the cloud
 	bool ai = false;	// moved first by the AI
 	bool english = false;

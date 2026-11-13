@@ -70,7 +70,8 @@ $(BUILD)/engine_test: tests/engine_test.cpp $(ENGINE)
 data: $(BUILD)/data/pinyin.dict
 
 # Rebuilt when the pins move too (tools/fetch_sources.sh).
-$(BUILD)/data/pinyin.dict: tools/build_data.py tools/sources.sha256
+$(BUILD)/data/pinyin.dict: tools/build_data.py tools/english-extra.txt \
+		tools/sources.sha256
 	python3 tools/build_data.py
 
 test: $(BUILD)/engine_test data

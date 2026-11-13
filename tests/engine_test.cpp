@@ -1136,16 +1136,75 @@ main(int argc, char** argv)
 		Expect("return clears context", engine.ContextText(), "");
 	}
 
-	// English among the candidates.
+	// English among the candidates: first when it makes more sense than
+	// the pinyin, which then follows it.
 	{
 		Engine engine;
 		engine.Load(sData);
-		Type(engine, "hello");
-		std::vector<std::string> page = engine.PageCandidates();
-		Expect("hello second", page.size() > 1 ? page[1] : "", "hello");
-		engine.ProcessKey(Key::kEscape, 0, 0);
-		Type(engine, "computer");
-		Expect("computer first", First(engine), "computer");
+		auto page = [&](const std::string& layout, const std::string& before,
+				const std::string& keys) {
+			Options options = engine.GetOptions();
+			options.layout = layout;
+			engine.SetOptions(options);
+			engine.Reset();
+			engine.SetContextText(before);
+			Type(engine, keys);
+			std::vector<std::string> candidates = engine.PageCandidates();
+			candidates.resize(2);
+			return candidates[0] + " " + candidates[1];
+		};
+		// Pinyin glued from guesses (合理龙), every syllable a guess (聪明的),
+		// or no pinyin at all (gi他, cm的 in shuangpin).
+		Expect("hello", page("full", "", "hello"), "hello 合理龙");
+		Expect("computer", page("full", "", "computer").substr(0, 8),
+			"computer");
+		Expect("cmd", page("full", "", "cmd"), "cmd 聪明的");
+		Expect("http", page("full", "", "http"), "http HTTP");
+		Expect("git", page("full", "", "git").substr(0, 3), "git");
+		Expect("pyjj cmd", page("pyjj", "", "cmd").substr(0, 3), "cmd");
+		// A guess at a syllable loses to the word (马车 is mache), and so
+		// do whole syllables glued into nonsense (提么 in shuangpin).
+		Expect("mac", page("full", "", "mac"), "Mac 马车");
+		Expect("mache", page("full", "", "mache").substr(0, 6), "马车");
+		Expect("pyjj mac", page("pyjj", "", "mac"), "Mac 马刺");
+		Expect("pyjj time", page("pyjj", "", "time"), "time 提么");
+		// The pinyin first: whole and reading (我们, 错的), one syllable
+		// (射), the usual two-letter abbreviation (我们), a slip (你好x).
+		Expect("women", page("full", "", "women"), "我们 我盟");
+		Expect("pyjj code", page("pyjj", "", "code").substr(0, 6), "错的");
+		Expect("she", page("full", "", "she").substr(0, 3), "射");
+		Expect("wm", page("full", "", "wm").substr(0, 6), "我们");
+		Expect("pyjj slip", page("pyjj", "", "nihdx").substr(0, 6), "你好");
+		// Right after English, or a symbol joining it, English wins; not
+		// after a digit or a space.
+		Expect("after +", page("full", "cmd+", "shift").substr(0, 5), "shift");
+		Expect("after @", page("full", "me@", "mac"), "Mac 马车");
+		Expect("after digit", page("full", "3", "hang").substr(0, 3), "行");
+		Expect("after space", page("full", "Mac ", "he").substr(0, 3), "和");
+	}
+
+	// Ending the word with a symbol commits the first candidate, so English
+	// stays English (cmd+, not 聪明的+), and . and : stay ASCII after it.
+	{
+		Engine engine;
+		engine.Load(sData);
+		Type(engine, "cmd");
+		Expect("cmd+", engine.ProcessKey(Key::kCharacter, '+', 0)
+			? "used" : engine.TakeCommit(), "cmd");
+		engine.ClearContext();
+		Type(engine, "http:");
+		Expect("http:", engine.TakeCommit(), "http");
+		engine.ClearContext();
+		Type(engine, "nihao.");
+		Expect("nihao.", engine.TakeCommit(), "你好。");
+		// What the application typed counts as before the cursor.
+		engine.ClearContext();
+		Type(engine, "git");
+		engine.ProcessKey(Key::kSpace, 0, 0);
+		engine.TakeCommit();
+		Type(engine, "+");
+		Type(engine, "mac");
+		Expect("passed +", First(engine), "Mac");
 	}
 
 	// A cloud answer goes second and can be learned.

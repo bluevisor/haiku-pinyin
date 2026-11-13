@@ -7,6 +7,18 @@ to the version.
 
 ## Unreleased
 
+- **English where it makes more sense.** An English word you type comes
+  first when the pinyin only fits by guessing at a syllable (mac is Mac,
+  not 马车, which is mache, or 马刺 in shuangpin; cmd, not 聪明的; http, not
+  合同谈判), when whole syllables only glue into nonsense (time, not 提么 in
+  shuangpin), or when it's no pinyin at all (git, not gi他; cmd in
+  shuangpin, not cm的). Right after English or a symbol joining it
+  (cmd+shift, file.txt) English wins too. So `cmd+` and `mac.` stay as
+  typed whichever key ends the word. Pinyin keeps its place where it
+  reads: 我们 for women, 错的 in shuangpin, 射 for she, 我们 for wm, 你好
+  with a slip after it, 3行 after a digit. `.` and `:` stay ASCII after an
+  English word (http:, mac.app), and the word list gained everyday
+  computer words it lacked (git, JSON, npm, GitHub, iPhone).
 - **Sync between machines.** Pick a folder your own sync tool already keeps
   alike (iCloud Drive, Dropbox, Syncthing, Nextcloud, a network share) under
   同步 in the settings window, on Mac, Linux and Haiku, and the words it

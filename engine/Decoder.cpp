@@ -436,9 +436,12 @@ Decoder::_Sentence(const SyllableGraph& graph,
 			word->key.end());
 		if (word->source != WordEdge::kRaw)
 			words++;
-		else if (!word->text.empty())
+		else if (!word->text.empty()) {
 			raw = true;
+			sentence.rawKeys += word->to - word->from;
+		}
 		for (int index : word->syllables) {
+			sentence.syllables++;
 			if (!graph.edges[index].complete)
 				sentence.guessed = true;
 		}
