@@ -419,8 +419,10 @@ Engine::_ProcessKey(Key key, char32_t character, uint32_t modifiers)
 	// Shortcuts belong to the application, but not halfway through a word.
 	if ((modifiers & (kControl | kCommand)) != 0)
 		return Composing();
-	if (!fChinese)
+	if (!fChinese) {
+		_Passed(key, character, modifiers);
 		return false;
+	}
 
 	if (Composing()) {
 		bool used = _Compose(key, character);
@@ -432,6 +434,7 @@ Engine::_ProcessKey(Key key, char32_t character, uint32_t modifiers)
 
 	if (key != Key::kCharacter || (modifiers & kOption) != 0) {
 		fLastCharacter = 0;
+		_Passed(key, character, modifiers);
 		return false;
 	}
 	// v-mode: v starts no pinyin syllable, but it's a key in shuangpin, so
@@ -454,10 +457,38 @@ Engine::_ProcessKey(Key key, char32_t character, uint32_t modifiers)
 	}
 	std::string punctuation = _Punctuation(character);
 	fLastCharacter = character;
-	if (punctuation.empty())
+	if (punctuation.empty()) {
+		_Passed(key, character, modifiers);
 		return false;
+	}
 	_Commit(punctuation, punctuation);
 	return true;
+}
+
+
+// A key the application gets: what it types goes into the text before the
+// cursor, and Backspace takes the last character back out, so the context
+// knows English from Chinese even without a front end that can read it.
+void
+Engine::_Passed(Key key, char32_t character, uint32_t modifiers)
+{
+	if (key == Key::kBackspace) {
+		size_t end = fContextText.size();
+		while (end > 0 && (static_cast<unsigned char>(fContextText[end - 1])
+				& 0xc0) == 0x80) {
+			end--;
+		}
+		fContextText.resize(end > 0 ? end - 1 : 0);
+	} else if (key == Key::kSpace)
+		_AddContext(" ");
+	else if (key == Key::kCharacter && (modifiers & kOption) == 0
+		&& character >= ' ' && character <= '~') {
+		_AddContext(std::string(1, char(character)));
+	} else if (key == Key::kReturn || key == Key::kLeft || key == Key::kRight
+		|| key == Key::kUp || key == Key::kDown || key == Key::kHome
+		|| key == Key::kEnd || key == Key::kPageUp || key == Key::kPageDown) {
+		ClearContext();		// a new line, or moved: what's before is unknown
+	}
 }
 
 
@@ -563,15 +594,17 @@ Engine::_Compose(Key key, char32_t character)
 		return true;
 	}
 
-	// Anything else ends the word with the best sentence, then counts as
+	// Anything else ends the word with the first candidate, then counts as
 	// itself.
-	std::string punctuation = _Punctuation(character);
 	if (!fCandidates.empty())
 		_Select(fCandidates[0]);
 	if (Composing())
 		_Finish(_Remaining());
-	if (punctuation.empty())
+	std::string punctuation = _Punctuation(character);
+	if (punctuation.empty()) {
+		_Passed(Key::kCharacter, character, 0);
 		return false;
+	}
 	_Commit(punctuation, punctuation);
 	return true;
 }
@@ -845,15 +878,17 @@ Engine::SetContextText(const std::string& text)
 }
 
 
-// Typed letters that make an English word are offered as that word: first
-// when the pinyin makes no sense, second when it only reads as pinyin by
-// guessing at syllables ("hello"), else third. Unfinished words complete
-// only when the pinyin makes no sense.
+// Typed letters that make an English word are offered as that word, first
+// when that makes more sense than the pinyin (_EnglishFirst), else second
+// when the pinyin guesses at a syllable, else third.
+// Unfinished words complete only when the pinyin makes no sense. Shuangpin
+// keys aren't English spellings, so there a word is offered only first.
 void
 Engine::_AddEnglish()
 {
-	if (!fOptions.english || fOptions.layout != "full" || fEnglish.empty())
+	if (!fOptions.english || fEnglish.empty())
 		return;
+	bool full = fOptions.layout == "full";
 	std::string typed = _Remaining();
 	if (typed.size() < 2 || typed.find('\'') != std::string::npos)
 		return;
@@ -863,9 +898,24 @@ Engine::_AddEnglish()
 	auto at = std::lower_bound(fEnglishLower.begin(), fEnglishLower.end(),
 		typed);
 	size_t index = size_t(at - fEnglishLower.begin());
-	if (at != fEnglishLower.end() && *at == typed)
-		words.push_back(fEnglish[index++]);
-	if (nonsense && typed.size() >= 3) {
+	bool exact = at != fEnglishLower.end() && *at == typed;
+	bool first = exact && _EnglishFirst(typed);
+	if (exact) {
+		// An acronym typed in lower case goes first as typed (http:, .css),
+		// as written right after it.
+		const std::string& word = fEnglish[index++];
+		bool acronym = std::none_of(word.begin(), word.end(),
+			[](char c) { return c >= 'a' && c <= 'z'; });
+		if (first && acronym)
+			words.push_back(typed);
+		words.push_back(word);
+	} else if (nonsense && _MostlyRaw()) {
+		// No word, but no pinyin either (vim, cm的 in shuangpin): the
+		// letters as typed.
+		first = true;
+		words.push_back(typed);
+	}
+	if (nonsense && full && typed.size() >= 3) {
 		std::vector<std::string> completions;
 		for (; index < fEnglishLower.size() && completions.size() < 40
 				&& fEnglishLower[index].compare(0, typed.size(), typed) == 0;
@@ -879,13 +929,13 @@ Engine::_AddEnglish()
 		for (size_t i = 0; i < completions.size() && i < 3; i++)
 			words.push_back(completions[i]);
 	}
-	if (words.empty())
+	if (words.empty() || (!full && !first))
 		return;
 
 	bool guessed = !fCandidates.empty() && fCandidates[0].guessed;
-	size_t insert = nonsense ? 0
+	size_t insert = first || nonsense ? 0
 		: std::min<size_t>(guessed ? 1 : 2, fCandidates.size());
-	if (!nonsense)
+	if (!first && !nonsense)
 		words.resize(1);
 	for (const std::string& word : words) {
 		bool shown = false;
@@ -897,6 +947,66 @@ Engine::_AddEnglish()
 		english.english = true;
 		fCandidates.insert(fCandidates.begin() + insert++, english);
 	}
+}
+
+
+// Whether a third or more of the keys are ones no syllable explains (gi他
+// for git), not a slip in a word that reads (你好x).
+bool
+Engine::_MostlyRaw() const
+{
+	if (fCandidates.empty() || !fCandidates[0].raw)
+		return false;
+	return fCandidates[0].rawKeys * 3 >= int(_Remaining().size());
+}
+
+
+// Words glued into a phrase costing more than this per syllable (-ln p)
+// make no sense together: 提么 for time, 横头 for http in shuangpin, 啊皮 for
+// api. Phrases that read (我的, 错的, 我慢) cost under 7.5.
+static const float kStretch = 8.0f;
+
+
+// Whether the English word typed makes more sense than the pinyin's best
+// reading. It does when the pinyin explains nothing, or right after
+// English or a symbol joining it (cmd+shift, file.txt, me@mac). Otherwise,
+// for three letters or more: when the pinyin guesses at any syllable (mac
+// is Mac, not 马车 or 马刺: that's mache), or reads whole only as words
+// glued together that make no sense (提么, 啊皮). A single whole syllable
+// (she, men) or a word (women, 错的) stays first. Two letters are usually
+// an abbreviation (wm, 我们) unless they glue into nonsense (ok, 哦看).
+bool
+Engine::_EnglishFirst(const std::string& typed) const
+{
+	if (fCandidates.empty())
+		return true;
+	const Candidate& best = fCandidates[0];
+	if (best.raw || _AfterEnglish())
+		return true;
+	if (typed.size() < 3)
+		return best.guessed && best.sentence;
+	if (best.guessed)
+		return true;
+	return best.sentence && best.syllables >= 2
+		&& best.cost / best.syllables > kStretch;
+}
+
+
+// Whether the text before the cursor ends in English: a letter, maybe then
+// symbols that join words in code, paths and addresses (cmd+, file., me@).
+// Not a digit (3个, 1.我们) or a space (Mac 和).
+bool
+Engine::_AfterEnglish() const
+{
+	size_t end = fContextText.size();
+	while (end > 0 && strchr("+-_./@:#=&*|\\~<>", fContextText[end - 1])
+			!= nullptr) {
+		end--;
+	}
+	if (end == 0)
+		return false;
+	char last = fContextText[end - 1];
+	return (last >= 'a' && last <= 'z') || (last >= 'A' && last <= 'Z');
 }
 
 
@@ -1092,12 +1202,16 @@ Engine::_Punctuation(char32_t character)
 		return std::string();
 	bool traditional = fOptions.script != Script::kSimplified;
 	bool afterDigit = fLastCharacter >= '0' && fLastCharacter <= '9';
+	// After an English word, . and : stay ASCII too (mac.app, http:).
+	char before = fContextText.empty() ? 0 : fContextText.back();
+	bool afterLetter = (before >= 'a' && before <= 'z')
+		|| (before >= 'A' && before <= 'Z');
 	switch (character) {
 		case ',': return afterDigit ? "" : "，";
-		case '.': return afterDigit ? "" : "。";
+		case '.': return afterDigit || afterLetter ? "" : "。";
 		case '?': return "？";
 		case '!': return "！";
-		case ':': return afterDigit ? "" : "：";
+		case ':': return afterDigit || afterLetter ? "" : "：";
 		case ';': return "；";
 		case '(': return "（";
 		case ')': return "）";

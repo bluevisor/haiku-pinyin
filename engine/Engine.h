@@ -219,6 +219,10 @@ private:
 	bool _UpdateV();
 	void _AddEmoji();
 	void _AddEnglish();
+	bool _EnglishFirst(const std::string& typed) const;
+	bool _AfterEnglish() const;
+	bool _MostlyRaw() const;
+	void _Passed(Key key, char32_t character, uint32_t modifiers);
 	void _PlacePhrases();
 	void _Refresh();
 	void _RefreshUser();
