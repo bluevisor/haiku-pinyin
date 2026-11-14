@@ -5,6 +5,14 @@ as changes merge; at release, `tools/release-notes.sh` turns that section
 into the GitHub release notes and the Mac updater's feed, and it's renamed
 to the version.
 
+## Unreleased
+
+- **English over longer nonsense.** An English word now comes first
+  however many syllables its keys happen to glue into: update, not 抽打特,
+  in shuangpin; delete, server, module, config, database; banana, not
+  办案啊, in full pinyin. A short phrase that reads still stays first
+  (地址的, 错的).
+
 ## 0.1.39 — 2026-11-14
 
 - **English where it makes more sense.** An English word you type comes

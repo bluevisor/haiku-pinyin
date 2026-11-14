@@ -1168,6 +1168,15 @@ main(int argc, char** argv)
 		Expect("mache", page("full", "", "mache").substr(0, 6), "马车");
 		Expect("pyjj mac", page("pyjj", "", "mac"), "Mac 马刺");
 		Expect("pyjj time", page("pyjj", "", "time"), "time 提么");
+		// However many syllables they glue (抽打特, 大他把色): it's the
+		// phrase's whole cost that counts. A short one that reads stays.
+		Expect("pyjj update", page("pyjj", "", "update").substr(0, 6),
+			"update");
+		Expect("pyjj database", page("pyjj", "", "database").substr(0, 8),
+			"database");
+		Expect("banana", page("full", "", "banana").substr(0, 6), "banana");
+		Expect("pyjj divide", page("pyjj", "", "divide").substr(0, 9),
+			"地址的");
 		// The pinyin first: whole and reading (我们, 错的), one syllable
 		// (射), the usual two-letter abbreviation (我们), a slip (你好x).
 		Expect("women", page("full", "", "women"), "我们 我盟");
