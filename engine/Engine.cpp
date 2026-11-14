@@ -961,10 +961,13 @@ Engine::_MostlyRaw() const
 }
 
 
-// Words glued into a phrase costing more than this per syllable (-ln p)
-// make no sense together: 提么 for time, 横头 for http in shuangpin, 啊皮 for
-// api. Phrases that read (我的, 错的, 我慢) cost under 7.5.
-static const float kStretch = 8.0f;
+// Words glued into a phrase costing more than this in all (-ln p) are less
+// likely than the English word the same keys spell: 提么 for time, 横头 for
+// http, 抽打特 for update in shuangpin, 啊皮 for api. Short phrases that read
+// (我的, 错的, 我慢, 地址的) cost under 16. It's the whole phrase's cost, not
+// each syllable's: keys spelling a word by chance get rarer with every key,
+// while glued words only add up.
+static const float kGlued = 16.0f;
 
 
 // Whether the English word typed makes more sense than the pinyin's best
@@ -987,8 +990,7 @@ Engine::_EnglishFirst(const std::string& typed) const
 		return best.guessed && best.sentence;
 	if (best.guessed)
 		return true;
-	return best.sentence && best.syllables >= 2
-		&& best.cost / best.syllables > kStretch;
+	return best.sentence && best.syllables >= 2 && best.cost > kGlued;
 }
 
 
