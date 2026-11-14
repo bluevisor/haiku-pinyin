@@ -5,7 +5,7 @@ as changes merge; at release, `tools/release-notes.sh` turns that section
 into the GitHub release notes and the Mac updater's feed, and it's renamed
 to the version.
 
-## Unreleased
+## 0.1.39 — 2026-11-14
 
 - **English where it makes more sense.** An English word you type comes
   first when the pinyin only fits by guessing at a syllable (mac is Mac,
