@@ -997,6 +997,26 @@ main(int argc, char** argv)
 		Expect("emoji off", page.size() > 1 ? page[1] : "", "抬眼");
 	}
 
+	// English emoji keys match in any case: ok for OK, Christmas for
+	// christmas.
+	{
+		Engine engine;
+		engine.Load(sData);
+		auto follows = [&](const std::string& keys, const std::string& word) {
+			engine.Reset();
+			Type(engine, keys);
+			std::vector<std::string> page = engine.PageCandidates();
+			for (size_t i = 0; i + 1 < page.size(); i++) {
+				if (page[i] == word)
+					return page[i + 1];
+			}
+			return std::string();
+		};
+		Expect("ok 👌", follows("ok", "ok"), "👌");
+		Expect("hello 👋", follows("hello", "hello"), "👋");
+		Expect("Christmas 🎄", follows("christmas", "Christmas"), "🎄");
+	}
+
 	// 模糊音: z for zh, an for ang.
 	{
 		Engine engine;
@@ -1145,6 +1165,7 @@ main(int argc, char** argv)
 				const std::string& keys) {
 			Options options = engine.GetOptions();
 			options.layout = layout;
+			options.emoji = false;		// 👋 after hello is not ranking
 			engine.SetOptions(options);
 			engine.Reset();
 			engine.SetContextText(before);

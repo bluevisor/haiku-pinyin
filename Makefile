@@ -71,6 +71,7 @@ data: $(BUILD)/data/pinyin.dict
 
 # Rebuilt when the pins move too (tools/fetch_sources.sh).
 $(BUILD)/data/pinyin.dict: tools/build_data.py tools/english-extra.txt \
+		tools/emoji-extra.txt \
 		tools/sources.sha256
 	python3 tools/build_data.py
 

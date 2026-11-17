@@ -83,6 +83,26 @@ Engine::Load(const std::string& directory, std::string* error)
 		while (values >> value)
 			list.push_back(value);
 	}
+	// English keys match whatever case the candidate comes in (OK for ok),
+	// unless that spelling has emoji of its own (abc 🔤, ABC 🔠).
+	std::vector<std::pair<std::string, std::vector<std::string>>> folded;
+	for (const auto& entry : fEmoji) {
+		std::string lower = entry.first;
+		bool ascii = true;
+		for (char& c : lower) {
+			ascii = ascii && (unsigned char)c < 0x80;
+			c = char(tolower((unsigned char)c));
+		}
+		if (ascii && lower != entry.first && fEmoji.count(lower) == 0)
+			folded.emplace_back(lower, entry.second);
+	}
+	for (auto& entry : folded) {
+		std::vector<std::string>& list = fEmoji[entry.first];
+		for (const std::string& emoji : entry.second) {
+			if (std::find(list.begin(), list.end(), emoji) == list.end())
+				list.push_back(emoji);
+		}
+	}
 	return true;
 }
 
@@ -716,6 +736,12 @@ Engine::_AddEmoji()
 		return;
 	for (size_t i = 0; i < fCandidates.size() && i < kEmojiReach; i++) {
 		auto found = fEmoji.find(fCandidates[i].text);
+		if (found == fEmoji.end()) {
+			std::string lower = fCandidates[i].text;
+			for (char& c : lower)
+				c = char(tolower((unsigned char)c));
+			found = fEmoji.find(lower);
+		}
 		if (found == fEmoji.end())
 			continue;
 		Candidate word = fCandidates[i];

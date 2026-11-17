@@ -7,6 +7,11 @@ to the version.
 
 ## Unreleased
 
+- **Emoji for English and everyday words.** ok now offers 👌 (the list
+  only had OK, and case had to match), and common English words get one
+  too: hello 👋, thanks 🙏, lol 😂, fire 🔥, good 👍, coffee ☕. So do
+  greetings the list lacked: 生日快乐 🎂, 晚安 🌙, 早安 🌞, 对不起 🙏,
+  圣诞 🎄, 哈哈哈 😂.
 - **English over longer nonsense.** An English word now comes first
   however many syllables its keys happen to glue into: update, not 抽打特,
   in shuangpin; delete, server, module, config, database; banana, not
