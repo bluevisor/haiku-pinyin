@@ -5,7 +5,7 @@ as changes merge; at release, `tools/release-notes.sh` turns that section
 into the GitHub release notes and the Mac updater's feed, and it's renamed
 to the version.
 
-## Unreleased
+## 0.1.42 — 2026-11-17
 
 - **Emoji for English and everyday words.** ok now offers 👌 (the list
   only had OK, and case had to match), and common English words get one
