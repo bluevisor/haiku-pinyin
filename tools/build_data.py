@@ -211,6 +211,20 @@ def build_emoji():
 				best = next((e for e in emoji if ord(e) >= 0x1f000), emoji[0])
 				lines.append(f"{word}\t{best}\n")
 				kept += 1
+	extra = {}
+	with open(os.path.join(ROOT, "tools", "emoji-extra.txt"),
+			encoding="utf-8") as f:
+		for line in f:
+			parts = line.rstrip("\n").split("\t")
+			if len(parts) != 2 or line.startswith("#"):
+				continue
+			word, value = parts[0], parts[1].replace("\ufe0f", "")
+			if len(value) != 1 or ord(value) < 0x2000:
+				sys.exit(f"emoji-extra.txt: {word}: one emoji code point only")
+			extra[word] = value
+	lines = [line for line in lines if line.split("\t")[0] not in extra]
+	lines += [f"{word}\t{value}\n" for word, value in extra.items()]
+	kept = len(lines)
 	with open(os.path.join(OUT, "emoji.txt"), "w", encoding="utf-8") as f:
 		f.writelines(lines)
 	print(f"emoji.txt: {kept} emoji for {len(lines)} words")
