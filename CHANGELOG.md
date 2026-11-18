@@ -5,6 +5,19 @@ as changes merge; at release, `tools/release-notes.sh` turns that section
 into the GitHub release notes and the Mac updater's feed, and it's renamed
 to the version.
 
+## Unreleased
+
+- **English as soon as it can't be shuangpin.** In shuangpin, once two
+  keys pair into no syllable, the page turns English: ex offers exam,
+  exit and more, and shuangpin comes out as shuangpin instead of
+  sh差囊睥睨. Full pinyin mixed into shuangpin (混拼) isn't an option, so
+  one such pair is enough. Whenever English comes first, the reading that
+  glues words around stray letters (sh差囊睥睨, 饿x啊门派) is gone.
+- **No more nonsense glued into one candidate.** Characters stuck to words
+  they never go with (差囊睥睨 for chanangpini) aren't offered as if they
+  were a word: 刹那 and the single characters come first, to pick one by
+  one. Sentences that read (我想吃饭, 请问有发票吗) still come whole.
+
 ## 0.1.42 — 2026-11-17
 
 - **Emoji for English and everyday words.** ok now offers 👌 (the list

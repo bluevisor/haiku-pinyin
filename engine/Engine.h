@@ -218,6 +218,7 @@ private:
 	void _Update();
 	bool _UpdateV();
 	void _AddEmoji();
+	void _DropLooseGlue();
 	void _AddEnglish();
 	bool _EnglishFirst(const std::string& typed) const;
 	bool _AfterEnglish() const;

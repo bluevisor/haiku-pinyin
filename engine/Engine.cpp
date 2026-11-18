@@ -13,6 +13,7 @@ namespace haikupinyin {
 static const size_t kLongestInput = 64;
 static const size_t kCandidateLimit = 600;
 static const int kSaveEvery = 5;	// commits between user dictionary saves
+static const float kLooseCost = 7.0f;	// per syllable, of glued nonsense
 static const size_t kEmojiReach = 5;	// candidates checked for emoji
 
 
@@ -719,11 +720,29 @@ Engine::_Update()
 		: Bigram::Hash(fPicks.back().tail));
 	fDecoder.Decode(fGraph);
 	fCandidates = fDecoder.Candidates(fGraph, kCandidateLimit);
-	_AddEnglish();
+	_AddEnglish();		// it weighs the glue against the English
+	_DropLooseGlue();
 	_AddEmoji();
 	_PlacePhrases();
 	fSpelled = fDecoder.Spelled(fGraph);
 	fHighlight = 0;
+}
+
+
+// Characters glued to words they never go with (差囊睥睨 for chanangpini)
+// read as nothing: they aren't offered as one, so the words and characters
+// for the start come first, to be picked one by one. Sentences that read
+// (我想吃饭, 请问有发票吗) cost far less per syllable, even when the pairs
+// don't know some of their words side by side.
+void
+Engine::_DropLooseGlue()
+{
+	fCandidates.erase(std::remove_if(fCandidates.begin(), fCandidates.end(),
+		[](const Candidate& candidate) {
+			return candidate.sentence && !candidate.raw && candidate.loose > 0
+				&& candidate.cost > kLooseCost * std::max(1,
+					candidate.syllables);
+		}), fCandidates.end());
 }
 
 
@@ -935,15 +954,18 @@ Engine::_AddEnglish()
 		if (first && acronym)
 			words.push_back(typed);
 		words.push_back(word);
-	} else if (nonsense && _MostlyRaw()) {
-		// No word, but no pinyin either (vim, cm的 in shuangpin): the
-		// letters as typed.
+	} else if (nonsense && (!full || _MostlyRaw())) {
+		// No word, but no pinyin either (vim, cm的): the letters as typed.
+		// Shuangpin pairs every two keys, with no full pinyin mixed in
+		// (混拼), so one pair no syllable has (sh in shuangpin) is enough.
 		first = true;
 		words.push_back(typed);
 	}
-	if (nonsense && full && typed.size() >= 3) {
+	// Keys that aren't pinyin are English being spelled (ex for example in
+	// shuangpin): the page fills with the words they start, shortest first.
+	if (nonsense && (first || full) && typed.size() >= (full ? 3u : 2u)) {
 		std::vector<std::string> completions;
-		for (; index < fEnglishLower.size() && completions.size() < 40
+		for (; index < fEnglishLower.size() && completions.size() < 2000
 				&& fEnglishLower[index].compare(0, typed.size(), typed) == 0;
 				index++) {
 			completions.push_back(fEnglish[index]);
@@ -952,7 +974,8 @@ Engine::_AddEnglish()
 			[](const std::string& a, const std::string& b) {
 				return a.size() < b.size();
 			});
-		for (size_t i = 0; i < completions.size() && i < 3; i++)
+		size_t room = full ? words.size() + 3 : size_t(fOptions.pageSize);
+		for (size_t i = 0; i < completions.size() && words.size() < room; i++)
 			words.push_back(completions[i]);
 	}
 	if (words.empty() || (!full && !first))
@@ -964,14 +987,26 @@ Engine::_AddEnglish()
 	if (!first && !nonsense)
 		words.resize(1);
 	for (const std::string& word : words) {
-		bool shown = false;
-		for (const Candidate& candidate : fCandidates)
-			shown = shown || candidate.text == word;
-		if (shown)
-			continue;
+		auto shown = std::find_if(fCandidates.begin(), fCandidates.end(),
+			[&](const Candidate& candidate) { return candidate.text == word; });
+		if (shown != fCandidates.end()) {
+			// The letters as typed may be there already, as the reading
+			// with no syllables: up front they go, in the English order.
+			if (!nonsense || size_t(shown - fCandidates.begin()) < insert)
+				continue;
+			fCandidates.erase(shown);
+		}
 		Candidate english{word, int(typed.size()), 0, {}, false, ""};
 		english.english = true;
 		fCandidates.insert(fCandidates.begin() + insert++, english);
+	}
+	// With English on top, the reading that keeps some keys as letters and
+	// glues words around them (sh差囊睥睨, cm的, 饿x啊门派) is no use.
+	if (nonsense) {
+		fCandidates.erase(std::remove_if(fCandidates.begin(),
+			fCandidates.end(), [](const Candidate& candidate) {
+				return candidate.raw && !candidate.english;
+			}), fCandidates.end());
 	}
 }
 
