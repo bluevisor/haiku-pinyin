@@ -47,6 +47,8 @@ struct Candidate {
 	bool guessed = false;	// some syllables were abbreviated or unfinished
 	int syllables = 0;		// spelled
 	int rawKeys = 0;		// keys no word explains
+	int loose = 0;		// word pairs the bigram never saw, with a lone
+						// character on a side (差囊)
 	bool cloud = false;	// from the cloud
 	bool ai = false;	// moved first by the AI
 	bool english = false;
@@ -89,6 +91,7 @@ private:
 	Candidate _Sentence(const SyllableGraph& graph,
 		const std::vector<const WordEdge*>& path) const;
 	float _Transition(uint32_t previous, const WordEdge& word) const;
+	static bool _Lone(const std::string& text);
 	struct Ends {
 		uint32_t head = 0;		// 0: the word itself
 		uint32_t tail = 0;

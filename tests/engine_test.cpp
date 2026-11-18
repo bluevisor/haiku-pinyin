@@ -997,6 +997,15 @@ main(int argc, char** argv)
 		Expect("emoji off", page.size() > 1 ? page[1] : "", "抬眼");
 	}
 
+	// Characters glued to words they never go with aren't offered as one
+	// (差囊睥睨): the start's words and characters come first, to pick one
+	// by one. Sentences that read stay whole, pairs known or not.
+	ExpectFirst("full", Script::kSimplified, "chanangpini", "刹那");
+	ExpectFirst("full", Script::kSimplified, "qingwenyoufapiaoma",
+		"请问有发票吗");
+	ExpectFirst("full", Script::kSimplified, "woxiangchifan", "我想吃饭");
+	ExpectFirst("pyjj", Script::kSimplified, "jjxlyiyg", "坚信一样");
+
 	// English emoji keys match in any case: ok for OK, Christmas for
 	// christmas.
 	{
@@ -1176,19 +1185,28 @@ main(int argc, char** argv)
 		};
 		// Pinyin glued from guesses (合理龙), every syllable a guess (聪明的),
 		// or no pinyin at all (gi他, cm的 in shuangpin).
-		Expect("hello", page("full", "", "hello"), "hello 合理龙");
+		// The glue itself (合理龙) then goes: 合理, to pick one by one.
+		Expect("hello", page("full", "", "hello"), "hello 合理");
 		Expect("computer", page("full", "", "computer").substr(0, 8),
 			"computer");
 		Expect("cmd", page("full", "", "cmd"), "cmd 聪明的");
 		Expect("http", page("full", "", "http"), "http HTTP");
 		Expect("git", page("full", "", "git").substr(0, 3), "git");
 		Expect("pyjj cmd", page("pyjj", "", "cmd").substr(0, 3), "cmd");
+		// In shuangpin one pair no syllable has is enough: no 混拼, so it's
+		// English, letters first (sh in shuangpin), then the words they
+		// start (ex for example).
+		// Nothing after it: the letters glued to words (sh差囊睥睨) go.
+		Expect("pyjj shuangpin", page("pyjj", "", "shuangpin"), "shuangpin ");
+		Expect("pyjj cmd alone", page("pyjj", "", "cmd"), "cmd ");
+		Expect("pyjj ex", page("pyjj", "", "ex"), "ex exe");
+		Expect("pyjj examp", page("pyjj", "", "examp"), "examp example");
 		// A guess at a syllable loses to the word (马车 is mache), and so
 		// do whole syllables glued into nonsense (提么 in shuangpin).
 		Expect("mac", page("full", "", "mac"), "Mac 马车");
 		Expect("mache", page("full", "", "mache").substr(0, 6), "马车");
 		Expect("pyjj mac", page("pyjj", "", "mac"), "Mac 马刺");
-		Expect("pyjj time", page("pyjj", "", "time"), "time 提么");
+		Expect("pyjj time", page("pyjj", "", "time"), "time 提");
 		// However many syllables they glue (抽打特, 大他把色): it's the
 		// phrase's whole cost that counts. A short one that reads stays.
 		Expect("pyjj update", page("pyjj", "", "update").substr(0, 6),

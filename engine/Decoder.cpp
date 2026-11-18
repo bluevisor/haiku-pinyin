@@ -421,6 +421,17 @@ Decoder::_FindBest(const SyllableGraph& graph)
 }
 
 
+// Whether text is a single character.
+bool
+Decoder::_Lone(const std::string& text)
+{
+	int count = 0;
+	for (unsigned char c : text)
+		count += (c & 0xC0) != 0x80;
+	return count == 1;
+}
+
+
 // A sentence along words, as a candidate for all the keys.
 Candidate
 Decoder::_Sentence(const SyllableGraph& graph,
@@ -429,7 +440,19 @@ Decoder::_Sentence(const SyllableGraph& graph,
 	Candidate sentence{"", fLength, 0, {}, false, ""};
 	int words = 0;
 	bool raw = false;
+	const WordEdge* previous = nullptr;
 	for (const WordEdge* word : path) {
+		if (word->source != WordEdge::kRaw) {
+			float logp;
+			if (previous != nullptr
+					&& (_Lone(previous->text) || _Lone(word->text))
+					&& (previous->tail == 0 || word->head == 0
+						|| !fBigram.LogProbability(previous->tail, word->head,
+							logp))) {
+				sentence.loose++;
+			}
+			previous = word;
+		}
 		sentence.text += word->text;
 		sentence.cost += word->cost;
 		sentence.key.insert(sentence.key.end(), word->key.begin(),
