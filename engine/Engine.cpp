@@ -733,6 +733,16 @@ Engine::_Update()
 }
 
 
+// Whether a candidate is characters glued to words they never go with, so
+// it reads as nothing (_DropLooseGlue).
+static bool
+IsLooseGlue(const Candidate& candidate)
+{
+	return candidate.sentence && !candidate.raw && candidate.loose > 0
+		&& candidate.cost > kLooseCost * std::max(1, candidate.syllables);
+}
+
+
 // Characters glued to words they never go with (差囊睥睨 for chanangpini)
 // read as nothing: they aren't offered as one, so the words and characters
 // for the start come first, to be picked one by one. Sentences that read
@@ -742,11 +752,7 @@ void
 Engine::_DropLooseGlue()
 {
 	fCandidates.erase(std::remove_if(fCandidates.begin(), fCandidates.end(),
-		[](const Candidate& candidate) {
-			return candidate.sentence && !candidate.raw && candidate.loose > 0
-				&& candidate.cost > kLooseCost * std::max(1,
-					candidate.syllables);
-		}), fCandidates.end());
+		IsLooseGlue), fCandidates.end());
 }
 
 
@@ -949,6 +955,10 @@ Engine::_AddEnglish()
 	if (apostrophe && full && !_IsEnglish(typed))
 		return;
 	bool nonsense = !fCandidates.empty() && fCandidates[0].raw;
+	// In shuangpin, keys whose only whole reading is loose glue (落囊体么
+	// for longtime) are no word either: they're offered as typed.
+	bool glued = !full && !fCandidates.empty()
+		&& IsLooseGlue(fCandidates[0]);
 
 	std::vector<std::string> words;
 	auto at = std::lower_bound(fEnglishLower.begin(), fEnglishLower.end(),
@@ -965,7 +975,7 @@ Engine::_AddEnglish()
 		if (first && acronym)
 			words.push_back(typed);
 		words.push_back(word);
-	} else if ((nonsense && (!full || _MostlyRaw())) || apostrophe) {
+	} else if ((nonsense && (!full || _MostlyRaw())) || glued || apostrophe) {
 		// No word, but no pinyin either (vim, cm的): the letters as typed.
 		// Shuangpin pairs every two keys, with no full pinyin mixed in
 		// (混拼), so one pair no syllable has (sh in shuangpin) is enough.

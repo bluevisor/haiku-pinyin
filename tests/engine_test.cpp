@@ -1201,6 +1201,9 @@ main(int argc, char** argv)
 		Expect("pyjj cmd alone", page("pyjj", "", "cmd"), "cmd ");
 		Expect("pyjj ex", page("pyjj", "", "ex"), "ex exe");
 		Expect("pyjj examp", page("pyjj", "", "examp"), "examp example");
+		// Keys that read whole only as loose glue (落囊体么) and spell no
+		// word in the list: the letters as typed, then the characters.
+		Expect("pyjj longtime", page("pyjj", "", "longtime"), "longtime 落");
 		// A guess at a syllable loses to the word (马车 is mache), and so
 		// do whole syllables glued into nonsense (提么 in shuangpin).
 		Expect("mac", page("full", "", "mac"), "Mac 马车");

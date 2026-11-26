@@ -5,6 +5,13 @@ as changes merge; at release, `tools/release-notes.sh` turns that section
 into the GitHub release notes and the Mac updater's feed, and it's renamed
 to the version.
 
+## Unreleased
+
+- **English words the list lacks, as typed in shuangpin.** Keys that only
+  glue into characters that mean nothing together (落囊体么 for longtime)
+  now offer the letters as typed first, then the characters to pick one by
+  one, as keys no syllable explains already did.
+
 ## 0.1.46 — 2026-11-25
 
 - **Contractions come out as English.** what's, don't, it's, I'm, you're
