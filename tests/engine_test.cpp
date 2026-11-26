@@ -1229,6 +1229,15 @@ main(int argc, char** argv)
 		Expect("after @", page("full", "me@", "mac"), "Mac 马车");
 		Expect("after digit", page("full", "3", "hang").substr(0, 3), "行");
 		Expect("after space", page("full", "Mac ", "he").substr(0, 3), "和");
+		// A contraction goes first (not what色). In full pinyin a ' that
+		// only separates syllables (xi'an) stays pinyin; shuangpin has no
+		// separator, so there it's the letters as typed.
+		Expect("pyjj what's", page("pyjj", "", "what's").substr(0, 6),
+			"what's");
+		Expect("pyjj I'm", page("pyjj", "", "i'm").substr(0, 3), "I'm");
+		Expect("don't", page("full", "", "don't").substr(0, 5), "don't");
+		Expect("xi'an", page("full", "", "xi'an").substr(0, 6), "西安");
+		Expect("pyjj xi'an", page("pyjj", "", "xi'an").substr(0, 5), "xi'an");
 	}
 
 	// Ending the word with a symbol commits the first candidate, so English
@@ -1245,6 +1254,24 @@ main(int argc, char** argv)
 		engine.ClearContext();
 		Type(engine, "nihao.");
 		Expect("nihao.", engine.TakeCommit(), "你好。");
+		// Return types the keys: a contraction keeps its ', pinyin doesn't.
+		engine.ClearContext();
+		Type(engine, "what's");
+		engine.ProcessKey(Key::kReturn, 0, 0);
+		Expect("what's return", engine.TakeCommit(), "what's");
+		engine.ClearContext();
+		Type(engine, "xi'an");
+		engine.ProcessKey(Key::kReturn, 0, 0);
+		Expect("xi'an return", engine.TakeCommit(), "xian");
+		{
+			Options options = engine.GetOptions();
+			options.layout = "pyjj";
+			engine.SetOptions(options);
+		}
+		engine.ClearContext();
+		Type(engine, "xi'an");
+		engine.ProcessKey(Key::kReturn, 0, 0);
+		Expect("pyjj xi'an return", engine.TakeCommit(), "xi'an");
 		// What the application typed counts as before the cursor.
 		engine.ClearContext();
 		Type(engine, "git");

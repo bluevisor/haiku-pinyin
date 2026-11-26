@@ -5,6 +5,15 @@ as changes merge; at release, `tools/release-notes.sh` turns that section
 into the GitHub release notes and the Mac updater's feed, and it's renamed
 to the version.
 
+## Unreleased
+
+- **Contractions come out as English.** what's, don't, it's, I'm, you're
+  and the like are offered first as typed, instead of turning into
+  what色: the ' used to be read only as the mark that splits syllables.
+  In full pinyin it still splits them (xi'an is 西安). Shuangpin pairs
+  keys and needs no such mark, so there a ' always means English, and
+  Return keeps it.
+
 ## 0.1.44 — 2026-11-17
 
 - **English as soon as it can't be shuangpin.** In shuangpin, once two

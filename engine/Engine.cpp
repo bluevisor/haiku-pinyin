@@ -527,10 +527,14 @@ Engine::_Compose(Key key, char32_t character)
 			return true;
 		case Key::kReturn:
 		{
-			// The keys as typed, the way 搜狗 and macOS do it.
+			// The keys as typed, the way 搜狗 and macOS do it, without full
+			// pinyin's syllable separators; a contraction (what's) keeps
+			// its ', and so does anything in shuangpin, which has none.
 			std::string typed = _Remaining();
-			typed.erase(std::remove(typed.begin(), typed.end(), '\''),
-				typed.end());
+			if (fOptions.layout == "full" && !_IsEnglish(typed)) {
+				typed.erase(std::remove(typed.begin(), typed.end(), '\''),
+					typed.end());
+			}
 			_Finish(typed);
 			return true;
 		}
@@ -928,6 +932,10 @@ Engine::SetContextText(const std::string& text)
 // when the pinyin guesses at a syllable, else third.
 // Unfinished words complete only when the pinyin makes no sense. Shuangpin
 // keys aren't English spellings, so there a word is offered only first.
+// In full pinyin a ' in the keys is a syllable separator (xi'an), unless
+// they spell a contraction (what's, don't): that goes first, as no pinyin
+// needs a ' there. Shuangpin pairs keys and needs no separator, so there a
+// ' makes the keys English: the contraction, else the letters as typed.
 void
 Engine::_AddEnglish()
 {
@@ -935,7 +943,10 @@ Engine::_AddEnglish()
 		return;
 	bool full = fOptions.layout == "full";
 	std::string typed = _Remaining();
-	if (typed.size() < 2 || typed.find('\'') != std::string::npos)
+	if (typed.size() < 2)
+		return;
+	bool apostrophe = typed.find('\'') != std::string::npos;
+	if (apostrophe && full && !_IsEnglish(typed))
 		return;
 	bool nonsense = !fCandidates.empty() && fCandidates[0].raw;
 
@@ -944,7 +955,7 @@ Engine::_AddEnglish()
 		typed);
 	size_t index = size_t(at - fEnglishLower.begin());
 	bool exact = at != fEnglishLower.end() && *at == typed;
-	bool first = exact && _EnglishFirst(typed);
+	bool first = exact && (apostrophe || _EnglishFirst(typed));
 	if (exact) {
 		// An acronym typed in lower case goes first as typed (http:, .css),
 		// as written right after it.
@@ -954,7 +965,7 @@ Engine::_AddEnglish()
 		if (first && acronym)
 			words.push_back(typed);
 		words.push_back(word);
-	} else if (nonsense && (!full || _MostlyRaw())) {
+	} else if ((nonsense && (!full || _MostlyRaw())) || apostrophe) {
 		// No word, but no pinyin either (vim, cm的): the letters as typed.
 		// Shuangpin pairs every two keys, with no full pinyin mixed in
 		// (混拼), so one pair no syllable has (sh in shuangpin) is enough.
@@ -963,7 +974,8 @@ Engine::_AddEnglish()
 	}
 	// Keys that aren't pinyin are English being spelled (ex for example in
 	// shuangpin): the page fills with the words they start, shortest first.
-	if (nonsense && (first || full) && typed.size() >= (full ? 3u : 2u)) {
+	if (nonsense && !apostrophe && (first || full)
+			&& typed.size() >= (full ? 3u : 2u)) {
 		std::vector<std::string> completions;
 		for (; index < fEnglishLower.size() && completions.size() < 2000
 				&& fEnglishLower[index].compare(0, typed.size(), typed) == 0;
@@ -1008,6 +1020,15 @@ Engine::_AddEnglish()
 				return candidate.raw && !candidate.english;
 			}), fCandidates.end());
 	}
+}
+
+
+// Whether the keys, in lower case, spell a word in the English list.
+bool
+Engine::_IsEnglish(const std::string& typed) const
+{
+	return std::binary_search(fEnglishLower.begin(), fEnglishLower.end(),
+		typed);
 }
 
 

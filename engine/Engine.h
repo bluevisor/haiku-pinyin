@@ -223,6 +223,7 @@ private:
 	bool _EnglishFirst(const std::string& typed) const;
 	bool _AfterEnglish() const;
 	bool _MostlyRaw() const;
+	bool _IsEnglish(const std::string& typed) const;
 	void _Passed(Key key, char32_t character, uint32_t modifiers);
 	void _PlacePhrases();
 	void _Refresh();
