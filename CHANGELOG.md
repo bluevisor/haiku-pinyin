@@ -5,7 +5,7 @@ as changes merge; at release, `tools/release-notes.sh` turns that section
 into the GitHub release notes and the Mac updater's feed, and it's renamed
 to the version.
 
-## Unreleased
+## 0.1.46 — 2026-11-25
 
 - **Contractions come out as English.** what's, don't, it's, I'm, you're
   and the like are offered first as typed, instead of turning into
