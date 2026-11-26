@@ -308,7 +308,9 @@ def build_bigram():
 def build_english():
 	words = set()
 	for word, _, _ in read_rime_dict(os.path.join(SOURCES, "en.dict.yaml")):
-		if re.fullmatch(r"[A-Za-z]{2,}", word):
+		# Contractions too (what's, don't): typing one, the ' is no pinyin
+		# separator.
+		if re.fullmatch(r"[A-Za-z]+(?:'[A-Za-z]+)?", word) and len(word) >= 2:
 			words.add(word)
 	extra = os.path.join(ROOT, "tools", "english-extra.txt")
 	with open(extra, encoding="utf-8") as f:
